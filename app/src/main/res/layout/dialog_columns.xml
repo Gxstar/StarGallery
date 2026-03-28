@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/select_columns"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:textColor="@color/text_primary" />
+
+    <RadioGroup
+        android:id="@+id/radioGroupColumns"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:orientation="horizontal"
+        android:gravity="center">
+
+        <RadioButton
+            android:id="@+id/rb3"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="3"
+            android:textSize="16sp" />
+
+        <RadioButton
+            android:id="@+id/rb4"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="4"
+            android:textSize="16sp" />
+
+        <RadioButton
+            android:id="@+id/rb5"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="5"
+            android:textSize="16sp" />
+
+        <RadioButton
+            android:id="@+id/rb6"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="6"
+            android:textSize="16sp" />
+
+        <RadioButton
+            android:id="@+id/rb7"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="7"
+            android:textSize="16sp" />
+
+        <RadioButton
+            android:id="@+id/rb8"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="8"
+            android:textSize="16sp" />
+
+    </RadioGroup>
+
+</LinearLayout>

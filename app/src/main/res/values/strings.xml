@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">相册</string>
+    
+    <!-- 底部导航 -->
+    <string name="nav_photos">照片</string>
+    <string name="nav_albums">相册</string>
+    
+    <!-- 主界面 -->
+    <string name="photos_title">照片</string>
+    <string name="today">今天</string>
+    <string name="yesterday">昨天</string>
+    
+    <!-- 相册页面 -->
+    <string name="albums_title">相册</string>
+    <string name="my_albums">我的相册</string>
+    <string name="more_albums">更多相册</string>
+    <string name="all_photos">全部照片</string>
+    <string name="camera">相机</string>
+    <string name="screenshots">截图</string>
+    <string name="download">下载</string>
+    <string name="weixin">微信</string>
+    <string name="qq">QQ</string>
+    <string name="favorite">收藏</string>
+    <string name="video">视频</string>
+    
+    <!-- 详情页 -->
+    <string name="detail_info">%1$s | %2$s</string>
+    <string name="send">发送</string>
+    <string name="edit">编辑</string>
+    <string name="delete">删除</string>
+    <string name="more">更多</string>
+    <string name="set_as">设为</string>
+    <string name="wallpaper">壁纸</string>
+    <string name="info">详情</string>
+    
+    <!-- 操作 -->
+    <string name="search">搜索</string>
+    <string name="select">选择</string>
+    <string name="cancel">取消</string>
+    <string name="confirm">确定</string>
+    <string name="delete_confirm">确定要删除这张照片吗？</string>
+    <string name="deleted">已删除</string>
+    <string name="undo">撤销</string>
+    <string name="added_to_favorite">已添加到收藏</string>
+    <string name="removed_from_favorite">已从收藏移除</string>
+    <string name="favorite_toggled">收藏状态已切换</string>
+    <string name="add_to_favorite_failed">添加收藏失败</string>
+    
+    <!-- 数量 -->
+    <string name="photo_count">%d张</string>
+    <string name="selected_count">已选%d项</string>
+    
+    <!-- 权限 -->
+    <string name="permission_required">需要存储权限</string>
+    <string name="permission_denied">权限被拒绝</string>
+    
+    <!-- 空状态 -->
+    <string name="no_photos">暂无照片</string>
+    <string name="no_albums">暂无相册</string>
+    
+    <!-- 列数设置 -->
+    <string name="columns">列数</string>
+    <string name="select_columns">选择列数</string>
+    
+    <!-- 选择模式 -->
+    <string name="cancel_select">取消选择</string>
+    <string name="select_all">全选</string>
+    <string name="selected">已选 %d 项</string>
+    <string name="delete_selected_confirm">确定要删除选中的 %d 张照片吗？</string>
+</resources>

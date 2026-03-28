@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="Theme.StarGallery" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">@color/primary</item>
+        <item name="colorPrimaryDark">@color/primary_dark</item>
+        <item name="colorAccent">@color/accent</item>
+        <item name="android:windowBackground">@color/white</item>
+        <item name="android:statusBarColor">@color/white</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:navigationBarColor">@color/white</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <!-- 覆盖 Material3 默认表面颜色 -->
+        <item name="colorSurface">@color/white</item>
+        <item name="colorSurfaceVariant">@color/white</item>
+        <item name="colorOnSurface">@color/text_primary</item>
+        <item name="colorSurfaceContainer">@color/white</item>
+        <item name="colorSurfaceContainerHigh">@color/white</item>
+        <item name="colorSurfaceContainerHighest">@color/white</item>
+    </style>
+
+    <!-- 大标题样式 -->
+    <style name="TextAppearance.Headline1" parent="TextAppearance.Material3.HeadlineLarge">
+        <item name="android:textSize">28sp</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+
+    <!-- 列表标题样式 -->
+    <style name="TextAppearance.ListTitle" parent="TextAppearance.Material3.TitleMedium">
+        <item name="android:textSize">18sp</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+
+    <!-- 日期分组标题样式 -->
+    <style name="TextAppearance.DateHeader" parent="TextAppearance.Material3.TitleMedium">
+        <item name="android:textSize">16sp</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+
+    <!-- 副标题样式 -->
+    <style name="TextAppearance.Subtitle" parent="TextAppearance.Material3.BodyMedium">
+        <item name="android:textSize">14sp</item>
+        <item name="android:textColor">@color/text_secondary</item>
+    </style>
+
+    <!-- 辅助文字样式 -->
+    <style name="TextAppearance.Caption" parent="TextAppearance.Material3.LabelSmall">
+        <item name="android:textSize">12sp</item>
+        <item name="android:textColor">@color/text_tertiary</item>
+    </style>
+
+    <!-- 底部导航栏文字样式 -->
+    <style name="BottomNavText" parent="TextAppearance.Material3.LabelSmall">
+        <item name="android:textSize">11sp</item>
+    </style>
+
+</resources>

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 主色调 - 小米相册风格 -->
+    <color name="primary">#FF000000</color>
+    <color name="primary_dark">#FF000000</color>
+    <color name="accent">#FF007AFF</color>
+    
+    <!-- 背景色 -->
+    <color name="background">#FFFAFAFA</color>
+    <color name="background_white">#FFFFFFFF</color>
+    <color name="background_card">#FFF5F5F5</color>
+    
+    <!-- 文字颜色 -->
+    <color name="text_primary">#FF000000</color>
+    <color name="text_secondary">#FF666666</color>
+    <color name="text_tertiary">#FF999999</color>
+    <color name="text_hint">#FFCCCCCC</color>
+    
+    <!-- 图标颜色 -->
+    <color name="icon_normal">#FF222222</color>
+    <color name="icon_selected">#FF007AFF</color>
+    <color name="icon_disabled">#FFCCCCCC</color>
+    
+    <!-- 分隔线 -->
+    <color name="divider">#FFE5E5E5</color>
+    
+    <!-- 选中状态 -->
+    <color name="selected_overlay">#33FFFFFF</color>
+    <color name="selected_border">#FF007AFF</color>
+    
+    <!-- 快速滚动条 -->
+    <color name="fastscroll_thumb">#FF007AFF</color>
+    <color name="fastscroll_track">#FFDDDDDD</color>
+    
+    <!-- 基础颜色 -->
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="transparent">#00000000</color>
+    
+    <!-- 收藏心形 -->
+    <color name="heart_red">#FFFF3B30</color>
+</resources>

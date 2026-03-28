@@ -1,0 +1,123 @@
+[versions]
+# AGP 和 Kotlin
+agp = "8.5.0"
+kotlin = "1.9.24"
+
+# AndroidX 核心
+coreKtx = "1.12.0"
+appcompat = "1.6.1"
+material = "1.11.0"
+constraintlayout = "2.1.4"
+activityKtx = "1.8.2"
+fragmentKtx = "1.6.2"
+lifecycleRuntimeKtx = "2.7.0"
+lifecycleViewmodelKtx = "2.7.0"
+
+# 图片加载
+glide = "4.16.0"
+subsamplingScaleImageView = "3.10.0"
+
+# 分页
+paging = "3.3.2"
+
+# 依赖注入
+hilt = "2.51.1"
+hiltNavigationFragment = "1.2.0"
+
+# 导航
+navigation = "2.8.0"
+
+# 列表分组
+groupie = "2.10.1"
+
+# 权限
+permissionx = "1.7.1"
+
+# EXIF
+exifinterface = "1.3.7"
+
+# 视频播放
+media3 = "1.4.1"
+
+# 快速滚动
+recyclerviewFastscroll = "1.0.6"
+
+# RecyclerView 选择
+recyclerviewSelection = "1.1.0"
+
+# 内存泄漏检测
+leakcanary = "2.14"
+
+# 协程
+coroutines = "1.8.1"
+
+# 测试
+junit = "4.13.2"
+junitVersion = "1.1.5"
+espressoCore = "3.5.1"
+
+[libraries]
+# AndroidX 核心
+androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
+androidx-material = { group = "com.google.android.material", name = "material", version.ref = "material" }
+androidx-constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version.ref = "constraintlayout" }
+androidx-activity-ktx = { group = "androidx.activity", name = "activity-ktx", version.ref = "activityKtx" }
+androidx-fragment-ktx = { group = "androidx.fragment", name = "fragment-ktx", version.ref = "fragmentKtx" }
+androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }
+androidx-lifecycle-viewmodel-ktx = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-ktx", version.ref = "lifecycleViewmodelKtx" }
+
+# 图片加载
+glide = { group = "com.github.bumptech.glide", name = "glide", version.ref = "glide" }
+glide-compiler = { group = "com.github.bumptech.glide", name = "compiler", version.ref = "glide" }
+subsampling-scale-image-view = { group = "com.davemorrissey.labs", name = "subsampling-scale-image-view-androidx", version.ref = "subsamplingScaleImageView" }
+
+# 分页
+androidx-paging-runtime = { group = "androidx.paging", name = "paging-runtime-ktx", version.ref = "paging" }
+
+# 依赖注入
+hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
+hilt-compiler = { group = "com.google.dagger", name = "hilt-compiler", version.ref = "hilt" }
+hilt-navigation-fragment = { group = "androidx.hilt", name = "hilt-navigation-fragment", version.ref = "hiltNavigationFragment" }
+
+# 导航
+androidx-navigation-fragment = { group = "androidx.navigation", name = "navigation-fragment-ktx", version.ref = "navigation" }
+androidx-navigation-ui = { group = "androidx.navigation", name = "navigation-ui-ktx", version.ref = "navigation" }
+
+# 列表分组
+groupie = { group = "com.github.lisawray.groupie", name = "groupie", version.ref = "groupie" }
+groupie-viewbinding = { group = "com.github.lisawray.groupie", name = "groupie-viewbinding", version.ref = "groupie" }
+
+# 权限
+permissionx = { group = "com.guolindev.permissionx", name = "permissionx", version.ref = "permissionx" }
+
+# EXIF
+androidx-exifinterface = { group = "androidx.exifinterface", name = "exifinterface", version.ref = "exifinterface" }
+
+# 视频播放
+androidx-media3-exoplayer = { group = "androidx.media3", name = "media3-exoplayer", version.ref = "media3" }
+androidx-media3-ui = { group = "androidx.media3", name = "media3-ui", version.ref = "media3" }
+
+# 快速滚动
+recyclerview-fastscroll = { group = "com.simplecityapps", name = "recyclerview-fastscroll", version.ref = "recyclerviewFastscroll" }
+
+# RecyclerView 选择
+androidx-recyclerview-selection = { group = "androidx.recyclerview", name = "recyclerview-selection", version.ref = "recyclerviewSelection" }
+
+# 内存泄漏检测
+leakcanary = { group = "com.squareup.leakcanary", name = "leakcanary-android", version.ref = "leakcanary" }
+
+# 协程
+kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
+
+# 测试
+junit = { group = "junit", name = "junit", version.ref = "junit" }
+androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
+androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-kapt = { id = "org.jetbrains.kotlin.kapt", version.ref = "kotlin" }
+hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
+navigation-safeargs = { id = "androidx.navigation.safeargs.kotlin", version.ref = "navigation" }

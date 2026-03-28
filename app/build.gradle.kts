@@ -1,0 +1,104 @@
+plugins {
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.kapt)
+    alias(libs.plugins.hilt)
+    alias(libs.plugins.navigation.safeargs)
+}
+
+android {
+    namespace = "com.gxstar.stargallery"
+    compileSdk = 34
+
+    defaultConfig {
+        applicationId = "com.gxstar.stargallery"
+        minSdk = 30
+        targetSdk = 34
+        versionCode = 1
+        versionName = "1.0"
+
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+    }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+    buildFeatures {
+        viewBinding = true
+    }
+}
+
+dependencies {
+    // AndroidX 核心
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.appcompat)
+    implementation(libs.androidx.material)
+    implementation(libs.androidx.constraintlayout)
+    implementation(libs.androidx.activity.ktx)
+    implementation(libs.androidx.fragment.ktx)
+    implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.viewmodel.ktx)
+
+    // 图片加载 - Glide
+    implementation(libs.glide)
+    kapt(libs.glide.compiler)
+
+    // 大图查看 - SubsamplingScaleImageView
+    implementation(libs.subsampling.scale.image.view)
+
+    // 分页 - Paging 3
+    implementation(libs.androidx.paging.runtime)
+
+    // 依赖注入 - Hilt
+    implementation(libs.hilt.android)
+    kapt(libs.hilt.compiler)
+    implementation(libs.hilt.navigation.fragment)
+
+    // 导航 - Navigation
+    implementation(libs.androidx.navigation.fragment)
+    implementation(libs.androidx.navigation.ui)
+
+    // 列表分组 - Groupie
+    implementation(libs.groupie)
+    implementation(libs.groupie.viewbinding)
+
+    // 权限 - PermissionX
+    implementation(libs.permissionx)
+
+    // EXIF 信息
+    implementation(libs.androidx.exifinterface)
+
+    // 视频播放 - Media3 (ExoPlayer)
+    implementation(libs.androidx.media3.exoplayer)
+    implementation(libs.androidx.media3.ui)
+
+    // 快速滚动
+    implementation(libs.recyclerview.fastscroll)
+
+    // RecyclerView 选择
+    implementation(libs.androidx.recyclerview.selection)
+
+    // 协程
+    implementation(libs.kotlinx.coroutines.android)
+
+    // 内存泄漏检测 (仅 debug)
+    debugImplementation(libs.leakcanary)
+
+    // 测试
+    testImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.espresso.core)
+}
