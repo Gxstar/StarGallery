@@ -1,16 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/rootContainer"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/black">
+    android:background="@color/white">
 
-    <ImageView
-        android:id="@+id/ivPhoto"
+    <!-- ViewPager2 用于左右滑动切换图片 -->
+    <androidx.viewpager2.widget.ViewPager2
+        android:id="@+id/viewPager"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:scaleType="fitCenter" />
+        android:layout_height="match_parent" />
 
+    <!-- 加载进度条 -->
+    <ProgressBar
+        android:id="@+id/progressBar"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_gravity="center"
+        android:visibility="visible" />
+
+    <!-- 顶部栏 -->
     <LinearLayout
         android:id="@+id/topBar"
         android:layout_width="match_parent"
@@ -67,6 +76,7 @@
 
     </LinearLayout>
 
+    <!-- 底部栏 -->
     <LinearLayout
         android:id="@+id/bottomBar"
         android:layout_width="match_parent"

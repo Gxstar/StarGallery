@@ -22,28 +22,75 @@ class PhotoDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    private val photoId: Long = savedStateHandle["photoId"] ?: -1L
+    // 从导航参数获取初始照片ID和排序方式
+    private val initialPhotoId: Long = savedStateHandle["photoId"] ?: -1L
+    private val sortTypeValue: Int = savedStateHandle["sortType"] ?: 0
+    
+    private val sortType = when (sortTypeValue) {
+        0 -> MediaRepository.SortType.DATE_TAKEN
+        1 -> MediaRepository.SortType.DATE_MODIFIED
+        else -> MediaRepository.SortType.DATE_TAKEN
+    }
 
-    private val _photo = MutableStateFlow<Photo?>(null)
-    val photo: StateFlow<Photo?> = _photo.asStateFlow()
+    // 照片列表
+    private val _photos = MutableStateFlow<List<Photo>>(emptyList())
+    val photos: StateFlow<List<Photo>> = _photos.asStateFlow()
 
+    // 当前照片
+    private val _currentPhoto = MutableStateFlow<Photo?>(null)
+    val currentPhoto: StateFlow<Photo?> = _currentPhoto.asStateFlow()
+
+    // 当前位置
+    private val _currentPosition = MutableStateFlow(0)
+    val currentPosition: StateFlow<Int> = _currentPosition.asStateFlow()
+
+    // 日期文本
     private val _dateText = MutableStateFlow("")
     val dateText: StateFlow<String> = _dateText.asStateFlow()
 
+    // 信息文本
     private val _infoText = MutableStateFlow("")
     val infoText: StateFlow<String> = _infoText.asStateFlow()
+    
+    // 加载状态
+    private val _isLoading = MutableStateFlow(true)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     init {
-        loadPhoto()
+        loadPhotos()
     }
 
-    private fun loadPhoto() {
+    private fun loadPhotos() {
         viewModelScope.launch {
-            val photo = mediaRepository.getPhotoById(photoId)
-            _photo.value = photo
-            photo?.let {
-                updateDateInfo(it)
+            _isLoading.value = true
+            
+            // 加载所有照片
+            val allPhotos = mediaRepository.getAllPhotos(sortType)
+            _photos.value = allPhotos
+            
+            // 找到初始照片的位置
+            val initialPosition = allPhotos.indexOfFirst { it.id == initialPhotoId }
+            if (initialPosition >= 0) {
+                _currentPosition.value = initialPosition
+                val photo = allPhotos[initialPosition]
+                _currentPhoto.value = photo
+                updateDateInfo(photo)
             }
+            
+            _isLoading.value = false
+        }
+    }
+
+    /**
+     * 更新当前位置
+     */
+    fun setPosition(position: Int) {
+        val photoList = _photos.value
+        if (position in photoList.indices) {
+            _currentPosition.value = position
+            val photo = photoList[position]
+            _currentPhoto.value = photo
+            updateDateInfo(photo)
         }
     }
 
@@ -57,19 +104,35 @@ class PhotoDetailViewModel @Inject constructor(
 
     fun toggleFavorite() {
         viewModelScope.launch {
-            _photo.value?.let { photo ->
+            _currentPhoto.value?.let { photo ->
                 val success = mediaRepository.toggleFavoriteDirect(photo)
                 if (success) {
-                    _photo.value = photo.copy(isFavorite = !photo.isFavorite)
+                    val updatedPhoto = photo.copy(isFavorite = !photo.isFavorite)
+                    _currentPhoto.value = updatedPhoto
+                    
+                    // 更新列表中的照片
+                    val currentList = _photos.value.toMutableList()
+                    val index = currentList.indexOfFirst { it.id == photo.id }
+                    if (index >= 0) {
+                        currentList[index] = updatedPhoto
+                        _photos.value = currentList
+                    }
                 }
             }
         }
     }
 
     fun deletePhoto(onResult: (IntentSender?) -> Unit) {
-        _photo.value?.let { photo ->
+        _currentPhoto.value?.let { photo ->
             val intentSender = mediaRepository.deletePhoto(photo)
             onResult(intentSender)
         }
+    }
+    
+    /**
+     * 获取初始位置
+     */
+    fun getInitialPosition(): Int {
+        return _photos.value.indexOfFirst { it.id == initialPhotoId }.takeIf { it >= 0 } ?: 0
     }
 }

@@ -20,8 +20,16 @@ class MediaRepository @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     private val contentResolver = context.contentResolver
+    
+    /**
+     * 排序方式枚举
+     */
+    enum class SortType {
+        DATE_TAKEN,      // 拍摄时间
+        DATE_MODIFIED    // 修改时间
+    }
 
-    suspend fun getPhotos(page: Int, pageSize: Int = 50): List<Photo> = withContext(Dispatchers.IO) {
+    suspend fun getPhotos(page: Int, pageSize: Int = 50, sortType: SortType = SortType.DATE_TAKEN): List<Photo> = withContext(Dispatchers.IO) {
         val photos = mutableListOf<Photo>()
         val uri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
         val projection = arrayOf(
@@ -36,10 +44,14 @@ class MediaRepository @Inject constructor(
             MediaStore.Images.Media.BUCKET_DISPLAY_NAME,
             MediaStore.Images.Media.LATITUDE,
             MediaStore.Images.Media.LONGITUDE,
+            MediaStore.Images.Media.ORIENTATION,
             MediaStore.Images.Media.IS_FAVORITE
         )
 
-        val sortOrder = "${MediaStore.Images.Media.DATE_TAKEN} DESC"
+        val sortOrder = when (sortType) {
+            SortType.DATE_TAKEN -> "${MediaStore.Images.Media.DATE_TAKEN} DESC"
+            SortType.DATE_MODIFIED -> "${MediaStore.Images.Media.DATE_MODIFIED} DESC"
+        }
         val offset = page * pageSize
 
         contentResolver.query(uri, projection, null, null, sortOrder)?.use { cursor ->
@@ -55,7 +67,7 @@ class MediaRepository @Inject constructor(
         photos
     }
 
-    suspend fun getAllPhotos(): List<Photo> = withContext(Dispatchers.IO) {
+    suspend fun getAllPhotos(sortType: SortType = SortType.DATE_TAKEN): List<Photo> = withContext(Dispatchers.IO) {
         val photos = mutableListOf<Photo>()
         val uri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
         val projection = arrayOf(
@@ -70,10 +82,14 @@ class MediaRepository @Inject constructor(
             MediaStore.Images.Media.BUCKET_DISPLAY_NAME,
             MediaStore.Images.Media.LATITUDE,
             MediaStore.Images.Media.LONGITUDE,
+            MediaStore.Images.Media.ORIENTATION,
             MediaStore.Images.Media.IS_FAVORITE
         )
 
-        val sortOrder = "${MediaStore.Images.Media.DATE_TAKEN} DESC"
+        val sortOrder = when (sortType) {
+            SortType.DATE_TAKEN -> "${MediaStore.Images.Media.DATE_TAKEN} DESC"
+            SortType.DATE_MODIFIED -> "${MediaStore.Images.Media.DATE_MODIFIED} DESC"
+        }
 
         contentResolver.query(uri, projection, null, null, sortOrder)?.use { cursor ->
             while (cursor.moveToNext()) {
@@ -97,6 +113,7 @@ class MediaRepository @Inject constructor(
             MediaStore.Images.Media.BUCKET_DISPLAY_NAME,
             MediaStore.Images.Media.LATITUDE,
             MediaStore.Images.Media.LONGITUDE,
+            MediaStore.Images.Media.ORIENTATION,
             MediaStore.Images.Media.IS_FAVORITE
         )
 
@@ -181,6 +198,7 @@ class MediaRepository @Inject constructor(
             MediaStore.Images.Media.BUCKET_DISPLAY_NAME,
             MediaStore.Images.Media.LATITUDE,
             MediaStore.Images.Media.LONGITUDE,
+            MediaStore.Images.Media.ORIENTATION,
             MediaStore.Images.Media.IS_FAVORITE
         )
 
@@ -259,6 +277,16 @@ class MediaRepository @Inject constructor(
             null
         }
     }
+    
+    /**
+     * 获取照片总数
+     */
+    suspend fun getPhotoCount(): Int = withContext(Dispatchers.IO) {
+        val uri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+        contentResolver.query(uri, arrayOf(MediaStore.Images.Media._ID), null, null, null)?.use { cursor ->
+            cursor.count
+        } ?: 0
+    }
 
     /**
      * 批量删除照片 - 返回 IntentSender 供用户确认
@@ -280,6 +308,9 @@ class MediaRepository @Inject constructor(
         val id = getLong(getColumnIndexOrThrow(MediaStore.Images.Media._ID))
         val uri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id)
         
+        val orientationIndex = getColumnIndex(MediaStore.Images.Media.ORIENTATION)
+        val orientation = if (orientationIndex >= 0) getInt(orientationIndex) else 0
+        
         return Photo(
             id = id,
             uri = uri,
@@ -293,6 +324,7 @@ class MediaRepository @Inject constructor(
             bucketName = getString(getColumnIndexOrThrow(MediaStore.Images.Media.BUCKET_DISPLAY_NAME)) ?: "Unknown",
             latitude = getColumnIndex(MediaStore.Images.Media.LATITUDE).takeIf { it >= 0 }?.let { getDouble(it) }?.takeIf { it != 0.0 },
             longitude = getColumnIndex(MediaStore.Images.Media.LONGITUDE).takeIf { it >= 0 }?.let { getDouble(it) }?.takeIf { it != 0.0 },
+            orientation = orientation,
             isFavorite = getInt(getColumnIndexOrThrow(MediaStore.Images.Media.IS_FAVORITE)) == 1
         )
     }

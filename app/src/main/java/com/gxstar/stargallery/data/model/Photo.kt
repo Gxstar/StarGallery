@@ -15,6 +15,7 @@ data class Photo(
     val bucketName: String,
     val latitude: Double?,
     val longitude: Double?,
+    val orientation: Int = 0,
     val isFavorite: Boolean = false
 ) {
     val isVideo: Boolean
@@ -22,4 +23,7 @@ data class Photo(
     
     val isImage: Boolean
         get() = mimeType.startsWith("image/")
+    
+    val isGif: Boolean
+        get() = mimeType == "image/gif"
 }

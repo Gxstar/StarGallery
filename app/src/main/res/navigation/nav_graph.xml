@@ -29,6 +29,10 @@
         <argument
             android:name="photoId"
             app:argType="long" />
+        <argument
+            android:name="sortType"
+            app:argType="integer"
+            android:defaultValue="0" />
     </fragment>
 
     <fragment

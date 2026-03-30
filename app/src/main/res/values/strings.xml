@@ -68,4 +68,10 @@
     <string name="select_all">全选</string>
     <string name="selected">已选 %d 项</string>
     <string name="delete_selected_confirm">确定要删除选中的 %d 张照片吗？</string>
+    
+    <!-- 排序方式 -->
+    <string name="sort_by">排序方式</string>
+    <string name="sort_by_date_taken">拍摄时间</string>
+    <string name="sort_by_date_modified">修改时间</string>
+    <string name="select_sort">选择排序方式</string>
 </resources>

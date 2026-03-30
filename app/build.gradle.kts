@@ -59,8 +59,8 @@ dependencies {
     // 大图查看 - SubsamplingScaleImageView
     implementation(libs.subsampling.scale.image.view)
 
-    // 分页 - Paging 3
-    implementation(libs.androidx.paging.runtime)
+    // 手势视图 - GestureViews
+    implementation(libs.gesture.views)
 
     // 依赖注入 - Hilt
     implementation(libs.hilt.android)
@@ -88,8 +88,8 @@ dependencies {
     // 快速滚动
     implementation(libs.recyclerview.fastscroll)
 
-    // RecyclerView 选择
-    implementation(libs.androidx.recyclerview.selection)
+    // 拖动多选
+    implementation(libs.drag.select.recyclerview)
 
     // 协程
     implementation(libs.kotlinx.coroutines.android)

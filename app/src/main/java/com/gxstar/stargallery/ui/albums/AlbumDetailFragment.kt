@@ -61,7 +61,8 @@ class AlbumDetailFragment : Fragment() {
 
     private fun setupRecyclerView() {
         adapter = AlbumPhotoAdapter { photo ->
-            val action = AlbumDetailFragmentDirections.actionAlbumDetailFragmentToPhotoDetailFragment(photo.id)
+            // sortType 0 = DATE_TAKEN
+            val action = AlbumDetailFragmentDirections.actionAlbumDetailFragmentToPhotoDetailFragment(photo.id, 0)
             findNavController().navigate(action)
         }
         binding.rvPhotos.layoutManager = GridLayoutManager(requireContext(), 4)

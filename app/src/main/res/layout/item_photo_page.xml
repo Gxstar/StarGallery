@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/transparent">
+
+    <!-- 媒体容器 -->
+    <FrameLayout
+        android:id="@+id/mediaContainer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <!-- 超大图片查看器 - 用于普通照片和超大照片 -->
+        <com.gxstar.stargallery.ui.detail.EdgeSubsamplingScaleImageView
+            android:id="@+id/ivPhoto"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone" />
+
+        <!-- GIF 图片查看器 - Glide 原生支持 GIF -->
+        <ImageView
+            android:id="@+id/ivGif"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="fitCenter"
+            android:visibility="gone" />
+
+        <!-- 视频播放器 - Media3 ExoPlayer -->
+        <androidx.media3.ui.PlayerView
+            android:id="@+id/videoView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone" />
+
+    </FrameLayout>
+
+    <!-- 加载进度条 -->
+    <ProgressBar
+        android:id="@+id/progressBar"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_gravity="center"
+        android:visibility="visible" />
+
+</FrameLayout>

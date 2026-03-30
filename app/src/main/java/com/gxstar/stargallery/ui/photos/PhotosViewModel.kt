@@ -1,10 +1,12 @@
 package com.gxstar.stargallery.ui.photos
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.data.repository.MediaRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -17,9 +19,16 @@ import javax.inject.Inject
 
 @HiltViewModel
 class PhotosViewModel @Inject constructor(
-    private val mediaRepository: MediaRepository
+    private val mediaRepository: MediaRepository,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
 
+    private val _currentSortType = MutableStateFlow(MediaRepository.SortType.DATE_TAKEN)
+    val currentSortType: StateFlow<MediaRepository.SortType> = _currentSortType.asStateFlow()
+    
+    private val _photoCount = MutableStateFlow(0)
+    val photoCount: StateFlow<Int> = _photoCount.asStateFlow()
+    
     private val _photoGroups = MutableStateFlow<List<PhotoGroup>>(emptyList())
     val photoGroups: StateFlow<List<PhotoGroup>> = _photoGroups.asStateFlow()
 
@@ -29,13 +38,23 @@ class PhotosViewModel @Inject constructor(
     init {
         loadPhotos()
     }
+    
+    fun setSortType(sortType: MediaRepository.SortType) {
+        if (_currentSortType.value != sortType) {
+            _currentSortType.value = sortType
+            loadPhotos()
+        }
+    }
 
     fun loadPhotos() {
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                val allPhotos = mediaRepository.getAllPhotos()
-                _photoGroups.value = groupPhotosByDate(allPhotos)
+                // 获取照片总数
+                _photoCount.value = mediaRepository.getPhotoCount()
+                // 加载照片并分组
+                val allPhotos = mediaRepository.getAllPhotos(_currentSortType.value)
+                _photoGroups.value = groupPhotosByDate(allPhotos, _currentSortType.value)
             } catch (e: Exception) {
                 e.printStackTrace()
             } finally {
@@ -44,7 +63,7 @@ class PhotosViewModel @Inject constructor(
         }
     }
 
-    private fun groupPhotosByDate(photos: List<Photo>): List<PhotoGroup> {
+    private fun groupPhotosByDate(photos: List<Photo>, sortType: MediaRepository.SortType): List<PhotoGroup> {
         val groups = mutableMapOf<String, MutableList<Photo>>()
         val dateFormat = SimpleDateFormat("yyyy年M月d日", Locale.CHINA)
         val calendar = Calendar.getInstance()
@@ -56,7 +75,12 @@ class PhotosViewModel @Inject constructor(
         val yesterdayStr = formatRelativeDate(yesterday, today)
 
         for (photo in photos) {
-            val date = Date(photo.dateTaken)
+            // 根据排序方式使用不同的日期字段进行分组
+            val timestamp = when (sortType) {
+                MediaRepository.SortType.DATE_TAKEN -> photo.dateTaken
+                MediaRepository.SortType.DATE_MODIFIED -> photo.dateModified * 1000L // dateModified 是秒级时间戳
+            }
+            val date = Date(timestamp)
             val dateStr = dateFormat.format(date)
             
             val displayDate = when (dateStr) {

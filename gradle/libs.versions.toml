@@ -16,9 +16,7 @@ lifecycleViewmodelKtx = "2.7.0"
 # 图片加载
 glide = "4.16.0"
 subsamplingScaleImageView = "3.10.0"
-
-# 分页
-paging = "3.3.2"
+gestureViews = "2.8.3"
 
 # 依赖注入
 hilt = "2.51.1"
@@ -42,8 +40,8 @@ media3 = "1.4.1"
 # 快速滚动
 recyclerviewFastscroll = "1.0.6"
 
-# RecyclerView 选择
-recyclerviewSelection = "1.1.0"
+# 拖动多选
+dragSelectRecyclerview = "2.4.0"
 
 # 内存泄漏检测
 leakcanary = "2.14"
@@ -71,9 +69,7 @@ androidx-lifecycle-viewmodel-ktx = { group = "androidx.lifecycle", name = "lifec
 glide = { group = "com.github.bumptech.glide", name = "glide", version.ref = "glide" }
 glide-compiler = { group = "com.github.bumptech.glide", name = "compiler", version.ref = "glide" }
 subsampling-scale-image-view = { group = "com.davemorrissey.labs", name = "subsampling-scale-image-view-androidx", version.ref = "subsamplingScaleImageView" }
-
-# 分页
-androidx-paging-runtime = { group = "androidx.paging", name = "paging-runtime-ktx", version.ref = "paging" }
+gesture-views = { group = "com.alexvasilkov", name = "gesture-views", version.ref = "gestureViews" }
 
 # 依赖注入
 hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
@@ -101,8 +97,8 @@ androidx-media3-ui = { group = "androidx.media3", name = "media3-ui", version.re
 # 快速滚动
 recyclerview-fastscroll = { group = "com.simplecityapps", name = "recyclerview-fastscroll", version.ref = "recyclerviewFastscroll" }
 
-# RecyclerView 选择
-androidx-recyclerview-selection = { group = "androidx.recyclerview", name = "recyclerview-selection", version.ref = "recyclerviewSelection" }
+# 拖动多选
+drag-select-recyclerview = { group = "com.afollestad", name = "drag-select-recyclerview", version.ref = "dragSelectRecyclerview" }
 
 # 内存泄漏检测
 leakcanary = { group = "com.squareup.leakcanary", name = "leakcanary-android", version.ref = "leakcanary" }
