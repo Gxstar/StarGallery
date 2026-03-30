@@ -55,6 +55,7 @@ dependencies {
     // 图片加载 - Glide
     implementation(libs.glide)
     kapt(libs.glide.compiler)
+    implementation(libs.glide.recyclerview)
 
     // 大图查看 - SubsamplingScaleImageView
     implementation(libs.subsampling.scale.image.view)
@@ -70,6 +71,9 @@ dependencies {
     // 导航 - Navigation
     implementation(libs.androidx.navigation.fragment)
     implementation(libs.androidx.navigation.ui)
+
+    // 分页 - Paging 3
+    implementation(libs.androidx.paging.runtime)
 
     // 列表分组 - Groupie
     implementation(libs.groupie)

@@ -22,60 +22,64 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
+import androidx.paging.LoadState
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.afollestad.dragselectrecyclerview.DragSelectReceiver
 import com.afollestad.dragselectrecyclerview.DragSelectTouchListener
+import com.bumptech.glide.Glide
+import com.bumptech.glide.integration.recyclerview.RecyclerViewPreloader
+import com.bumptech.glide.util.ViewPreloadSizeProvider
 import com.gxstar.stargallery.R
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.data.repository.MediaRepository
 import com.gxstar.stargallery.databinding.DialogColumnsBinding
 import com.gxstar.stargallery.databinding.FragmentPhotosBinding
 import com.permissionx.guolindev.PermissionX
+import com.simplecityapps.recyclerview_fastscroll.views.FastScrollRecyclerView
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @AndroidEntryPoint
-class PhotosFragment : Fragment(), DragSelectReceiver {
+class PhotosFragment : Fragment(), DragSelectReceiver, FastScrollRecyclerView.SectionedAdapter {
 
     private var _binding: FragmentPhotosBinding? = null
     private val binding get() = _binding!!
 
     private val viewModel: PhotosViewModel by viewModels()
-    private lateinit var groupieAdapter: FastScrollGroupieAdapter
+    private lateinit var photoAdapter: PhotoPagingAdapter
     private lateinit var gridLayoutManager: GridLayoutManager
     private lateinit var dragSelectTouchListener: DragSelectTouchListener
-    
+
     @Inject
     lateinit var sharedPreferences: SharedPreferences
-    
+
     @Inject
     lateinit var mediaRepository: MediaRepository
-    
+
     private var currentSpanCount = 4
-    
+    private var itemSize = 0
+
     // 选中的照片 ID 集合
     private val selectedPhotoIds = mutableSetOf<Long>()
-    
-    // 所有照片数据
-    private var allPhotos: List<Photo> = emptyList()
-    
+
     // 照片ID到适配器位置的映射
-    private val photoIdToAdapterPosition = mutableMapOf<Long, Int>()
-    
-    // 适配器位置到照片ID的映射
-    private val adapterPositionToPhotoId = mutableMapOf<Int, Long>()
-    
+    private val photoIdToPosition = mutableMapOf<Long, Int>()
+
+    private var needsRefresh = false
+    private var isSelectionMode = false
+
     // 删除请求的 launcher
     private val deleteRequestLauncher = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             Toast.makeText(requireContext(), R.string.deleted, Toast.LENGTH_SHORT).show()
-            viewModel.loadPhotos()
+            refreshData()
         }
         exitSelectionMode()
     }
-    
+
     // 收藏请求的 launcher
     private var pendingFavoriteAction = 0
     private val favoriteRequestLauncher = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
@@ -85,13 +89,11 @@ class PhotosFragment : Fragment(), DragSelectReceiver {
                 2 -> Toast.makeText(requireContext(), R.string.removed_from_favorite, Toast.LENGTH_SHORT).show()
                 3 -> Toast.makeText(requireContext(), R.string.favorite_toggled, Toast.LENGTH_SHORT).show()
             }
-            viewModel.loadPhotos()
+            refreshData()
         }
         pendingFavoriteAction = 0
         exitSelectionMode()
     }
-    
-    private var isSelectionMode = false
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentPhotosBinding.inflate(inflater, container, false)
@@ -101,19 +103,22 @@ class PhotosFragment : Fragment(), DragSelectReceiver {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         loadSpanCount()
+        calculateItemSize()
         loadSortType().let { viewModel.setSortType(it) }
         setupRecyclerView()
         setupClickListeners()
         observeData()
         checkPermissions()
     }
-    
+
     override fun onResume() {
         super.onResume()
-        // 从详情页返回时刷新照片列表
-        viewModel.loadPhotos()
+        if (needsRefresh) {
+            refreshData()
+            needsRefresh = false
+        }
     }
-    
+
     fun onBackPressed(): Boolean {
         return if (isSelectionMode) {
             exitSelectionMode()
@@ -122,14 +127,21 @@ class PhotosFragment : Fragment(), DragSelectReceiver {
             false
         }
     }
-    
+
     private fun loadSpanCount() {
         currentSpanCount = sharedPreferences.getInt(KEY_SPAN_COUNT, 4)
     }
-    
+
     private fun saveSpanCount(spanCount: Int) {
         sharedPreferences.edit().putInt(KEY_SPAN_COUNT, spanCount).apply()
         currentSpanCount = spanCount
+    }
+
+    private fun calculateItemSize() {
+        val displayMetrics = resources.displayMetrics
+        val screenWidth = displayMetrics.widthPixels
+        val itemSpacing = dpToPx(2) * (currentSpanCount + 1)
+        itemSize = (screenWidth - itemSpacing) / currentSpanCount
     }
 
     private fun checkPermissions() {
@@ -143,68 +155,52 @@ class PhotosFragment : Fragment(), DragSelectReceiver {
             .permissions(*permissions)
             .request { allGranted, _, _ ->
                 if (allGranted) {
-                    viewModel.loadPhotos()
+                    // 权限授予后立即开始观察数据
+                    observePagingData()
                 }
             }
     }
 
     private fun setupClickListeners() {
-        binding.btnMore.setOnClickListener { view ->
-            showPopupMenu(view)
-        }
-        
-        binding.btnBack.setOnClickListener {
-            exitSelectionMode()
-        }
-        
-        binding.btnShare.setOnClickListener {
-            shareSelectedPhotos()
-        }
-        
-        binding.btnFavorite.setOnClickListener {
-            favoriteSelectedPhotos()
-        }
-        
-        binding.btnDelete.setOnClickListener {
-            deleteSelectedPhotos()
-        }
+        binding.btnMore.setOnClickListener { view -> showPopupMenu(view) }
+        binding.btnBack.setOnClickListener { exitSelectionMode() }
+        binding.btnShare.setOnClickListener { shareSelectedPhotos() }
+        binding.btnFavorite.setOnClickListener { favoriteSelectedPhotos() }
+        binding.btnDelete.setOnClickListener { deleteSelectedPhotos() }
     }
-    
+
     private fun shareSelectedPhotos() {
         if (selectedPhotoIds.isEmpty()) return
-        
+
         val uris = ArrayList<Uri>()
         selectedPhotoIds.forEach { id ->
-            allPhotos.find { it.id == id }?.uri?.let { uris.add(it) }
+            findPhotoById(id)?.uri?.let { uris.add(it) }
         }
-        
+
         if (uris.isEmpty()) return
-        
+
         val intent = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
             type = "image/*"
             putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        
+
         startActivity(Intent.createChooser(intent, getString(R.string.send)))
     }
-    
+
     private fun favoriteSelectedPhotos() {
         if (selectedPhotoIds.isEmpty()) return
-        
+
         val photosToFavorite = mutableListOf<Photo>()
         val photosToUnfavorite = mutableListOf<Photo>()
-        
+
         selectedPhotoIds.forEach { id ->
-            allPhotos.find { it.id == id }?.let { photo ->
-                if (photo.isFavorite) {
-                    photosToUnfavorite.add(photo)
-                } else {
-                    photosToFavorite.add(photo)
-                }
+            findPhotoById(id)?.let { photo ->
+                if (photo.isFavorite) photosToUnfavorite.add(photo)
+                else photosToFavorite.add(photo)
             }
         }
-        
+
         val hasFavorite = photosToFavorite.isNotEmpty()
         val hasUnfavorite = photosToUnfavorite.isNotEmpty()
         pendingFavoriteAction = when {
@@ -213,25 +209,23 @@ class PhotosFragment : Fragment(), DragSelectReceiver {
             hasUnfavorite -> 2
             else -> 0
         }
-        
+
         if (pendingFavoriteAction == 0) {
             exitSelectionMode()
             return
         }
-        
+
         try {
             var hasRequest = false
             if (hasFavorite) {
-                val intentSender = mediaRepository.setFavorite(photosToFavorite, true)
-                if (intentSender != null) {
-                    favoriteRequestLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
+                mediaRepository.setFavorite(photosToFavorite, true)?.let {
+                    favoriteRequestLauncher.launch(IntentSenderRequest.Builder(it).build())
                     hasRequest = true
                 }
             }
             if (hasUnfavorite) {
-                val intentSender = mediaRepository.setFavorite(photosToUnfavorite, false)
-                if (intentSender != null) {
-                    favoriteRequestLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
+                mediaRepository.setFavorite(photosToUnfavorite, false)?.let {
+                    favoriteRequestLauncher.launch(IntentSenderRequest.Builder(it).build())
                     hasRequest = true
                 }
             }
@@ -247,19 +241,18 @@ class PhotosFragment : Fragment(), DragSelectReceiver {
             exitSelectionMode()
         }
     }
-    
+
     private fun deleteSelectedPhotos() {
         if (selectedPhotoIds.isEmpty()) return
-        
+
         val photos = mutableListOf<Photo>()
         selectedPhotoIds.forEach { id ->
-            allPhotos.find { it.id == id }?.let { photos.add(it) }
+            findPhotoById(id)?.let { photos.add(it) }
         }
-        
+
         if (photos.isEmpty()) return
-        
-        val intentSender = mediaRepository.deletePhotos(photos)
-        if (intentSender != null) {
+
+        mediaRepository.deletePhotos(photos)?.let { intentSender ->
             try {
                 deleteRequestLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
             } catch (e: Exception) {
@@ -267,54 +260,48 @@ class PhotosFragment : Fragment(), DragSelectReceiver {
                 Toast.makeText(requireContext(), "删除失败", Toast.LENGTH_SHORT).show()
                 exitSelectionMode()
             }
-        } else {
+        } ?: run {
             Toast.makeText(requireContext(), "删除失败", Toast.LENGTH_SHORT).show()
             exitSelectionMode()
         }
     }
-    
+
+    private fun findPhotoById(id: Long): Photo? {
+        for (i in 0 until photoAdapter.itemCount) {
+            photoAdapter.getPhoto(i)?.let { if (it.id == id) return it }
+        }
+        return null
+    }
+
     private fun showPopupMenu(view: View) {
         val popupMenu = PopupMenu(requireContext(), view)
         popupMenu.menuInflater.inflate(R.menu.menu_photos, popupMenu.menu)
-        
+
         val selectItem = popupMenu.menu.findItem(R.id.action_select)
         selectItem?.title = if (isSelectionMode) getString(R.string.cancel_select) else getString(R.string.select)
-        
+
         popupMenu.setOnMenuItemClickListener { menuItem ->
             when (menuItem.itemId) {
                 R.id.action_select -> {
-                    if (isSelectionMode) {
-                        exitSelectionMode()
-                    } else {
-                        enterSelectionMode()
-                    }
+                    if (isSelectionMode) exitSelectionMode() else enterSelectionMode()
                     true
                 }
-                R.id.action_sort -> {
-                    showSortDialog()
-                    true
-                }
-                R.id.action_columns -> {
-                    showColumnsDialog()
-                    true
-                }
+                R.id.action_sort -> { showSortDialog(); true }
+                R.id.action_columns -> { showColumnsDialog(); true }
                 else -> false
             }
         }
         popupMenu.show()
     }
-    
+
     private fun showSortDialog() {
         val currentSortType = viewModel.currentSortType.value
-        val options = arrayOf(
-            getString(R.string.sort_by_date_taken),
-            getString(R.string.sort_by_date_modified)
-        )
+        val options = arrayOf(getString(R.string.sort_by_date_taken), getString(R.string.sort_by_date_modified))
         val checkedItem = when (currentSortType) {
             MediaRepository.SortType.DATE_TAKEN -> 0
             MediaRepository.SortType.DATE_MODIFIED -> 1
         }
-        
+
         AlertDialog.Builder(requireContext())
             .setTitle(R.string.select_sort)
             .setSingleChoiceItems(options, checkedItem) { dialog, which ->
@@ -325,140 +312,99 @@ class PhotosFragment : Fragment(), DragSelectReceiver {
                 }
                 saveSortType(newSortType)
                 viewModel.setSortType(newSortType)
+                observePagingData()
                 dialog.dismiss()
             }
             .setNegativeButton(R.string.cancel, null)
             .show()
     }
-    
+
     private fun loadSortType(): MediaRepository.SortType {
-        val sortTypeValue = sharedPreferences.getInt(KEY_SORT_TYPE, 0)
-        return when (sortTypeValue) {
+        return when (sharedPreferences.getInt(KEY_SORT_TYPE, 0)) {
             0 -> MediaRepository.SortType.DATE_TAKEN
-            1 -> MediaRepository.SortType.DATE_MODIFIED
-            else -> MediaRepository.SortType.DATE_TAKEN
+            else -> MediaRepository.SortType.DATE_MODIFIED
         }
     }
-    
+
     private fun saveSortType(sortType: MediaRepository.SortType) {
-        val sortTypeValue = when (sortType) {
-            MediaRepository.SortType.DATE_TAKEN -> 0
-            MediaRepository.SortType.DATE_MODIFIED -> 1
-        }
-        sharedPreferences.edit().putInt(KEY_SORT_TYPE, sortTypeValue).apply()
+        sharedPreferences.edit().putInt(KEY_SORT_TYPE, if (sortType == MediaRepository.SortType.DATE_TAKEN) 0 else 1).apply()
     }
-    
+
     private fun enterSelectionMode() {
         isSelectionMode = true
         selectedPhotoIds.clear()
         binding.normalToolbar.visibility = View.GONE
         binding.selectionToolbar.visibility = View.VISIBLE
         binding.tvSelectionCount.text = getString(R.string.selected, 0)
-        // 只刷新可见项，而非重建整个列表
         refreshVisibleItems()
     }
-    
+
     private fun exitSelectionMode() {
         isSelectionMode = false
         selectedPhotoIds.clear()
         dragSelectTouchListener.setIsActive(false, -1)
         binding.normalToolbar.visibility = View.VISIBLE
         binding.selectionToolbar.visibility = View.GONE
-        // 只刷新可见项，而非重建整个列表
         refreshVisibleItems()
     }
-    
-    /**
-     * 刷新当前可见的 item，用于切换选择模式时更新 UI
-     */
+
     private fun refreshVisibleItems() {
-        val layoutManager = gridLayoutManager
-        val firstVisible = layoutManager.findFirstVisibleItemPosition()
-        val lastVisible = layoutManager.findLastVisibleItemPosition()
-        
-        if (firstVisible != RecyclerView.NO_POSITION && lastVisible != RecyclerView.NO_POSITION) {
-            groupieAdapter.notifyItemRangeChanged(firstVisible, lastVisible - firstVisible + 1)
+        val first = gridLayoutManager.findFirstVisibleItemPosition()
+        val last = gridLayoutManager.findLastVisibleItemPosition()
+        if (first != RecyclerView.NO_POSITION && last != RecyclerView.NO_POSITION) {
+            photoAdapter.notifyItemRangeChanged(first, last - first + 1)
         }
     }
-    
+
     private fun togglePhotoSelection(photo: Photo) {
-        val adapterPosition = photoIdToAdapterPosition[photo.id] ?: return
-        
-        if (selectedPhotoIds.contains(photo.id)) {
-            selectedPhotoIds.remove(photo.id)
-        } else {
-            selectedPhotoIds.add(photo.id)
-        }
-        
-        // 刷新该项以更新选中状态 UI
-        groupieAdapter.notifyItemChanged(adapterPosition)
+        val position = photoIdToPosition[photo.id] ?: return
+        if (selectedPhotoIds.contains(photo.id)) selectedPhotoIds.remove(photo.id)
+        else selectedPhotoIds.add(photo.id)
+        photoAdapter.notifyItemChanged(position)
         updateSelectionUI()
     }
-    
+
     private fun updateSelectionUI() {
-        if (selectedPhotoIds.isEmpty()) {
-            exitSelectionMode()
-        } else {
-            binding.tvSelectionCount.text = getString(R.string.selected, selectedPhotoIds.size)
-        }
+        if (selectedPhotoIds.isEmpty()) exitSelectionMode()
+        else binding.tvSelectionCount.text = getString(R.string.selected, selectedPhotoIds.size)
     }
-    
-    /**
-     * 启动拖动选择
-     */
-    private fun startDragSelection(adapterPosition: Int) {
-        if (!isSelectionMode) {
-            enterSelectionMode()
+
+    private fun startDragSelection(position: Int) {
+        if (!isSelectionMode) enterSelectionMode()
+        photoAdapter.getPhoto(position)?.let { photo ->
+            if (!selectedPhotoIds.contains(photo.id)) {
+                selectedPhotoIds.add(photo.id)
+                photoAdapter.notifyItemChanged(position)
+                updateSelectionUI()
+            }
         }
-        // 先选中当前项
-        val photoId = adapterPositionToPhotoId[adapterPosition]
-        if (photoId != null && !selectedPhotoIds.contains(photoId)) {
-            selectedPhotoIds.add(photoId)
-            groupieAdapter.notifyItemChanged(adapterPosition)
+        dragSelectTouchListener.setIsActive(true, position)
+    }
+
+    // ========== DragSelectReceiver ==========
+    override fun setSelected(index: Int, selected: Boolean) {
+        photoAdapter.getPhoto(index)?.let { photo ->
+            val wasSelected = selectedPhotoIds.contains(photo.id)
+            if (selected && !wasSelected) {
+                selectedPhotoIds.add(photo.id)
+                photoAdapter.notifyItemChanged(index)
+            } else if (!selected && wasSelected) {
+                selectedPhotoIds.remove(photo.id)
+                photoAdapter.notifyItemChanged(index)
+            }
             updateSelectionUI()
         }
-        // 启动拖动选择
-        dragSelectTouchListener.setIsActive(true, adapterPosition)
     }
-    
-    // ========== DragSelectReceiver 实现 ==========
-    
-    override fun setSelected(index: Int, selected: Boolean) {
-        val photoId = adapterPositionToPhotoId[index] ?: return
-        val wasSelected = selectedPhotoIds.contains(photoId)
-        
-        if (selected && !wasSelected) {
-            selectedPhotoIds.add(photoId)
-            groupieAdapter.notifyItemChanged(index)
-        } else if (!selected && wasSelected) {
-            selectedPhotoIds.remove(photoId)
-            groupieAdapter.notifyItemChanged(index)
-        }
-        
-        updateSelectionUI()
-    }
-    
-    override fun isSelected(index: Int): Boolean {
-        val photoId = adapterPositionToPhotoId[index] ?: return false
-        return selectedPhotoIds.contains(photoId)
-    }
-    
-    override fun isIndexSelectable(index: Int): Boolean {
-        // DateHeaderItem 不可选择
-        if (index < 0 || index >= groupieAdapter.itemCount) return false
-        val item = groupieAdapter.getItem(index)
-        return item !is DateHeaderItem
-    }
-    
-    override fun getItemCount(): Int {
-        return groupieAdapter.itemCount
-    }
-    
-    // ========== DragSelectReceiver 实现结束 ==========
-    
+
+    override fun isSelected(index: Int): Boolean = photoAdapter.getPhoto(index)?.let { selectedPhotoIds.contains(it.id) } ?: false
+    override fun isIndexSelectable(index: Int): Boolean = index >= 0 && index < photoAdapter.itemCount && photoAdapter.getPhoto(index) != null
+    override fun getItemCount(): Int = photoAdapter.itemCount
+
+    // ========== FastScrollRecyclerView.SectionedAdapter ==========
+    override fun getSectionName(position: Int): String = photoAdapter.getDateText(position)
+
     private fun showColumnsDialog() {
         val dialogBinding = DialogColumnsBinding.inflate(layoutInflater)
-        
         when (currentSpanCount) {
             3 -> dialogBinding.rb3.isChecked = true
             4 -> dialogBinding.rb4.isChecked = true
@@ -467,11 +413,11 @@ class PhotosFragment : Fragment(), DragSelectReceiver {
             7 -> dialogBinding.rb7.isChecked = true
             8 -> dialogBinding.rb8.isChecked = true
         }
-        
+
         AlertDialog.Builder(requireContext())
             .setView(dialogBinding.root)
             .setPositiveButton(R.string.confirm) { _, _ ->
-                val selectedSpanCount = when {
+                val newSpan = when {
                     dialogBinding.rb3.isChecked -> 3
                     dialogBinding.rb4.isChecked -> 4
                     dialogBinding.rb5.isChecked -> 5
@@ -480,60 +426,101 @@ class PhotosFragment : Fragment(), DragSelectReceiver {
                     dialogBinding.rb8.isChecked -> 8
                     else -> 4
                 }
-                updateSpanCount(selectedSpanCount)
+                if (newSpan != currentSpanCount) {
+                    saveSpanCount(newSpan)
+                    currentSpanCount = newSpan
+                    calculateItemSize()
+                    // 重新设置RecyclerView
+                    setupRecyclerView()
+                    observePagingData()
+                }
             }
             .setNegativeButton(R.string.cancel, null)
             .show()
     }
-    
-    private fun updateSpanCount(spanCount: Int) {
-        if (spanCount != currentSpanCount) {
-            saveSpanCount(spanCount)
-            gridLayoutManager.spanCount = spanCount
-            groupieAdapter.notifyDataSetChanged()
-        }
-    }
 
     private fun setupRecyclerView() {
-        groupieAdapter = FastScrollGroupieAdapter()
+        photoAdapter = PhotoPagingAdapter(
+            itemSize = itemSize,
+            spanCount = currentSpanCount,
+            onPhotoClick = { photo ->
+                if (isSelectionMode) togglePhotoSelection(photo)
+                else navigateToDetail(photo)
+            },
+            onPhotoLongClick = { photo ->
+                photoIdToPosition[photo.id]?.let { startDragSelection(it); true } ?: false
+            },
+            isSelectionModeProvider = { isSelectionMode },
+            isSelectedProvider = { id -> selectedPhotoIds.contains(id) }
+        )
+
         gridLayoutManager = GridLayoutManager(requireContext(), currentSpanCount)
-        
-        // 初始化拖动选择监听器
+        // 设置SpanSizeLookup：header占据整行，照片占1列
+        gridLayoutManager.spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
+            override fun getSpanSize(position: Int): Int {
+                return if (photoAdapter.getItemViewType(position) == 0) currentSpanCount else 1
+            }
+        }
+
         dragSelectTouchListener = DragSelectTouchListener.create(requireContext(), this) {
             hotspotHeight = dpToPx(56)
         }
-        
+
         binding.rvPhotos.layoutManager = gridLayoutManager
-        binding.rvPhotos.adapter = groupieAdapter
+        binding.rvPhotos.adapter = photoAdapter
         binding.rvPhotos.addItemDecoration(GridSpacingItemDecoration(currentSpanCount, dpToPx(2), true))
         binding.rvPhotos.addOnItemTouchListener(dragSelectTouchListener)
-        
-        gridLayoutManager.spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
-            override fun getSpanSize(position: Int): Int {
-                return if (position >= 0 && position < groupieAdapter.itemCount) {
-                    val item = groupieAdapter.getItem(position)
-                    if (item is DateHeaderItem) currentSpanCount else 1
-                } else {
-                    1
+
+        // 性能优化
+        binding.rvPhotos.setHasFixedSize(true)
+        binding.rvPhotos.setItemViewCacheSize(24)
+        binding.rvPhotos.isNestedScrollingEnabled = false
+
+        // 设置 Glide Preloader
+        val glideRequest = Glide.with(this)
+        val preloadSizeProvider = ViewPreloadSizeProvider<Uri>()
+        val preloader = RecyclerViewPreloader(
+            glideRequest,
+            PhotoPreloadModelProvider(glideRequest) {
+                val first = gridLayoutManager.findFirstVisibleItemPosition()
+                val last = gridLayoutManager.findLastVisibleItemPosition()
+                val uris = mutableListOf<Uri>()
+                for (i in (first - 10).coerceAtLeast(0)..(last + 10).coerceAtMost(photoAdapter.itemCount - 1)) {
+                    photoAdapter.getPhoto(i)?.uri?.let { uris.add(it) }
+                }
+                uris
+            },
+            preloadSizeProvider,
+            20
+        )
+        binding.rvPhotos.addOnScrollListener(preloader)
+
+        // 滑动状态监听：暂停/恢复Glide
+        binding.rvPhotos.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+            override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
+                when (newState) {
+                    RecyclerView.SCROLL_STATE_IDLE -> Glide.with(this@PhotosFragment).resumeRequests()
+                    RecyclerView.SCROLL_STATE_DRAGGING, RecyclerView.SCROLL_STATE_SETTLING -> Glide.with(this@PhotosFragment).pauseRequests()
                 }
             }
+        })
+
+        // 监听Adapter数据变化，更新位置映射
+        photoAdapter.addOnPagesUpdatedListener {
+            updatePositionMap()
         }
-    }
-    
-    private fun dpToPx(dp: Int): Int {
-        return (dp * resources.displayMetrics.density).toInt()
     }
 
-    private fun observeData() {
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.photoGroups.collect { groups ->
-                    allPhotos = groups.flatMap { it.photos }
-                    updateAdapter()
-                }
-            }
+    private fun updatePositionMap() {
+        photoIdToPosition.clear()
+        for (i in 0 until photoAdapter.itemCount) {
+            photoAdapter.getPhoto(i)?.let { photoIdToPosition[it.id] = i }
         }
-        
+    }
+
+    private fun dpToPx(dp: Int): Int = (dp * resources.displayMetrics.density).toInt()
+
+    private fun observeData() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.photoCount.collect { count ->
@@ -542,75 +529,40 @@ class PhotosFragment : Fragment(), DragSelectReceiver {
             }
         }
     }
-    
-    private fun updateAdapter() {
-        photoIdToAdapterPosition.clear()
-        adapterPositionToPhotoId.clear()
-        val items = mutableListOf<com.xwray.groupie.Group>()
-        val groups = viewModel.photoGroups.value
-        var adapterPosition = 0
-        
-        groups.forEach { group ->
-            items.add(DateHeaderItem(group.date))
-            adapterPosition++
-            
-            group.photos.forEach { photo ->
-                photoIdToAdapterPosition[photo.id] = adapterPosition
-                adapterPositionToPhotoId[adapterPosition] = photo.id
-                
-                val photoItem = PhotoItem(
-                    photo = photo,
-                    isSelectionModeProvider = { isSelectionMode },
-                    isSelectedProvider = { selectedPhotoIds.contains(photo.id) },
-                    onPhotoClick = { clickedPhoto ->
-                        if (isSelectionMode) {
-                            togglePhotoSelection(clickedPhoto)
-                        } else {
-                            navigateToDetail(clickedPhoto)
-                        }
-                    },
-                    onPhotoLongClick = { clickedPhoto ->
-                        val position = photoIdToAdapterPosition[clickedPhoto.id] ?: 0
-                        startDragSelection(position)
-                        true
-                    }
-                )
-                items.add(photoItem)
-                adapterPosition++
+
+    private fun observePagingData() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.getPhotoPagingFlow().collectLatest { pagingData ->
+                    photoAdapter.submitData(pagingData)
+                }
             }
         }
-        
-        groupieAdapter.updateAsync(items)
+    }
+
+    private fun refreshData() {
+        viewModel.refresh()
+        // 使用 adapter.refresh() 刷新数据，保持滚动位置
+        photoAdapter.refresh()
     }
 
     private fun navigateToDetail(photo: Photo) {
-        val sortTypeValue = when (viewModel.currentSortType.value) {
-            MediaRepository.SortType.DATE_TAKEN -> 0
-            MediaRepository.SortType.DATE_MODIFIED -> 1
-        }
+        val sortTypeValue = if (viewModel.currentSortType.value == MediaRepository.SortType.DATE_TAKEN) 0 else 1
         val action = PhotosFragmentDirections.actionPhotosFragmentToPhotoDetailFragment(photo.id, sortTypeValue)
         findNavController().navigate(action)
     }
 
     override fun onDestroyView() {
-        // 清理 RecyclerView 相关资源
         binding.rvPhotos.removeOnItemTouchListener(dragSelectTouchListener)
         binding.rvPhotos.adapter = null
         binding.rvPhotos.layoutManager = null
-        
-        // 清理 spanSizeLookup 引用
         gridLayoutManager.spanSizeLookup = null
-        
-        // 清理数据映射
-        photoIdToAdapterPosition.clear()
-        adapterPositionToPhotoId.clear()
+        photoIdToPosition.clear()
         selectedPhotoIds.clear()
-        allPhotos = emptyList()
-        
         _binding = null
         super.onDestroyView()
     }
-    
+
     companion object {
         private const val KEY_SPAN_COUNT = "span_count"
         private const val KEY_SORT_TYPE = "sort_type"

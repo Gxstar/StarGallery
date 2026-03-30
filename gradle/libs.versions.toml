@@ -15,6 +15,7 @@ lifecycleViewmodelKtx = "2.7.0"
 
 # 图片加载
 glide = "4.16.0"
+glideRecyclerview = "4.16.0"
 subsamplingScaleImageView = "3.10.0"
 gestureViews = "2.8.3"
 
@@ -24,6 +25,9 @@ hiltNavigationFragment = "1.2.0"
 
 # 导航
 navigation = "2.8.0"
+
+# 分页
+paging = "3.2.1"
 
 # 列表分组
 groupie = "2.10.1"
@@ -68,6 +72,7 @@ androidx-lifecycle-viewmodel-ktx = { group = "androidx.lifecycle", name = "lifec
 # 图片加载
 glide = { group = "com.github.bumptech.glide", name = "glide", version.ref = "glide" }
 glide-compiler = { group = "com.github.bumptech.glide", name = "compiler", version.ref = "glide" }
+glide-recyclerview = { group = "com.github.bumptech.glide", name = "recyclerview-integration", version.ref = "glideRecyclerview" }
 subsampling-scale-image-view = { group = "com.davemorrissey.labs", name = "subsampling-scale-image-view-androidx", version.ref = "subsamplingScaleImageView" }
 gesture-views = { group = "com.alexvasilkov", name = "gesture-views", version.ref = "gestureViews" }
 
@@ -79,6 +84,9 @@ hilt-navigation-fragment = { group = "androidx.hilt", name = "hilt-navigation-fr
 # 导航
 androidx-navigation-fragment = { group = "androidx.navigation", name = "navigation-fragment-ktx", version.ref = "navigation" }
 androidx-navigation-ui = { group = "androidx.navigation", name = "navigation-ui-ktx", version.ref = "navigation" }
+
+# 分页
+androidx-paging-runtime = { group = "androidx.paging", name = "paging-runtime-ktx", version.ref = "paging" }
 
 # 列表分组
 groupie = { group = "com.github.lisawray.groupie", name = "groupie", version.ref = "groupie" }
