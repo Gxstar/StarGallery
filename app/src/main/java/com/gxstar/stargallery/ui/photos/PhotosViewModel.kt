@@ -109,11 +109,15 @@ class PhotosViewModel @Inject constructor(
             }
         }
 
+        // 由于数据已在内存中，一次性加载所有数据
+        // 这样 FastScroll 可以正确显示进度，避免滑块位置不准确
+        val totalSize = sortedPhotos.size
+
         Pager(
             config = PagingConfig(
                 pageSize = PAGE_SIZE,
                 enablePlaceholders = false,
-                initialLoadSize = PAGE_SIZE * 2,
+                initialLoadSize = if (totalSize > 0) totalSize else PAGE_SIZE * 2,
                 prefetchDistance = 30
             ),
             pagingSourceFactory = {
