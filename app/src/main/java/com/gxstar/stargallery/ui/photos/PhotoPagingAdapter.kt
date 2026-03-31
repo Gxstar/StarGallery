@@ -98,7 +98,20 @@ class PhotoPagingAdapter(
     fun getDateText(position: Int): String {
         if (position < 0 || position >= itemCount) return ""
         val item = getItem(position) ?: return ""
-        return if (item is PhotoModel.SeparatorItem) item.dateText else ""
+        
+        // 如果当前是分隔符，直接返回日期文本
+        if (item is PhotoModel.SeparatorItem) return item.dateText
+        
+        // 如果当前是照片，向前查找最近的分隔符
+        if (item is PhotoModel.PhotoItem) {
+            for (i in position downTo 0) {
+                val prevItem = getItem(i) ?: continue
+                if (prevItem is PhotoModel.SeparatorItem) {
+                    return prevItem.dateText
+                }
+            }
+        }
+        return ""
     }
 
     // ========== PopupTextProvider ==========
