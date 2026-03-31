@@ -513,6 +513,9 @@ class PhotosFragment : Fragment(), DragSelectReceiver, FastScrollRecyclerView.Se
             override fun getSpanSize(position: Int): Int {
                 return if (photoAdapter.getItemViewType(position) == 0) currentSpanCount else 1
             }
+        }.apply {
+            // 启用缓存，提高性能
+            isSpanIndexCacheEnabled = true
         }
 
         dragSelectTouchListener = DragSelectTouchListener.create(requireContext(), this) {
@@ -534,29 +537,11 @@ class PhotosFragment : Fragment(), DragSelectReceiver, FastScrollRecyclerView.Se
         val preloadSizeProvider = ViewPreloadSizeProvider<Uri>()
         val preloader = RecyclerViewPreloader(
             glideRequest,
-            PhotoPreloadModelProvider(glideRequest) {
-                val first = gridLayoutManager.findFirstVisibleItemPosition()
-                val last = gridLayoutManager.findLastVisibleItemPosition()
-                val uris = mutableListOf<Uri>()
-                for (i in (first - 10).coerceAtLeast(0)..(last + 10).coerceAtMost(photoAdapter.itemCount - 1)) {
-                    photoAdapter.getPhoto(i)?.uri?.let { uris.add(it) }
-                }
-                uris
-            },
+            PhotoPreloadModelProvider(glideRequest, photoAdapter, itemSize),
             preloadSizeProvider,
             20
         )
         binding.rvPhotos.addOnScrollListener(preloader)
-
-        // 滑动状态监听：暂停/恢复Glide
-        binding.rvPhotos.addOnScrollListener(object : RecyclerView.OnScrollListener() {
-            override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
-                when (newState) {
-                    RecyclerView.SCROLL_STATE_IDLE -> Glide.with(this@PhotosFragment).resumeRequests()
-                    RecyclerView.SCROLL_STATE_DRAGGING, RecyclerView.SCROLL_STATE_SETTLING -> Glide.with(this@PhotosFragment).pauseRequests()
-                }
-            }
-        })
 
         // 监听Adapter数据变化，更新位置映射
         photoAdapter.addOnPagesUpdatedListener {
@@ -565,8 +550,22 @@ class PhotosFragment : Fragment(), DragSelectReceiver, FastScrollRecyclerView.Se
     }
 
     private fun updatePositionMap() {
-        photoIdToPosition.clear()
-        for (i in 0 until photoAdapter.itemCount) {
+        // 只更新可见范围内的位置映射，避免全量遍历
+        val first = gridLayoutManager.findFirstVisibleItemPosition()
+        val last = gridLayoutManager.findLastVisibleItemPosition()
+        if (first == RecyclerView.NO_POSITION || last == RecyclerView.NO_POSITION) return
+
+        // 清理旧映射中的不可见项
+        val iterator = photoIdToPosition.entries.iterator()
+        while (iterator.hasNext()) {
+            val entry = iterator.next()
+            if (entry.value < first - 50 || entry.value > last + 50) {
+                iterator.remove()
+            }
+        }
+
+        // 只更新可见范围内的项
+        for (i in maxOf(0, first - 20)..minOf(photoAdapter.itemCount - 1, last + 20)) {
             photoAdapter.getPhoto(i)?.let { photoIdToPosition[it.id] = i }
         }
     }

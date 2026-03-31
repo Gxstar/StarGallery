@@ -8,16 +8,19 @@ import com.bumptech.glide.RequestManager
 /**
  * Glide预加载ModelProvider
  * 用于RecyclerViewPreloader预加载图片
+ * 优化：直接从 adapter 获取指定范围的图片 URI
  */
 class PhotoPreloadModelProvider(
     private val requestManager: RequestManager,
-    private val getPreloadUris: () -> List<Uri>
+    private val adapter: PhotoPagingAdapter,
+    private val itemSize: Int
 ) : ListPreloader.PreloadModelProvider<Uri> {
 
     override fun getPreloadItems(position: Int): MutableList<Uri> {
-        val uris = getPreloadUris()
-        return if (position >= 0 && position < uris.size) {
-            mutableListOf(uris[position])
+        // 直接从 adapter 获取指定位置的图片 URI
+        val photo = adapter.getPhoto(position)
+        return if (photo != null) {
+            mutableListOf(photo.uri)
         } else {
             mutableListOf()
         }
@@ -27,6 +30,7 @@ class PhotoPreloadModelProvider(
         return requestManager
             .load(item)
             .centerCrop()
+            .override(itemSize, itemSize)
             .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.ALL)
     }
 }
