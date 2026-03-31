@@ -7,6 +7,7 @@ data class Photo(
     val uri: Uri,
     val dateTaken: Long,
     val dateModified: Long,
+    val dateAdded: Long,
     val mimeType: String,
     val width: Int,
     val height: Int,

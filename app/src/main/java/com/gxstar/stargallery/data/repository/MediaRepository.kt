@@ -36,6 +36,7 @@ class MediaRepository @Inject constructor(
             MediaStore.Images.Media._ID,
             MediaStore.Images.Media.DATE_TAKEN,
             MediaStore.Images.Media.DATE_MODIFIED,
+            MediaStore.Images.Media.DATE_ADDED,
             MediaStore.Images.Media.MIME_TYPE,
             MediaStore.Images.Media.WIDTH,
             MediaStore.Images.Media.HEIGHT,
@@ -74,6 +75,7 @@ class MediaRepository @Inject constructor(
             MediaStore.Images.Media._ID,
             MediaStore.Images.Media.DATE_TAKEN,
             MediaStore.Images.Media.DATE_MODIFIED,
+            MediaStore.Images.Media.DATE_ADDED,
             MediaStore.Images.Media.MIME_TYPE,
             MediaStore.Images.Media.WIDTH,
             MediaStore.Images.Media.HEIGHT,
@@ -105,6 +107,7 @@ class MediaRepository @Inject constructor(
             MediaStore.Images.Media._ID,
             MediaStore.Images.Media.DATE_TAKEN,
             MediaStore.Images.Media.DATE_MODIFIED,
+            MediaStore.Images.Media.DATE_ADDED,
             MediaStore.Images.Media.MIME_TYPE,
             MediaStore.Images.Media.WIDTH,
             MediaStore.Images.Media.HEIGHT,
@@ -190,6 +193,7 @@ class MediaRepository @Inject constructor(
             MediaStore.Images.Media._ID,
             MediaStore.Images.Media.DATE_TAKEN,
             MediaStore.Images.Media.DATE_MODIFIED,
+            MediaStore.Images.Media.DATE_ADDED,
             MediaStore.Images.Media.MIME_TYPE,
             MediaStore.Images.Media.WIDTH,
             MediaStore.Images.Media.HEIGHT,
@@ -279,11 +283,13 @@ class MediaRepository @Inject constructor(
     }
     
     /**
-     * 获取照片总数
+     * 获取媒体总数（图片+视频）
      */
     suspend fun getPhotoCount(): Int = withContext(Dispatchers.IO) {
-        val uri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
-        contentResolver.query(uri, arrayOf(MediaStore.Images.Media._ID), null, null, null)?.use { cursor ->
+        val uri = MediaStore.Files.getContentUri("external")
+        val selection = "(${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE} " +
+                "OR ${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO})"
+        contentResolver.query(uri, arrayOf(MediaStore.Files.FileColumns._ID), selection, null, null)?.use { cursor ->
             cursor.count
         } ?: 0
     }
@@ -316,6 +322,7 @@ class MediaRepository @Inject constructor(
             uri = uri,
             dateTaken = getLong(getColumnIndexOrThrow(MediaStore.Images.Media.DATE_TAKEN)),
             dateModified = getLong(getColumnIndexOrThrow(MediaStore.Images.Media.DATE_MODIFIED)),
+            dateAdded = getLong(getColumnIndexOrThrow(MediaStore.Images.Media.DATE_ADDED)),
             mimeType = getString(getColumnIndexOrThrow(MediaStore.Images.Media.MIME_TYPE)) ?: "image/jpeg",
             width = getInt(getColumnIndexOrThrow(MediaStore.Images.Media.WIDTH)),
             height = getInt(getColumnIndexOrThrow(MediaStore.Images.Media.HEIGHT)),

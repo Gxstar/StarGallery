@@ -14,16 +14,8 @@ import com.gxstar.stargallery.databinding.ItemDateHeaderBinding
 import com.gxstar.stargallery.databinding.ItemPhotoBinding
 
 /**
- * 带日期头的照片数据类
- */
-data class PhotoWithHeader(
-    val photo: Photo,
-    val showHeader: Boolean,
-    val headerText: String
-)
-
-/**
  * Paging 3 照片适配器
+ * 使用Paging 3官方推荐的insertSeparators方式
  * 支持日期header占据整行
  */
 class PhotoPagingAdapter(
@@ -33,26 +25,35 @@ class PhotoPagingAdapter(
     private val onPhotoLongClick: ((Photo) -> Boolean)? = null,
     private val isSelectionModeProvider: () -> Boolean = { false },
     private val isSelectedProvider: (Long) -> Boolean = { false }
-) : PagingDataAdapter<PhotoWithHeader, RecyclerView.ViewHolder>(PHOTO_DIFF_CALLBACK) {
+) : PagingDataAdapter<PhotoModel, RecyclerView.ViewHolder>(PHOTO_DIFF_CALLBACK) {
 
     companion object {
         private const val TYPE_HEADER = 0
         private const val TYPE_PHOTO = 1
 
-        private val PHOTO_DIFF_CALLBACK = object : DiffUtil.ItemCallback<PhotoWithHeader>() {
-            override fun areItemsTheSame(oldItem: PhotoWithHeader, newItem: PhotoWithHeader): Boolean {
-                return oldItem.photo.id == newItem.photo.id
+        private val PHOTO_DIFF_CALLBACK = object : DiffUtil.ItemCallback<PhotoModel>() {
+            override fun areItemsTheSame(oldItem: PhotoModel, newItem: PhotoModel): Boolean {
+                return when {
+                    oldItem is PhotoModel.PhotoItem && newItem is PhotoModel.PhotoItem -> 
+                        oldItem.photo.id == newItem.photo.id
+                    oldItem is PhotoModel.SeparatorItem && newItem is PhotoModel.SeparatorItem -> 
+                        oldItem.dateText == newItem.dateText
+                    else -> false
+                }
             }
 
-            override fun areContentsTheSame(oldItem: PhotoWithHeader, newItem: PhotoWithHeader): Boolean {
+            override fun areContentsTheSame(oldItem: PhotoModel, newItem: PhotoModel): Boolean {
                 return oldItem == newItem
             }
         }
     }
 
     override fun getItemViewType(position: Int): Int {
-        val item = getItem(position) ?: return TYPE_PHOTO
-        return if (item.showHeader) TYPE_HEADER else TYPE_PHOTO
+        return when (getItem(position)) {
+            is PhotoModel.SeparatorItem -> TYPE_HEADER
+            is PhotoModel.PhotoItem -> TYPE_PHOTO
+            null -> TYPE_PHOTO
+        }
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
@@ -78,15 +79,23 @@ class PhotoPagingAdapter(
 
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
         val item = getItem(position) ?: return
-        when (holder) {
-            is HeaderViewHolder -> holder.bind(item.headerText)
-            is PhotoViewHolder -> holder.bind(item.photo)
+        when {
+            holder is HeaderViewHolder && item is PhotoModel.SeparatorItem -> 
+                holder.bind(item.dateText)
+            holder is PhotoViewHolder && item is PhotoModel.PhotoItem -> 
+                holder.bind(item.photo)
         }
     }
 
-    fun getPhoto(position: Int): Photo? = getItem(position)?.photo
+    fun getPhoto(position: Int): Photo? {
+        val item = getItem(position)
+        return if (item is PhotoModel.PhotoItem) item.photo else null
+    }
 
-    fun getDateText(position: Int): String = getItem(position)?.headerText ?: ""
+    fun getDateText(position: Int): String {
+        val item = getItem(position)
+        return if (item is PhotoModel.SeparatorItem) item.dateText else ""
+    }
 
     /**
      * 获取实际照片数量（不含header）
@@ -94,7 +103,7 @@ class PhotoPagingAdapter(
     fun getPhotoCount(): Int {
         var count = 0
         for (i in 0 until itemCount) {
-            getItem(i)?.let { if (!it.showHeader) count++ }
+            if (getItem(i) is PhotoModel.PhotoItem) count++
         }
         return count
     }
@@ -164,12 +173,15 @@ class PhotoViewHolder(
                 if (isSelected) R.drawable.ic_selected_filled else R.drawable.ic_selected
             )
             binding.ivFavorite.visibility = View.GONE
+            binding.ivVideoIndicator.visibility = View.GONE
             binding.ivPhoto.alpha = if (isSelected) 0.7f else 1.0f
         } else {
             binding.ivSelected.visibility = View.GONE
             binding.selectionOverlay.visibility = View.GONE
             binding.ivPhoto.alpha = 1.0f
             binding.ivFavorite.visibility = if (photo.isFavorite) View.VISIBLE else View.GONE
+            // 显示视频图标
+            binding.ivVideoIndicator.visibility = if (photo.isVideo) View.VISIBLE else View.GONE
         }
     }
 }

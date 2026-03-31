@@ -8,82 +8,82 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
+import android.provider.MediaStore.Files.FileColumns
 import android.util.Log
 import androidx.paging.PagingSource
 import androidx.paging.PagingState
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.data.repository.MediaRepository
-import com.gxstar.stargallery.ui.photos.PhotoWithHeader
-import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.Date
-import java.util.Locale
 
 /**
  * 照片分页数据源
  * 使用正确的MediaStore分页方式
+ * 同时支持图片和视频
+ * 
+ * 返回纯Photo对象，日期分组在ViewModel中通过insertSeparators处理
  */
 class PhotoPagingSource(
     private val context: Context,
     private val sortType: MediaRepository.SortType
-) : PagingSource<Int, PhotoWithHeader>() {
+) : PagingSource<Int, Photo>() {
 
     companion object {
         private const val TAG = "PhotoPagingSource"
-        private val URI: Uri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+        // 使用 Files URI 查询所有媒体类型（图片+视频）
+        private val URI: Uri = MediaStore.Files.getContentUri("external")
+        
+        // 过滤条件：只查询图片和视频
+        private const val SELECTION = "(${FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE} " +
+                "OR ${FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO})"
+        
         private val PROJECTION = arrayOf(
-            MediaStore.Images.Media._ID,
-            MediaStore.Images.Media.DATE_TAKEN,
-            MediaStore.Images.Media.DATE_MODIFIED,
-            MediaStore.Images.Media.MIME_TYPE,
-            MediaStore.Images.Media.WIDTH,
-            MediaStore.Images.Media.HEIGHT,
-            MediaStore.Images.Media.SIZE,
-            MediaStore.Images.Media.BUCKET_ID,
-            MediaStore.Images.Media.BUCKET_DISPLAY_NAME,
-            MediaStore.Images.Media.ORIENTATION,
-            MediaStore.Images.Media.IS_FAVORITE
+            FileColumns._ID,
+            FileColumns.DATE_TAKEN,
+            FileColumns.DATE_MODIFIED,
+            FileColumns.DATE_ADDED,
+            FileColumns.MIME_TYPE,
+            FileColumns.WIDTH,
+            FileColumns.HEIGHT,
+            FileColumns.SIZE,
+            FileColumns.BUCKET_ID,
+            FileColumns.BUCKET_DISPLAY_NAME,
+            FileColumns.ORIENTATION,
+            FileColumns.IS_FAVORITE,
+            FileColumns.MEDIA_TYPE  // 用于区分图片和视频
         )
     }
 
-    private val dateFormat = SimpleDateFormat("yyyy年M月d日", Locale.CHINA)
-
-    override fun getRefreshKey(state: PagingState<Int, PhotoWithHeader>): Int? {
+    override fun getRefreshKey(state: PagingState<Int, Photo>): Int? {
         return state.anchorPosition?.let { anchorPosition ->
             state.closestPageToPosition(anchorPosition)?.prevKey?.plus(1)
                 ?: state.closestPageToPosition(anchorPosition)?.nextKey?.minus(1)
         }
     }
 
-    override suspend fun load(params: LoadParams<Int>): LoadResult<Int, PhotoWithHeader> {
-        val page = params.key ?: 0
+    override suspend fun load(params: LoadParams<Int>): LoadResult<Int, Photo> {
+        val offset = params.key ?: 0
         val pageSize = params.loadSize
-        val offset = page * pageSize
 
-        Log.d(TAG, "load: page=$page, pageSize=$pageSize, offset=$offset")
+        Log.d(TAG, "load: offset=$offset, pageSize=$pageSize")
 
+        // 排序逻辑：
+        // 1. 按拍摄日期排序：优先DATE_TAKEN，为0时用DATE_ADDED * 1000（即创建时间）
+        // 2. 按修改日期排序：直接使用DATE_MODIFIED
         val sortOrder = when (sortType) {
-            MediaRepository.SortType.DATE_TAKEN -> "${MediaStore.Images.Media.DATE_TAKEN} DESC"
-            MediaRepository.SortType.DATE_MODIFIED -> "${MediaStore.Images.Media.DATE_MODIFIED} DESC"
+            MediaRepository.SortType.DATE_TAKEN -> 
+                "COALESCE(NULLIF(${FileColumns.DATE_TAKEN}, 0), ${FileColumns.DATE_ADDED} * 1000) DESC, " +
+                "${FileColumns._ID} DESC"
+            MediaRepository.SortType.DATE_MODIFIED -> 
+                "${FileColumns.DATE_MODIFIED} DESC, ${FileColumns._ID} DESC"
         }
 
-        val items = mutableListOf<PhotoWithHeader>()
-
-        // 获取今天和昨天的日期字符串
-        val calendar = Calendar.getInstance()
-        val today = calendar.time
-        calendar.add(Calendar.DAY_OF_YEAR, -1)
-        val yesterday = calendar.time
-        val todayStr = dateFormat.format(today)
-        val yesterdayStr = dateFormat.format(yesterday)
-
-        var lastDate = ""
+        val items = mutableListOf<Photo>()
 
         try {
             // 使用 Bundle 方式分页（Android R+）
             val cursor: Cursor? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 val queryArgs = Bundle().apply {
-                    putString(ContentResolver.QUERY_ARG_SQL_SELECTION, null)
+                    putString(ContentResolver.QUERY_ARG_SQL_SELECTION, SELECTION)
                     putString(ContentResolver.QUERY_ARG_SQL_SORT_ORDER, sortOrder)
                     putInt(ContentResolver.QUERY_ARG_OFFSET, offset)
                     putInt(ContentResolver.QUERY_ARG_LIMIT, pageSize)
@@ -91,7 +91,7 @@ class PhotoPagingSource(
                 context.contentResolver.query(URI, PROJECTION, queryArgs, null)
             } else {
                 // 旧版本：查询全部，手动跳过
-                context.contentResolver.query(URI, PROJECTION, null, null, sortOrder)
+                context.contentResolver.query(URI, PROJECTION, SELECTION, null, sortOrder)
             }
 
             cursor?.use { c ->
@@ -105,32 +105,7 @@ class PhotoPagingSource(
                 var count = 0
                 while (c.moveToNext() && count < pageSize) {
                     count++
-                    val photo = c.toPhoto()
-                    
-                    // 计算日期
-                    val timestamp = when (sortType) {
-                        MediaRepository.SortType.DATE_TAKEN -> photo.dateTaken
-                        MediaRepository.SortType.DATE_MODIFIED -> photo.dateModified * 1000L
-                    }
-                    val date = Date(timestamp)
-                    val dateStr = dateFormat.format(date)
-
-                    val displayDate = when (dateStr) {
-                        todayStr -> "今天"
-                        yesterdayStr -> "昨天"
-                        else -> dateStr
-                    }
-
-                    val showHeader = lastDate != displayDate
-                    lastDate = displayDate
-
-                    items.add(
-                        PhotoWithHeader(
-                            photo = photo,
-                            showHeader = showHeader,
-                            headerText = displayDate
-                        )
-                    )
+                    items.add(c.toPhoto())
                 }
             }
         } catch (e: Exception) {
@@ -140,8 +115,8 @@ class PhotoPagingSource(
 
         Log.d(TAG, "load complete: items.size=${items.size}")
 
-        val prevKey = if (page == 0) null else page - 1
-        val nextKey = if (items.size < pageSize) null else page + 1
+        val prevKey = if (offset == 0) null else maxOf(0, offset - pageSize)
+        val nextKey = if (items.size < pageSize) null else offset + items.size
 
         return LoadResult.Page(
             data = items,
@@ -151,27 +126,35 @@ class PhotoPagingSource(
     }
 
     private fun Cursor.toPhoto(): Photo {
-        val id = getLong(getColumnIndexOrThrow(MediaStore.Images.Media._ID))
-        val uri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id)
+        val id = getLong(getColumnIndexOrThrow(FileColumns._ID))
+        val mimeType = getString(getColumnIndexOrThrow(FileColumns.MIME_TYPE)) ?: "image/jpeg"
+        
+        // 根据MIME_TYPE确定URI类型（图片或视频）
+        val uri: Uri = if (mimeType.startsWith("video/")) {
+            ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id)
+        } else {
+            ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id)
+        }
 
-        val orientationIndex = getColumnIndex(MediaStore.Images.Media.ORIENTATION)
+        val orientationIndex = getColumnIndex(FileColumns.ORIENTATION)
         val orientation = if (orientationIndex >= 0) getInt(orientationIndex) else 0
 
         return Photo(
             id = id,
             uri = uri,
-            dateTaken = getLong(getColumnIndexOrThrow(MediaStore.Images.Media.DATE_TAKEN)),
-            dateModified = getLong(getColumnIndexOrThrow(MediaStore.Images.Media.DATE_MODIFIED)),
-            mimeType = getString(getColumnIndexOrThrow(MediaStore.Images.Media.MIME_TYPE)) ?: "image/jpeg",
-            width = getInt(getColumnIndexOrThrow(MediaStore.Images.Media.WIDTH)),
-            height = getInt(getColumnIndexOrThrow(MediaStore.Images.Media.HEIGHT)),
-            size = getLong(getColumnIndexOrThrow(MediaStore.Images.Media.SIZE)),
-            bucketId = getLong(getColumnIndexOrThrow(MediaStore.Images.Media.BUCKET_ID)),
-            bucketName = getString(getColumnIndexOrThrow(MediaStore.Images.Media.BUCKET_DISPLAY_NAME)) ?: "Unknown",
+            dateTaken = getLong(getColumnIndexOrThrow(FileColumns.DATE_TAKEN)),
+            dateModified = getLong(getColumnIndexOrThrow(FileColumns.DATE_MODIFIED)),
+            dateAdded = getLong(getColumnIndexOrThrow(FileColumns.DATE_ADDED)),
+            mimeType = mimeType,
+            width = getInt(getColumnIndexOrThrow(FileColumns.WIDTH)),
+            height = getInt(getColumnIndexOrThrow(FileColumns.HEIGHT)),
+            size = getLong(getColumnIndexOrThrow(FileColumns.SIZE)),
+            bucketId = getLong(getColumnIndexOrThrow(FileColumns.BUCKET_ID)),
+            bucketName = getString(getColumnIndexOrThrow(FileColumns.BUCKET_DISPLAY_NAME)) ?: "Unknown",
             latitude = null,
             longitude = null,
             orientation = orientation,
-            isFavorite = getInt(getColumnIndexOrThrow(MediaStore.Images.Media.IS_FAVORITE)) == 1
+            isFavorite = getInt(getColumnIndexOrThrow(FileColumns.IS_FAVORITE)) == 1
         )
     }
 }
