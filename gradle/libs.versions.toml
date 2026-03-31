@@ -42,7 +42,7 @@ exifinterface = "1.3.7"
 media3 = "1.4.1"
 
 # 快速滚动
-recyclerviewFastscroll = "1.0.6"
+androidFastScroll = "1.3.0"
 
 # 拖动多选
 dragSelectRecyclerview = "2.4.0"
@@ -103,7 +103,7 @@ androidx-media3-exoplayer = { group = "androidx.media3", name = "media3-exoplaye
 androidx-media3-ui = { group = "androidx.media3", name = "media3-ui", version.ref = "media3" }
 
 # 快速滚动
-recyclerview-fastscroll = { group = "com.simplecityapps", name = "recyclerview-fastscroll", version.ref = "recyclerviewFastscroll" }
+android-fastscroll = { group = "me.zhanghai.android.fastscroll", name = "library", version.ref = "androidFastScroll" }
 
 # 拖动多选
 drag-select-recyclerview = { group = "com.afollestad", name = "drag-select-recyclerview", version.ref = "dragSelectRecyclerview" }

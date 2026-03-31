@@ -36,15 +36,15 @@ import com.gxstar.stargallery.data.repository.MediaRepository
 import com.gxstar.stargallery.databinding.DialogColumnsBinding
 import com.gxstar.stargallery.databinding.FragmentPhotosBinding
 import com.permissionx.guolindev.PermissionX
-import com.simplecityapps.recyclerview_fastscroll.views.FastScrollRecyclerView
 import dagger.hilt.android.AndroidEntryPoint
+import me.zhanghai.android.fastscroll.FastScrollerBuilder
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @AndroidEntryPoint
-class PhotosFragment : Fragment(), DragSelectReceiver, FastScrollRecyclerView.SectionedAdapter {
+class PhotosFragment : Fragment(), DragSelectReceiver {
 
     private var _binding: FragmentPhotosBinding? = null
     private val binding get() = _binding!!
@@ -453,9 +453,6 @@ class PhotosFragment : Fragment(), DragSelectReceiver, FastScrollRecyclerView.Se
     override fun isIndexSelectable(index: Int): Boolean = index >= 0 && index < photoAdapter.itemCount && photoAdapter.getPhoto(index) != null
     override fun getItemCount(): Int = photoAdapter.itemCount
 
-    // ========== FastScrollRecyclerView.SectionedAdapter ==========
-    override fun getSectionName(position: Int): String = photoAdapter.getDateText(position)
-
     private fun showColumnsDialog() {
         val dialogBinding = DialogColumnsBinding.inflate(layoutInflater)
         when (currentSpanCount) {
@@ -547,6 +544,22 @@ class PhotosFragment : Fragment(), DragSelectReceiver, FastScrollRecyclerView.Se
         photoAdapter.addOnPagesUpdatedListener {
             updatePositionMap()
         }
+
+        // 设置 FastScroller
+        val thumbDrawable = requireContext().getDrawable(R.drawable.fastscroll_thumb_material)!!
+        val trackDrawable = requireContext().getDrawable(R.drawable.fastscroll_track_material)!!
+        
+        FastScrollerBuilder(binding.rvPhotos)
+            .setThumbDrawable(thumbDrawable)
+            .setTrackDrawable(trackDrawable)
+            .setPopupStyle { popupView ->
+                popupView.setTextSize(18f)
+                popupView.setTextColor(requireContext().getColor(R.color.white))
+                popupView.setBackgroundColor(requireContext().getColor(R.color.fastscroll_thumb))
+                // 增加内边距
+                popupView.setPadding(28, 18, 28, 18)
+            }
+            .build()
     }
 
     private fun updatePositionMap() {

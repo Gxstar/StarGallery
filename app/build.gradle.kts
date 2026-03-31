@@ -90,7 +90,7 @@ dependencies {
     implementation(libs.androidx.media3.ui)
 
     // 快速滚动
-    implementation(libs.recyclerview.fastscroll)
+    implementation(libs.android.fastscroll)
 
     // 拖动多选
     implementation(libs.drag.select.recyclerview)

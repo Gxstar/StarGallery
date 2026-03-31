@@ -12,6 +12,7 @@ import com.gxstar.stargallery.R
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.databinding.ItemDateHeaderBinding
 import com.gxstar.stargallery.databinding.ItemPhotoBinding
+import me.zhanghai.android.fastscroll.PopupTextProvider
 
 /**
  * Paging 3 照片适配器
@@ -25,7 +26,7 @@ class PhotoPagingAdapter(
     private val onPhotoLongClick: ((Photo) -> Boolean)? = null,
     private val isSelectionModeProvider: () -> Boolean = { false },
     private val isSelectedProvider: (Long) -> Boolean = { false }
-) : PagingDataAdapter<PhotoModel, RecyclerView.ViewHolder>(PHOTO_DIFF_CALLBACK) {
+) : PagingDataAdapter<PhotoModel, RecyclerView.ViewHolder>(PHOTO_DIFF_CALLBACK), PopupTextProvider {
 
     companion object {
         private const val TYPE_HEADER = 0
@@ -98,6 +99,11 @@ class PhotoPagingAdapter(
         if (position < 0 || position >= itemCount) return ""
         val item = getItem(position) ?: return ""
         return if (item is PhotoModel.SeparatorItem) item.dateText else ""
+    }
+
+    // ========== PopupTextProvider ==========
+    override fun getPopupText(view: View, position: Int): CharSequence {
+        return getDateText(position)
     }
 
     /**

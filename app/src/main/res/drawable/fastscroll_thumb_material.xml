@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 快速滚动滑块 -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 按下状态 -->
+    <item android:state_pressed="true">
+        <shape android:shape="rectangle">
+            <solid android:color="#FF007AFF" />
+            <corners android:radius="3dp" />
+            <size android:width="8dp" android:height="40dp" />
+        </shape>
+    </item>
+    <!-- 正常状态 -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#CC007AFF" />
+            <corners android:radius="3dp" />
+            <size android:width="8dp" android:height="40dp" />
+        </shape>
+    </item>
+</selector>
