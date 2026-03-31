@@ -563,22 +563,8 @@ class PhotosFragment : Fragment(), DragSelectReceiver {
     }
 
     private fun updatePositionMap() {
-        // 只更新可见范围内的位置映射，避免全量遍历
-        val first = gridLayoutManager.findFirstVisibleItemPosition()
-        val last = gridLayoutManager.findLastVisibleItemPosition()
-        if (first == RecyclerView.NO_POSITION || last == RecyclerView.NO_POSITION) return
-
-        // 清理旧映射中的不可见项
-        val iterator = photoIdToPosition.entries.iterator()
-        while (iterator.hasNext()) {
-            val entry = iterator.next()
-            if (entry.value < first - 50 || entry.value > last + 50) {
-                iterator.remove()
-            }
-        }
-
-        // 只更新可见范围内的项
-        for (i in maxOf(0, first - 20)..minOf(photoAdapter.itemCount - 1, last + 20)) {
+        // 更新所有位置映射（确保选择功能正常工作）
+        for (i in 0 until photoAdapter.itemCount) {
             photoAdapter.getPhoto(i)?.let { photoIdToPosition[it.id] = i }
         }
     }
@@ -600,8 +586,6 @@ class PhotosFragment : Fragment(), DragSelectReceiver {
         pagingDataJob = viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.photoPagingFlow.collectLatest { pagingData ->
-                    // 清空旧的位置映射，避免在数据更新期间使用旧映射
-                    photoIdToPosition.clear()
                     photoAdapter.submitData(pagingData)
                 }
             }
