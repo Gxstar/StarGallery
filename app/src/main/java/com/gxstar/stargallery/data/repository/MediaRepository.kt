@@ -26,7 +26,7 @@ class MediaRepository @Inject constructor(
      */
     enum class SortType {
         DATE_TAKEN,      // 拍摄时间
-        DATE_MODIFIED    // 修改时间
+        DATE_ADDED       // 创建时间
     }
 
     suspend fun getPhotos(page: Int, pageSize: Int = 50, sortType: SortType = SortType.DATE_TAKEN): List<Photo> = withContext(Dispatchers.IO) {
@@ -51,7 +51,7 @@ class MediaRepository @Inject constructor(
 
         val sortOrder = when (sortType) {
             SortType.DATE_TAKEN -> "${MediaStore.Images.Media.DATE_TAKEN} DESC"
-            SortType.DATE_MODIFIED -> "${MediaStore.Images.Media.DATE_MODIFIED} DESC"
+            SortType.DATE_ADDED -> "${MediaStore.Images.Media.DATE_ADDED} DESC"
         }
         val offset = page * pageSize
 
@@ -90,12 +90,44 @@ class MediaRepository @Inject constructor(
 
         val sortOrder = when (sortType) {
             SortType.DATE_TAKEN -> "${MediaStore.Images.Media.DATE_TAKEN} DESC"
-            SortType.DATE_MODIFIED -> "${MediaStore.Images.Media.DATE_MODIFIED} DESC"
+            SortType.DATE_ADDED -> "${MediaStore.Images.Media.DATE_ADDED} DESC"
         }
 
         contentResolver.query(uri, projection, null, null, sortOrder)?.use { cursor ->
             while (cursor.moveToNext()) {
                 photos.add(cursor.toPhoto())
+            }
+        }
+        photos
+    }
+
+    /**
+     * 加载全部媒体（图片+视频）到内存，用于自定义高级排序
+     */
+    suspend fun getAllMedia(): List<Photo> = withContext(Dispatchers.IO) {
+        val photos = mutableListOf<Photo>()
+        val uri = MediaStore.Files.getContentUri("external")
+        val selection = "(${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE} " +
+                "OR ${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO})"
+        val projection = arrayOf(
+            MediaStore.Files.FileColumns._ID,
+            MediaStore.Files.FileColumns.DATE_TAKEN,
+            MediaStore.Files.FileColumns.DATE_MODIFIED,
+            MediaStore.Files.FileColumns.DATE_ADDED,
+            MediaStore.Files.FileColumns.MIME_TYPE,
+            MediaStore.Files.FileColumns.WIDTH,
+            MediaStore.Files.FileColumns.HEIGHT,
+            MediaStore.Files.FileColumns.SIZE,
+            MediaStore.Files.FileColumns.BUCKET_ID,
+            MediaStore.Files.FileColumns.BUCKET_DISPLAY_NAME,
+            MediaStore.Files.FileColumns.ORIENTATION,
+            MediaStore.Files.FileColumns.IS_FAVORITE,
+            MediaStore.Files.FileColumns.MEDIA_TYPE
+        )
+        // 从 content resolver 加载所有基本属性到内存
+        contentResolver.query(uri, projection, selection, null, null)?.use { cursor ->
+            while (cursor.moveToNext()) {
+                photos.add(cursor.toMediaPhoto())
             }
         }
         photos
@@ -333,6 +365,39 @@ class MediaRepository @Inject constructor(
             longitude = getColumnIndex(MediaStore.Images.Media.LONGITUDE).takeIf { it >= 0 }?.let { getDouble(it) }?.takeIf { it != 0.0 },
             orientation = orientation,
             isFavorite = getInt(getColumnIndexOrThrow(MediaStore.Images.Media.IS_FAVORITE)) == 1
+        )
+    }
+
+    private fun Cursor.toMediaPhoto(): Photo {
+        val id = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns._ID))
+        val mimeType = getString(getColumnIndexOrThrow(MediaStore.Files.FileColumns.MIME_TYPE)) ?: "image/jpeg"
+        
+        // 根据MIME_TYPE确定URI类型（图片或视频）
+        val uri: Uri = if (mimeType.startsWith("video/")) {
+            ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id)
+        } else {
+            ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id)
+        }
+
+        val orientationIndex = getColumnIndex(MediaStore.Files.FileColumns.ORIENTATION)
+        val orientation = if (orientationIndex >= 0) getInt(orientationIndex) else 0
+
+        return Photo(
+            id = id,
+            uri = uri,
+            dateTaken = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_TAKEN)),
+            dateModified = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_MODIFIED)),
+            dateAdded = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_ADDED)),
+            mimeType = mimeType,
+            width = getInt(getColumnIndexOrThrow(MediaStore.Files.FileColumns.WIDTH)),
+            height = getInt(getColumnIndexOrThrow(MediaStore.Files.FileColumns.HEIGHT)),
+            size = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns.SIZE)),
+            bucketId = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns.BUCKET_ID)),
+            bucketName = getString(getColumnIndexOrThrow(MediaStore.Files.FileColumns.BUCKET_DISPLAY_NAME)) ?: "Unknown",
+            latitude = null,
+            longitude = null,
+            orientation = orientation,
+            isFavorite = getInt(getColumnIndexOrThrow(MediaStore.Files.FileColumns.IS_FAVORITE)) == 1
         )
     }
 }

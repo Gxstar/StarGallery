@@ -28,7 +28,7 @@ class PhotoDetailViewModel @Inject constructor(
     
     private val sortType = when (sortTypeValue) {
         0 -> MediaRepository.SortType.DATE_TAKEN
-        1 -> MediaRepository.SortType.DATE_MODIFIED
+        1 -> MediaRepository.SortType.DATE_ADDED
         else -> MediaRepository.SortType.DATE_TAKEN
     }
 

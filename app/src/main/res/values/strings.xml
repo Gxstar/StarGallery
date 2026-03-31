@@ -72,6 +72,13 @@
     <!-- 排序方式 -->
     <string name="sort_by">排序方式</string>
     <string name="sort_by_date_taken">拍摄时间</string>
-    <string name="sort_by_date_modified">修改时间</string>
+    <string name="sort_by_date_added">创建时间</string>
     <string name="select_sort">选择排序方式</string>
+    
+    <!-- 分组方式 -->
+    <string name="group_by">分组方式</string>
+    <string name="group_by_day">按日分组</string>
+    <string name="group_by_month">按月分组</string>
+    <string name="group_by_year">按年分组</string>
+    <string name="select_group">选择分组方式</string>
 </resources>

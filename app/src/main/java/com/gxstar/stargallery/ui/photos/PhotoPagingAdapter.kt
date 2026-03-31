@@ -49,6 +49,7 @@ class PhotoPagingAdapter(
     }
 
     override fun getItemViewType(position: Int): Int {
+        if (position < 0 || position >= itemCount) return TYPE_PHOTO
         return when (getItem(position)) {
             is PhotoModel.SeparatorItem -> TYPE_HEADER
             is PhotoModel.PhotoItem -> TYPE_PHOTO
@@ -88,12 +89,14 @@ class PhotoPagingAdapter(
     }
 
     fun getPhoto(position: Int): Photo? {
-        val item = getItem(position)
+        if (position < 0 || position >= itemCount) return null
+        val item = getItem(position) ?: return null
         return if (item is PhotoModel.PhotoItem) item.photo else null
     }
 
     fun getDateText(position: Int): String {
-        val item = getItem(position)
+        if (position < 0 || position >= itemCount) return ""
+        val item = getItem(position) ?: return ""
         return if (item is PhotoModel.SeparatorItem) item.dateText else ""
     }
 

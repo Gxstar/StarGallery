@@ -7,6 +7,9 @@
         android:id="@+id/action_sort"
         android:title="@string/sort_by" />
     <item
+        android:id="@+id/action_group"
+        android:title="@string/group_by" />
+    <item
         android:id="@+id/action_columns"
         android:title="@string/columns" />
 </menu>

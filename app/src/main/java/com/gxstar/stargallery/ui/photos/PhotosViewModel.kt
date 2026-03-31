@@ -10,7 +10,7 @@ import androidx.paging.cachedIn
 import androidx.paging.insertSeparators
 import androidx.paging.map
 import com.gxstar.stargallery.data.model.Photo
-import com.gxstar.stargallery.data.paging.PhotoPagingSource
+import com.gxstar.stargallery.data.paging.InMemoryPhotoPagingSource
 import com.gxstar.stargallery.data.repository.MediaRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -18,13 +18,19 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import javax.inject.Inject
+
+enum class GroupType {
+    DAY, MONTH, YEAR
+}
 
 @HiltViewModel
 class PhotosViewModel @Inject constructor(
@@ -39,25 +45,28 @@ class PhotosViewModel @Inject constructor(
     private val _currentSortType = MutableStateFlow(MediaRepository.SortType.DATE_TAKEN)
     val currentSortType: StateFlow<MediaRepository.SortType> = _currentSortType.asStateFlow()
 
+    private val _currentGroupType = MutableStateFlow(GroupType.DAY)
+    val currentGroupType: StateFlow<GroupType> = _currentGroupType.asStateFlow()
+
     private val _photoCount = MutableStateFlow(0)
     val photoCount: StateFlow<Int> = _photoCount.asStateFlow()
 
-    // 缓存的 Paging Flow，只创建一次
-    private var cachedPagingFlow: Flow<PagingData<PhotoModel>>? = null
-    private var cachedSortType: MediaRepository.SortType? = null
-
-    private val dateFormat = SimpleDateFormat("yyyy年M月d日", Locale.CHINA)
+    private val _allPhotos = MutableStateFlow<List<Photo>>(emptyList())
 
     init {
         loadPhotoCount()
+        loadAllPhotos()
     }
 
     fun setSortType(sortType: MediaRepository.SortType) {
         if (_currentSortType.value != sortType) {
             _currentSortType.value = sortType
-            // 清除缓存，下次获取时重新创建
-            cachedPagingFlow = null
-            cachedSortType = null
+        }
+    }
+
+    fun setGroupType(groupType: GroupType) {
+        if (_currentGroupType.value != groupType) {
+            _currentGroupType.value = groupType
         }
     }
 
@@ -67,91 +76,127 @@ class PhotosViewModel @Inject constructor(
         }
     }
 
+    private fun loadAllPhotos() {
+        viewModelScope.launch {
+            _allPhotos.value = mediaRepository.getAllMedia()
+        }
+    }
+
     /**
      * 获取带日期分组的Paging Flow
-     * 使用Paging 3官方推荐的insertSeparators方法
+     * 使用 flatMapLatest 响应排序/分组变化
+     * 注意: cachedIn 必须在 flatMapLatest 内部，确保每次变化时创建新的缓存
      */
-    fun getPhotoPagingFlow(): Flow<PagingData<PhotoModel>> {
-        // 如果排序类型改变或没有缓存，创建新的 Flow
-        if (cachedPagingFlow == null || cachedSortType != _currentSortType.value) {
-            cachedSortType = _currentSortType.value
-            cachedPagingFlow = Pager(
-                config = PagingConfig(
-                    pageSize = PAGE_SIZE,
-                    enablePlaceholders = false,
-                    initialLoadSize = PAGE_SIZE * 2,
-                    prefetchDistance = 30
-                ),
-                pagingSourceFactory = {
-                    PhotoPagingSource(context, _currentSortType.value)
-                }
-            ).flow
-                .map { pagingData -> 
-                    // 先将Photo转换为PhotoModel.PhotoItem
-                    pagingData.map { photo -> 
-                        PhotoModel.PhotoItem(photo) 
+    val photoPagingFlow: Flow<PagingData<PhotoModel>> = combine(
+        _allPhotos, _currentSortType, _currentGroupType
+    ) { photos, sortType, groupType ->
+        Triple(photos, sortType, groupType)
+    }.flatMapLatest { (photos, sortType, groupType) ->
+        // 在后台线程（Flow）中对内存相册进行复杂排序
+        val sortedPhotos = if (photos.isEmpty()) {
+            emptyList()
+        } else {
+            when (sortType) {
+                MediaRepository.SortType.DATE_TAKEN -> {
+                    // 当没有EXIF或者拍摄时间为0时，使用文件创建时间作为补充
+                    photos.sortedByDescending { photo ->
+                        if (photo.dateTaken > 0) photo.dateTaken else (photo.dateAdded * 1000L)
                     }
                 }
-                .map { pagingData ->
-                    // 使用insertSeparators插入日期分隔符
-                    pagingData.insertSeparators { before: PhotoModel.PhotoItem?, after: PhotoModel.PhotoItem? ->
-                        if (after == null) {
-                            // 到达列表末尾，不需要分隔符
-                            null
-                        } else if (before == null) {
-                            // 列表开头，显示第一个日期分隔符
-                            PhotoModel.SeparatorItem(getDateText(after.photo))
+                MediaRepository.SortType.DATE_ADDED -> {
+                    photos.sortedByDescending { it.dateAdded }
+                }
+            }
+        }
+
+        Pager(
+            config = PagingConfig(
+                pageSize = PAGE_SIZE,
+                enablePlaceholders = false,
+                initialLoadSize = PAGE_SIZE * 2,
+                prefetchDistance = 30
+            ),
+            pagingSourceFactory = {
+                InMemoryPhotoPagingSource(sortedPhotos)
+            }
+        ).flow
+            .map { pagingData ->
+                // 先将Photo转换为PhotoModel.PhotoItem
+                pagingData.map { photo ->
+                    PhotoModel.PhotoItem(photo)
+                }
+            }
+            .map { pagingData ->
+                // 使用insertSeparators插入日期分隔符
+                pagingData.insertSeparators { before: PhotoModel.PhotoItem?, after: PhotoModel.PhotoItem? ->
+                    if (after == null) {
+                        // 到达列表末尾，不需要分隔符
+                        null
+                    } else if (before == null) {
+                        // 列表开头，显示第一个日期分隔符
+                        PhotoModel.SeparatorItem(getDateText(after.photo, sortType, groupType))
+                    } else {
+                        // 比较前后两个item的日期，如果不同则插入分隔符
+                        val beforeDate = getDateText(before.photo, sortType, groupType)
+                        val afterDate = getDateText(after.photo, sortType, groupType)
+                        if (beforeDate != afterDate) {
+                            PhotoModel.SeparatorItem(afterDate)
                         } else {
-                            // 比较前后两个item的日期，如果不同则插入分隔符
-                            val beforeDate = getDateText(before.photo)
-                            val afterDate = getDateText(after.photo)
-                            if (beforeDate != afterDate) {
-                                PhotoModel.SeparatorItem(afterDate)
-                            } else {
-                                null
-                            }
+                            null
                         }
                     }
                 }
-                .cachedIn(viewModelScope)
-        }
-        return cachedPagingFlow!!
+            }
+            // cachedIn 放在 flatMapLatest 内部，确保每次排序/分组变化时重新缓存
+            .cachedIn(viewModelScope)
     }
 
     /**
      * 获取照片的显示日期文本
-     * 必须与排序逻辑完全一致：
-     * - DATE_TAKEN排序：COALESCE(NULLIF(DATE_TAKEN, 0), DATE_ADDED * 1000)
-     * - DATE_MODIFIED排序：DATE_MODIFIED * 1000
+     * 根据当前选择的日期分组方式 (日/月/年) 格式化
      */
-    private fun getDateText(photo: Photo): String {
+    private fun getDateText(photo: Photo, sortType: MediaRepository.SortType, groupType: GroupType): String {
         // 计算时间戳，与排序逻辑完全一致
-        val timestampMillis = when (_currentSortType.value) {
+        val timestampMillis = when (sortType) {
             MediaRepository.SortType.DATE_TAKEN -> {
-                // 优先DATE_TAKEN，为0时用DATE_ADDED * 1000
+                // 优先 DATE_TAKEN（毫秒），为 0 或负数时用 DATE_ADDED（秒转毫秒）
                 if (photo.dateTaken > 0) photo.dateTaken 
                 else photo.dateAdded * 1000L
             }
-            MediaRepository.SortType.DATE_MODIFIED -> photo.dateModified * 1000L
+            MediaRepository.SortType.DATE_ADDED -> photo.dateAdded * 1000L
         }
         
         val date = Date(timestampMillis)
+        
+        val formatStr = when (groupType) {
+            GroupType.DAY -> "yyyy年M月d日"
+            GroupType.MONTH -> "yyyy年M月"
+            GroupType.YEAR -> "yyyy年"
+        }
+        
+        val dateFormat = SimpleDateFormat(formatStr, Locale.CHINA)
         val dateStr = dateFormat.format(date)
         
-        // 获取今天和昨天的日期字符串
-        val calendar = Calendar.getInstance()
-        val todayStr = dateFormat.format(calendar.time)
-        calendar.add(Calendar.DAY_OF_YEAR, -1)
-        val yesterdayStr = dateFormat.format(calendar.time)
-        
-        return when (dateStr) {
-            todayStr -> "今天"
-            yesterdayStr -> "昨天"
-            else -> dateStr
+        // 只有选择“按日分组”时，才进行“今天”、“昨天”判断
+        if (groupType == GroupType.DAY) {
+            val calendar = Calendar.getInstance()
+            val todayStr = dateFormat.format(calendar.time)
+            calendar.add(Calendar.DAY_OF_YEAR, -1)
+            val yesterdayStr = dateFormat.format(calendar.time)
+            
+            return when (dateStr) {
+                todayStr -> "今天"
+                yesterdayStr -> "昨天"
+                else -> dateStr
+            }
         }
+        
+        return dateStr
     }
 
     fun refresh() {
         loadPhotoCount()
+        loadAllPhotos()
     }
 }
+

@@ -38,6 +38,7 @@ import com.gxstar.stargallery.databinding.FragmentPhotosBinding
 import com.permissionx.guolindev.PermissionX
 import com.simplecityapps.recyclerview_fastscroll.views.FastScrollRecyclerView
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -52,6 +53,8 @@ class PhotosFragment : Fragment(), DragSelectReceiver, FastScrollRecyclerView.Se
     private lateinit var photoAdapter: PhotoPagingAdapter
     private lateinit var gridLayoutManager: GridLayoutManager
     private lateinit var dragSelectTouchListener: DragSelectTouchListener
+    
+    private var pagingDataJob: Job? = null
 
     @Inject
     lateinit var sharedPreferences: SharedPreferences
@@ -104,7 +107,10 @@ class PhotosFragment : Fragment(), DragSelectReceiver, FastScrollRecyclerView.Se
         super.onViewCreated(view, savedInstanceState)
         loadSpanCount()
         calculateItemSize()
-        loadSortType().let { viewModel.setSortType(it) }
+        val savedSortType = loadSortType()
+        viewModel.setSortType(savedSortType)
+        val savedGroupType = loadGroupType()
+        viewModel.setGroupType(savedGroupType)
         setupRecyclerView()
         setupClickListeners()
         observeData()
@@ -289,6 +295,7 @@ class PhotosFragment : Fragment(), DragSelectReceiver, FastScrollRecyclerView.Se
                     true
                 }
                 R.id.action_sort -> { showSortDialog(); true }
+                R.id.action_group -> { showGroupDialog(); true }
                 R.id.action_columns -> { showColumnsDialog(); true }
                 else -> false
             }
@@ -298,10 +305,10 @@ class PhotosFragment : Fragment(), DragSelectReceiver, FastScrollRecyclerView.Se
 
     private fun showSortDialog() {
         val currentSortType = viewModel.currentSortType.value
-        val options = arrayOf(getString(R.string.sort_by_date_taken), getString(R.string.sort_by_date_modified))
+        val options = arrayOf(getString(R.string.sort_by_date_taken), getString(R.string.sort_by_date_added))
         val checkedItem = when (currentSortType) {
             MediaRepository.SortType.DATE_TAKEN -> 0
-            MediaRepository.SortType.DATE_MODIFIED -> 1
+            MediaRepository.SortType.DATE_ADDED -> 1
         }
 
         AlertDialog.Builder(requireContext())
@@ -309,12 +316,12 @@ class PhotosFragment : Fragment(), DragSelectReceiver, FastScrollRecyclerView.Se
             .setSingleChoiceItems(options, checkedItem) { dialog, which ->
                 val newSortType = when (which) {
                     0 -> MediaRepository.SortType.DATE_TAKEN
-                    1 -> MediaRepository.SortType.DATE_MODIFIED
+                    1 -> MediaRepository.SortType.DATE_ADDED
                     else -> MediaRepository.SortType.DATE_TAKEN
                 }
+                android.util.Log.d("PhotosFragment", "Changing sort type from $currentSortType to $newSortType")
                 saveSortType(newSortType)
                 viewModel.setSortType(newSortType)
-                observePagingData()
                 dialog.dismiss()
             }
             .setNegativeButton(R.string.cancel, null)
@@ -324,12 +331,56 @@ class PhotosFragment : Fragment(), DragSelectReceiver, FastScrollRecyclerView.Se
     private fun loadSortType(): MediaRepository.SortType {
         return when (sharedPreferences.getInt(KEY_SORT_TYPE, 0)) {
             0 -> MediaRepository.SortType.DATE_TAKEN
-            else -> MediaRepository.SortType.DATE_MODIFIED
+            else -> MediaRepository.SortType.DATE_ADDED
         }
     }
 
     private fun saveSortType(sortType: MediaRepository.SortType) {
         sharedPreferences.edit().putInt(KEY_SORT_TYPE, if (sortType == MediaRepository.SortType.DATE_TAKEN) 0 else 1).apply()
+    }
+
+    private fun showGroupDialog() {
+        val currentGroupType = viewModel.currentGroupType.value
+        val options = arrayOf(getString(R.string.group_by_day), getString(R.string.group_by_month), getString(R.string.group_by_year))
+        val checkedItem = when (currentGroupType) {
+            GroupType.DAY -> 0
+            GroupType.MONTH -> 1
+            GroupType.YEAR -> 2
+        }
+
+        AlertDialog.Builder(requireContext())
+            .setTitle(R.string.select_group)
+            .setSingleChoiceItems(options, checkedItem) { dialog, which ->
+                val newGroupType = when (which) {
+                    0 -> GroupType.DAY
+                    1 -> GroupType.MONTH
+                    2 -> GroupType.YEAR
+                    else -> GroupType.DAY
+                }
+                saveGroupType(newGroupType)
+                viewModel.setGroupType(newGroupType)
+                dialog.dismiss()
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
+    private fun loadGroupType(): GroupType {
+        return when (sharedPreferences.getInt(KEY_GROUP_TYPE, 0)) {
+            0 -> GroupType.DAY
+            1 -> GroupType.MONTH
+            2 -> GroupType.YEAR
+            else -> GroupType.DAY
+        }
+    }
+
+    private fun saveGroupType(groupType: GroupType) {
+        val value = when (groupType) {
+            GroupType.DAY -> 0
+            GroupType.MONTH -> 1
+            GroupType.YEAR -> 2
+        }
+        sharedPreferences.edit().putInt(KEY_GROUP_TYPE, value).apply()
     }
 
     private fun enterSelectionMode() {
@@ -533,9 +584,12 @@ class PhotosFragment : Fragment(), DragSelectReceiver, FastScrollRecyclerView.Se
     }
 
     private fun observePagingData() {
-        viewLifecycleOwner.lifecycleScope.launch {
+        pagingDataJob?.cancel()
+        pagingDataJob = viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.getPhotoPagingFlow().collectLatest { pagingData ->
+                viewModel.photoPagingFlow.collectLatest { pagingData ->
+                    // 清空旧的位置映射，避免在数据更新期间使用旧映射
+                    photoIdToPosition.clear()
                     photoAdapter.submitData(pagingData)
                 }
             }
@@ -555,6 +609,8 @@ class PhotosFragment : Fragment(), DragSelectReceiver, FastScrollRecyclerView.Se
     }
 
     override fun onDestroyView() {
+        pagingDataJob?.cancel()
+        pagingDataJob = null
         binding.rvPhotos.removeOnItemTouchListener(dragSelectTouchListener)
         binding.rvPhotos.adapter = null
         binding.rvPhotos.layoutManager = null
@@ -568,5 +624,6 @@ class PhotosFragment : Fragment(), DragSelectReceiver, FastScrollRecyclerView.Se
     companion object {
         private const val KEY_SPAN_COUNT = "span_count"
         private const val KEY_SORT_TYPE = "sort_type"
+        private const val KEY_GROUP_TYPE = "group_type"
     }
 }
