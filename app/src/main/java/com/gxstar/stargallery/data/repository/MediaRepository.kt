@@ -400,12 +400,15 @@ class MediaRepository @Inject constructor(
         val uri = MediaStore.Files.getContentUri("external")
         
         // 使用 Bundle 方式查询回收站内容 (Android 11+)
+        // MATCH_EXCLUDE = 0 (排除回收站)
+        // MATCH_INCLUDE = 1 (包含回收站和正常)
+        // MATCH_TRASHED = 2 (只显示回收站)
         val bundle = Bundle().apply {
             // 只查询回收站中的内容
-            putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, MediaStore.MATCH_TRASHED)
+            putInt("android:query-arg-match-trashed", 2)  // MATCH_TRASHED = 2
             // 按拍摄时间降序
-            putStringArray(MediaStore.QUERY_ARG_SORT_COLUMNS, arrayOf(MediaStore.Files.FileColumns.DATE_TAKEN))
-            putInt(MediaStore.QUERY_ARG_SORT_DIRECTION, MediaStore.QUERY_SORT_DIRECTION_DESCENDING)
+            putStringArray("android:query-arg-sort-columns", arrayOf(MediaStore.Files.FileColumns.DATE_TAKEN))
+            putInt("android:query-arg-sort-direction", 1)  // DESCENDING = 1
         }
         
         val projection = arrayOf(
