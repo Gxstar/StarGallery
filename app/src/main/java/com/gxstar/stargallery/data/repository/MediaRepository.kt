@@ -1,6 +1,7 @@
 package com.gxstar.stargallery.data.repository
 
 import android.app.PendingIntent
+import android.content.ContentResolver
 import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
@@ -126,7 +127,15 @@ class MediaRepository @Inject constructor(
             MediaStore.Files.FileColumns.MEDIA_TYPE
         )
         // 从 content resolver 加载所有基本属性到内存
-        contentResolver.query(uri, projection, selection, null, null)?.use { cursor ->
+        val bundle = Bundle().apply {
+            // 显式排除回收站项 (Android 11+)
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, 0) // MATCH_EXCLUDE = 0
+            }
+            putString(ContentResolver.QUERY_ARG_SQL_SELECTION, selection)
+        }
+
+        contentResolver.query(uri, projection, bundle, null)?.use { cursor ->
             while (cursor.moveToNext()) {
                 photos.add(cursor.toMediaPhoto())
             }
@@ -339,7 +348,13 @@ class MediaRepository @Inject constructor(
         val uri = MediaStore.Files.getContentUri("external")
         val selection = "(${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE} " +
                 "OR ${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO})"
-        contentResolver.query(uri, arrayOf(MediaStore.Files.FileColumns._ID), selection, null, null)?.use { cursor ->
+        val bundle = Bundle().apply {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, 0) // MATCH_EXCLUDE = 0
+            }
+            putString(ContentResolver.QUERY_ARG_SQL_SELECTION, selection)
+        }
+        contentResolver.query(uri, arrayOf(MediaStore.Files.FileColumns._ID), bundle, null)?.use { cursor ->
             cursor.count
         } ?: 0
     }
@@ -394,21 +409,35 @@ class MediaRepository @Inject constructor(
     
     /**
      * 获取回收站中的媒体（图片+视频）
+     * 仅在 Android 11+ (API 30+) 支持系统级回收站
      */
     suspend fun getTrashedMedia(): List<Photo> = withContext(Dispatchers.IO) {
         val photos = mutableListOf<Photo>()
+        
+        // 回收站功能仅在 Android 11+ (API 30+) 支持
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.R) {
+            return@withContext photos
+        }
+        
         val uri = MediaStore.Files.getContentUri("external")
         
-        // 使用 Bundle 方式查询回收站内容 (Android 11+)
-        // MATCH_EXCLUDE = 0 (排除回收站)
-        // MATCH_INCLUDE = 1 (包含回收站和正常)
-        // MATCH_TRASHED = 2 (只显示回收站)
         val bundle = Bundle().apply {
-            // 只查询回收站中的内容
-            putInt("android:query-arg-match-trashed", 2)  // MATCH_TRASHED = 2
+            // 将模式调整为 MATCH_INCLUDE (1) 以包含回收站项
+            // 同时配合 SQL 过滤 is_trashed = 1 以获取精确结果
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, 1) // MATCH_INCLUDE = 1
+            }
+            
+            // 明确增加过滤条件：is_trashed = 1 且必须是图片或视频
+            val selection = "(${MediaStore.MediaColumns.IS_TRASHED} = 1) AND " +
+                    "(${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE} " +
+                    "OR ${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO})"
+            
+            putString(ContentResolver.QUERY_ARG_SQL_SELECTION, selection)
+            
             // 按拍摄时间降序
-            putStringArray("android:query-arg-sort-columns", arrayOf(MediaStore.Files.FileColumns.DATE_TAKEN))
-            putInt("android:query-arg-sort-direction", 1)  // DESCENDING = 1
+            putStringArray(ContentResolver.QUERY_ARG_SORT_COLUMNS, arrayOf(MediaStore.Files.FileColumns.DATE_TAKEN))
+            putInt(ContentResolver.QUERY_ARG_SORT_DIRECTION, 1) // DESCENDING = 1
         }
         
         val projection = arrayOf(
