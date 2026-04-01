@@ -15,7 +15,6 @@ import android.widget.PopupMenu
 import android.widget.Toast
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.setFragmentResultListener
 import androidx.fragment.app.viewModels
@@ -31,11 +30,13 @@ import com.afollestad.dragselectrecyclerview.DragSelectTouchListener
 import com.bumptech.glide.Glide
 import com.bumptech.glide.integration.recyclerview.RecyclerViewPreloader
 import com.bumptech.glide.util.ViewPreloadSizeProvider
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.gxstar.stargallery.R
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.data.repository.MediaRepository
 import com.gxstar.stargallery.databinding.DialogColumnsBinding
 import com.gxstar.stargallery.databinding.FragmentPhotosBinding
+import com.gxstar.stargallery.ui.common.DeleteOptionsBottomSheet
 import com.permissionx.guolindev.PermissionX
 import dagger.hilt.android.AndroidEntryPoint
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
@@ -277,20 +278,10 @@ class PhotosFragment : Fragment(), DragSelectReceiver {
 
         if (photos.isEmpty()) return
 
-        // 显示选择对话框：移至回收站 / 永久删除
-        AlertDialog.Builder(requireContext())
-            .setTitle(R.string.delete_options_title)
-            .setItems(arrayOf(
-                getString(R.string.move_to_trash),
-                getString(R.string.delete_permanently)
-            )) { _, which ->
-                when (which) {
-                    0 -> moveToTrash(photos)
-                    1 -> deletePermanently(photos)
-                }
-            }
-            .setNegativeButton(R.string.cancel, null)
-            .show()
+        DeleteOptionsBottomSheet.newInstance(
+            onMoveToTrash = { moveToTrash(photos) },
+            onDeletePermanently = { deletePermanently(photos) }
+        ).show(childFragmentManager, DeleteOptionsBottomSheet.TAG)
     }
     
     private fun moveToTrash(photos: List<Photo>) {
@@ -366,7 +357,7 @@ class PhotosFragment : Fragment(), DragSelectReceiver {
             MediaRepository.SortType.DATE_ADDED -> 1
         }
 
-        AlertDialog.Builder(requireContext())
+        MaterialAlertDialogBuilder(requireContext())
             .setTitle(R.string.select_sort)
             .setSingleChoiceItems(options, checkedItem) { dialog, which ->
                 val newSortType = when (which) {
@@ -403,7 +394,7 @@ class PhotosFragment : Fragment(), DragSelectReceiver {
             GroupType.YEAR -> 2
         }
 
-        AlertDialog.Builder(requireContext())
+        MaterialAlertDialogBuilder(requireContext())
             .setTitle(R.string.select_group)
             .setSingleChoiceItems(options, checkedItem) { dialog, which ->
                 val newGroupType = when (which) {
@@ -519,7 +510,7 @@ class PhotosFragment : Fragment(), DragSelectReceiver {
             8 -> dialogBinding.rb8.isChecked = true
         }
 
-        AlertDialog.Builder(requireContext())
+        MaterialAlertDialogBuilder(requireContext())
             .setView(dialogBinding.root)
             .setPositiveButton(R.string.confirm) { _, _ ->
                 val newSpan = when {

@@ -57,4 +57,13 @@
         <item name="android:textSize">11sp</item>
     </style>
 
+    <!-- 自定义底部抽屉主题 -->
+    <style name="CustomBottomSheetDialogTheme" parent="Theme.Material3.Light.BottomSheetDialog">
+        <item name="bottomSheetStyle">@style/CustomBottomSheetStyle</item>
+    </style>
+
+    <style name="CustomBottomSheetStyle" parent="Widget.Material3.BottomSheet.Modal">
+        <item name="backgroundTint">@color/transparent</item>
+    </style>
+
 </resources>

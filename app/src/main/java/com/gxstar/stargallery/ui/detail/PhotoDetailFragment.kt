@@ -27,6 +27,7 @@ import androidx.viewpager2.widget.ViewPager2
 import com.gxstar.stargallery.R
 import com.gxstar.stargallery.data.repository.MediaRepository
 import com.gxstar.stargallery.databinding.FragmentPhotoDetailBinding
+import com.gxstar.stargallery.ui.common.DeleteOptionsBottomSheet
 import com.gxstar.stargallery.ui.photos.PhotosFragment
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -130,19 +131,10 @@ class PhotoDetailFragment : Fragment() {
     }
     
     private fun showDeleteOptionsDialog() {
-        AlertDialog.Builder(requireContext())
-            .setTitle(R.string.delete_options_title)
-            .setItems(arrayOf(
-                getString(R.string.move_to_trash),
-                getString(R.string.delete_permanently)
-            )) { _, which ->
-                when (which) {
-                    0 -> moveToTrash()
-                    1 -> deletePermanently()
-                }
-            }
-            .setNegativeButton(R.string.cancel, null)
-            .show()
+        DeleteOptionsBottomSheet.newInstance(
+            onMoveToTrash = { moveToTrash() },
+            onDeletePermanently = { deletePermanently() }
+        ).show(childFragmentManager, DeleteOptionsBottomSheet.TAG)
     }
     
     private fun moveToTrash() {

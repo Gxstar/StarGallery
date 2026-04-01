@@ -83,7 +83,8 @@
     <string name="select_group">选择分组方式</string>
     
     <!-- 删除选项 -->
-    <string name="delete_options_title">删除选项</string>
+    <string name="delete_options_title">删除媒体</string>
+    <string name="delete_options_subtitle">选中的媒体将执行以下操作</string>
     <string name="move_to_trash">移至回收站</string>
     <string name="delete_permanently">永久删除</string>
     <string name="moved_to_trash">已移至回收站</string>

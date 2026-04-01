@@ -128,10 +128,8 @@ class MediaRepository @Inject constructor(
         )
         // 从 content resolver 加载所有基本属性到内存
         val bundle = Bundle().apply {
-            // 显式排除回收站项 (Android 11+)
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-                putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, 0) // MATCH_EXCLUDE = 0
-            }
+            // 显式排除回收站项
+            putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, MediaStore.MATCH_EXCLUDE)
             putString(ContentResolver.QUERY_ARG_SQL_SELECTION, selection)
         }
 
@@ -349,9 +347,7 @@ class MediaRepository @Inject constructor(
         val selection = "(${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE} " +
                 "OR ${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO})"
         val bundle = Bundle().apply {
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-                putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, 0) // MATCH_EXCLUDE = 0
-            }
+            putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, MediaStore.MATCH_EXCLUDE)
             putString(ContentResolver.QUERY_ARG_SQL_SELECTION, selection)
         }
         contentResolver.query(uri, arrayOf(MediaStore.Files.FileColumns._ID), bundle, null)?.use { cursor ->
@@ -413,20 +409,11 @@ class MediaRepository @Inject constructor(
      */
     suspend fun getTrashedMedia(): List<Photo> = withContext(Dispatchers.IO) {
         val photos = mutableListOf<Photo>()
-        
-        // 回收站功能仅在 Android 11+ (API 30+) 支持
-        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.R) {
-            return@withContext photos
-        }
-        
         val uri = MediaStore.Files.getContentUri("external")
         
         val bundle = Bundle().apply {
-            // 将模式调整为 MATCH_INCLUDE (1) 以包含回收站项
-            // 同时配合 SQL 过滤 is_trashed = 1 以获取精确结果
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-                putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, 1) // MATCH_INCLUDE = 1
-            }
+            // 将模式调整为 MATCH_INCLUDE 以包含回收站项
+            putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, MediaStore.MATCH_INCLUDE)
             
             // 明确增加过滤条件：is_trashed = 1 且必须是图片或视频
             val selection = "(${MediaStore.MediaColumns.IS_TRASHED} = 1) AND " +
@@ -437,7 +424,7 @@ class MediaRepository @Inject constructor(
             
             // 按拍摄时间降序
             putStringArray(ContentResolver.QUERY_ARG_SORT_COLUMNS, arrayOf(MediaStore.Files.FileColumns.DATE_TAKEN))
-            putInt(ContentResolver.QUERY_ARG_SORT_DIRECTION, 1) // DESCENDING = 1
+            putInt(ContentResolver.QUERY_ARG_SORT_DIRECTION, ContentResolver.QUERY_SORT_DIRECTION_DESCENDING)
         }
         
         val projection = arrayOf(

@@ -39,4 +39,7 @@
     
     <!-- 收藏心形 -->
     <color name="heart_red">#FFFF3B30</color>
+    
+    <!-- 危险操作颜色 -->
+    <color name="delete_red">#FFFF453A</color>
 </resources>
