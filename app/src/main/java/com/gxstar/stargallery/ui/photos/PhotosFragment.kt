@@ -181,7 +181,8 @@ class PhotosFragment : Fragment(), DragSelectReceiver {
             .permissions(*permissions)
             .request { allGranted, _, _ ->
                 if (allGranted) {
-                    // 权限授予后立即开始观察数据
+                    // 权限授予后立即刷新数据并开始观察
+                    viewModel.refresh()
                     observePagingData()
                 }
             }
