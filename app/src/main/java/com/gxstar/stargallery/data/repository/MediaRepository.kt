@@ -6,6 +6,7 @@ import android.content.ContentValues
 import android.content.Context
 import android.database.Cursor
 import android.net.Uri
+import android.os.Bundle
 import android.provider.MediaStore
 import com.gxstar.stargallery.data.model.Album
 import com.gxstar.stargallery.data.model.Photo
@@ -374,6 +375,62 @@ class MediaRepository @Inject constructor(
             null
         }
     }
+    
+    /**
+     * 从回收站恢复照片 - 返回 IntentSender 供用户确认
+     */
+    fun restorePhotos(photos: List<Photo>): android.content.IntentSender? {
+        if (photos.isEmpty()) return null
+        
+        return try {
+            val uris = photos.map { it.uri }
+            val restoreRequest = MediaStore.createTrashRequest(contentResolver, uris, false)
+            restoreRequest.intentSender
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+    
+    /**
+     * 获取回收站中的媒体（图片+视频）
+     */
+    suspend fun getTrashedMedia(): List<Photo> = withContext(Dispatchers.IO) {
+        val photos = mutableListOf<Photo>()
+        val uri = MediaStore.Files.getContentUri("external")
+        
+        // 使用 Bundle 方式查询回收站内容 (Android 11+)
+        val bundle = Bundle().apply {
+            // 只查询回收站中的内容
+            putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, MediaStore.MATCH_TRASHED)
+            // 按拍摄时间降序
+            putStringArray(MediaStore.QUERY_ARG_SORT_COLUMNS, arrayOf(MediaStore.Files.FileColumns.DATE_TAKEN))
+            putInt(MediaStore.QUERY_ARG_SORT_DIRECTION, MediaStore.QUERY_SORT_DIRECTION_DESCENDING)
+        }
+        
+        val projection = arrayOf(
+            MediaStore.Files.FileColumns._ID,
+            MediaStore.Files.FileColumns.DATE_TAKEN,
+            MediaStore.Files.FileColumns.DATE_MODIFIED,
+            MediaStore.Files.FileColumns.DATE_ADDED,
+            MediaStore.Files.FileColumns.MIME_TYPE,
+            MediaStore.Files.FileColumns.WIDTH,
+            MediaStore.Files.FileColumns.HEIGHT,
+            MediaStore.Files.FileColumns.SIZE,
+            MediaStore.Files.FileColumns.BUCKET_ID,
+            MediaStore.Files.FileColumns.BUCKET_DISPLAY_NAME,
+            MediaStore.Files.FileColumns.ORIENTATION,
+            MediaStore.Files.FileColumns.IS_FAVORITE,
+            MediaStore.Files.FileColumns.MEDIA_TYPE
+        )
+        
+        contentResolver.query(uri, projection, bundle, null)?.use { cursor ->
+            while (cursor.moveToNext()) {
+                photos.add(cursor.toTrashedPhoto())
+            }
+        }
+        photos
+    }
 
     private fun Cursor.toPhoto(): Photo {
         val id = getLong(getColumnIndexOrThrow(MediaStore.Images.Media._ID))
@@ -406,6 +463,38 @@ class MediaRepository @Inject constructor(
         val mimeType = getString(getColumnIndexOrThrow(MediaStore.Files.FileColumns.MIME_TYPE)) ?: "image/jpeg"
         
         // 根据MIME_TYPE确定URI类型（图片或视频）
+        val uri: Uri = if (mimeType.startsWith("video/")) {
+            ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id)
+        } else {
+            ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id)
+        }
+
+        val orientationIndex = getColumnIndex(MediaStore.Files.FileColumns.ORIENTATION)
+        val orientation = if (orientationIndex >= 0) getInt(orientationIndex) else 0
+
+        return Photo(
+            id = id,
+            uri = uri,
+            dateTaken = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_TAKEN)),
+            dateModified = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_MODIFIED)),
+            dateAdded = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_ADDED)),
+            mimeType = mimeType,
+            width = getInt(getColumnIndexOrThrow(MediaStore.Files.FileColumns.WIDTH)),
+            height = getInt(getColumnIndexOrThrow(MediaStore.Files.FileColumns.HEIGHT)),
+            size = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns.SIZE)),
+            bucketId = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns.BUCKET_ID)),
+            bucketName = getString(getColumnIndexOrThrow(MediaStore.Files.FileColumns.BUCKET_DISPLAY_NAME)) ?: "Unknown",
+            latitude = null,
+            longitude = null,
+            orientation = orientation,
+            isFavorite = getInt(getColumnIndexOrThrow(MediaStore.Files.FileColumns.IS_FAVORITE)) == 1
+        )
+    }
+    
+    private fun Cursor.toTrashedPhoto(): Photo {
+        val id = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns._ID))
+        val mimeType = getString(getColumnIndexOrThrow(MediaStore.Files.FileColumns.MIME_TYPE)) ?: "image/jpeg"
+        
         val uri: Uri = if (mimeType.startsWith("video/")) {
             ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id)
         } else {

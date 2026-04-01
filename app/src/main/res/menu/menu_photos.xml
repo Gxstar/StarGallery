@@ -12,4 +12,7 @@
     <item
         android:id="@+id/action_columns"
         android:title="@string/columns" />
+    <item
+        android:id="@+id/action_trash"
+        android:title="@string/trash_title" />
 </menu>

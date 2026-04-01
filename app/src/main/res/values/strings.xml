@@ -89,4 +89,14 @@
     <string name="moved_to_trash">已移至回收站</string>
     <string name="move_to_trash_failed">移至回收站失败</string>
     <string name="delete_failed">删除失败</string>
+    
+    <!-- 回收站 -->
+    <string name="trash_title">回收站</string>
+    <string name="trash_empty">回收站是空的</string>
+    <string name="trash_count">%d项</string>
+    <string name="restore">恢复</string>
+    <string name="restored">已恢复</string>
+    <string name="restore_failed">恢复失败</string>
+    <string name="delete_permanently_confirm_title">永久删除</string>
+    <string name="delete_permanently_confirm_message">确定要永久删除选中的 %d 项吗？此操作无法撤销。</string>
 </resources>
