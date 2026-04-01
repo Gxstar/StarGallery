@@ -2,16 +2,14 @@ package com.gxstar.stargallery.ui.detail
 
 import android.content.Context
 import android.graphics.PointF
-import android.graphics.RectF
 import android.util.AttributeSet
 import android.view.MotionEvent
-import android.view.ViewParent
 import com.davemorrissey.labs.subscaleview.SubsamplingScaleImageView
 import kotlin.math.abs
 
 /**
  * 支持边缘滑动检测的 SubsamplingScaleImageView
- * 当图片放大后滑动到边缘时，允许 ViewPager2 接管滑动
+ * 当图片放大后滑动到边缘时，通知外部可以切换页面
  */
 class EdgeSubsamplingScaleImageView @JvmOverloads constructor(
     context: Context,
@@ -22,22 +20,22 @@ class EdgeSubsamplingScaleImageView @JvmOverloads constructor(
     var onEdgeSwipeListener: OnEdgeSwipeListener? = null
     
     // 触摸起始点
-    private var lastX = 0f
-    private var lastY = 0f
     private var downX = 0f
     private var downY = 0f
-    
-    // 是否正在检测边缘滑动
-    private var isEdgeSwiping = false
+    private var lastX = 0f
+    private var lastY = 0f
     
     // 边缘检测阈值（像素）
-    private val edgeThreshold = dpToPx(10)
+    private val edgeThreshold = dpToPx(5)
     
     // 滑动距离阈值
-    private val swipeThreshold = dpToPx(8)
+    private val swipeThreshold = dpToPx(10)
     
-    // 是否启用边缘滑动
-    var isEdgeSwipeEnabled = true
+    // 是否已经通知边缘滑动
+    private var hasNotifiedEdgeSwipe = false
+    
+    // 上一次检测到的边缘方向
+    private var lastEdgeDirection = 0  // 0: 无, 1: 左边缘, 2: 右边缘
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
         when (event.action) {
@@ -46,24 +44,34 @@ class EdgeSubsamplingScaleImageView @JvmOverloads constructor(
                 downY = event.y
                 lastX = event.x
                 lastY = event.y
-                isEdgeSwiping = false
+                hasNotifiedEdgeSwipe = false
+                lastEdgeDirection = 0
             }
             
             MotionEvent.ACTION_MOVE -> {
                 val dx = event.x - lastX
-                val dy = event.y - lastY
                 val totalDx = event.x - downX
-                val totalDy = event.y - downY
                 
                 // 检测是否为水平滑动
-                if (abs(totalDx) > abs(totalDy) && abs(totalDx) > swipeThreshold) {
-                    // 检测是否到达边缘
-                    if (isAtEdge(totalDx)) {
-                        isEdgeSwiping = true
-                        // 通知父控件（ViewPager2）可以接管滑动
-                        onEdgeSwipeListener?.onEdgeSwipe(totalDx > 0)
-                        parent.requestDisallowInterceptTouchEvent(false)
-                        return false
+                if (abs(totalDx) > swipeThreshold) {
+                    // 检测边缘状态
+                    val edgeInfo = getEdgeInfo()
+                    
+                    // 向右滑动（手指向右移动，想看左边内容或切换到上一张）
+                    if (dx > 0 && edgeInfo.isAtLeftEdge) {
+                        if (lastEdgeDirection != 1 && !hasNotifiedEdgeSwipe) {
+                            lastEdgeDirection = 1
+                            hasNotifiedEdgeSwipe = true
+                            onEdgeSwipeListener?.onEdgeSwipe(true)  // true = 向右滑 = 上一张
+                        }
+                    }
+                    // 向左滑动（手指向左移动，想看右边内容或切换到下一张）
+                    else if (dx < 0 && edgeInfo.isAtRightEdge) {
+                        if (lastEdgeDirection != 2 && !hasNotifiedEdgeSwipe) {
+                            lastEdgeDirection = 2
+                            hasNotifiedEdgeSwipe = true
+                            onEdgeSwipeListener?.onEdgeSwipe(false)  // false = 向左滑 = 下一张
+                        }
                     }
                 }
                 
@@ -72,7 +80,8 @@ class EdgeSubsamplingScaleImageView @JvmOverloads constructor(
             }
             
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                isEdgeSwiping = false
+                hasNotifiedEdgeSwipe = false
+                lastEdgeDirection = 0
             }
         }
         
@@ -80,57 +89,48 @@ class EdgeSubsamplingScaleImageView @JvmOverloads constructor(
     }
     
     /**
-     * 检测是否到达图片边缘
-     * @param swipeDirection 滑动方向，正数表示向右滑（显示左边内容），负数表示向左滑（显示右边内容）
+     * 获取边缘状态信息
      */
-    private fun isAtEdge(swipeDirection: Float): Boolean {
-        if (!isReady || !isEdgeSwipeEnabled) return false
+    private fun getEdgeInfo(): EdgeInfo {
+        if (!isReady) return EdgeInfo(false, false)
         
-        // 获取当前缩放比例
         val scale = scale
         val minScale = minScale
         
-        // 如果没有放大，允许 ViewPager2 接管
+        // 如果没有放大，认为两边都是边缘
         if (scale <= minScale * 1.01f) {
-            return true
+            return EdgeInfo(true, true)
         }
         
-        // 获取图片的可视区域
-        val center = center ?: return false
-        val sCenter = PointF(center.x, center.y)
-        
-        // 获取图片的边界
+        // 使用 SubsamplingScaleImageView 的 center 来判断位置
+        val center = center ?: return EdgeInfo(false, false)
         val sWidth = sWidth.toFloat()
-        val sHeight = sHeight.toFloat()
         
-        if (sWidth <= 0 || sHeight <= 0) return false
+        if (sWidth <= 0) return EdgeInfo(false, false)
         
-        // 计算当前显示的图片区域
+        // 计算图片内容在视图中的边界
+        // center 是图片坐标系中的中心点
+        // viewWidth 是视图宽度
         val viewWidth = width.toFloat()
-        val viewHeight = height.toFloat()
         
-        // 计算图片在视图中的位置
-        val leftEdge = (viewWidth - sWidth * scale) / 2f + center.x * scale - viewWidth / 2f
-        val rightEdge = leftEdge + sWidth * scale
+        // 图片内容左边在视图中的位置
+        val contentLeft = (viewWidth - sWidth * scale) / 2f + (center.x - sWidth / 2f) * scale
+        // 图片内容右边在视图中的位置
+        val contentRight = contentLeft + sWidth * scale
         
-        // 向右滑动（想看左边内容）时，检查是否已到达左边缘
-        if (swipeDirection > 0) {
-            // 左边缘检测：图片左边是否贴近视图左边
-            if (leftEdge >= -edgeThreshold) {
-                return true
-            }
-        }
+        // 判断是否到达左边缘：图片左边 >= 视图左边
+        val isAtLeftEdge = contentLeft >= -edgeThreshold
         
-        // 向左滑动（想看右边内容）时，检查是否已到达右边缘
-        if (swipeDirection < 0) {
-            // 右边缘检测：图片右边是否贴近视图右边
-            if (rightEdge <= viewWidth + edgeThreshold) {
-                return true
-            }
-        }
+        // 判断是否到达右边缘：图片右边 <= 视图右边
+        val isAtRightEdge = contentRight <= viewWidth + edgeThreshold
         
-        return false
+        return EdgeInfo(isAtLeftEdge, isAtRightEdge)
     }
+    
+    private data class EdgeInfo(
+        val isAtLeftEdge: Boolean,
+        val isAtRightEdge: Boolean
+    )
     
     private fun dpToPx(dp: Int): Float {
         return dp * resources.displayMetrics.density

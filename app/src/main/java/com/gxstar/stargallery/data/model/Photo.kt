@@ -67,7 +67,7 @@ data class Photo(
     /**
      * 获取基础格式名称
      */
-    private fun getBaseFormatName(): String {
+    fun getBaseFormatName(): String {
         return when (mimeType.lowercase()) {
             "image/jpeg" -> "JPG"
             "image/png" -> "PNG"

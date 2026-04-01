@@ -73,5 +73,13 @@ class PhotoPagerAdapter(
         photos.clear()
     }
     
+    /**
+     * 获取当前可见的 ViewHolder
+     */
+    fun getCurrentViewHolder(): PhotoPageViewHolder? {
+        // 找到第一个未回收的 ViewHolder
+        return viewHolders.values.firstOrNull()
+    }
+    
     class ViewHolder(val viewHolder: PhotoPageViewHolder) : RecyclerView.ViewHolder(viewHolder.binding.root)
 }

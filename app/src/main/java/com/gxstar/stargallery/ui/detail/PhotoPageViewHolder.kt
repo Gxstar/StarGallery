@@ -51,17 +51,91 @@ class PhotoPageViewHolder(
     // 单击判定阈值
     private val tapDistanceThreshold = 30f
     
+    // 边缘滑动检测
+    private var lastX = 0f
+    private var isAtLeftEdge = false
+    private var isAtRightEdge = false
+    
     init {
         setupEdgeSwipeDetection()
         setupTapDetection()
     }
     
     private fun setupEdgeSwipeDetection() {
-        binding.ivPhoto.onEdgeSwipeListener = object : EdgeSubsamplingScaleImageView.OnEdgeSwipeListener {
-            override fun onEdgeSwipe(isSwipeRight: Boolean) {
-                onEdgeSwipe?.invoke(isSwipeRight)
+        binding.ivPhoto.setOnTouchListener { v, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    lastX = event.x
+                    isAtLeftEdge = false
+                    isAtRightEdge = false
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val dx = event.x - lastX
+                    updateEdgeState()
+                    
+                    // 向右滑动（手指向右，想看左边内容或切换到上一张）
+                    if (dx > 0 && isAtLeftEdge) {
+                        onEdgeSwipe?.invoke(true)
+                        viewPagerSwipeController?.invoke(true)
+                    }
+                    // 向左滑动（手指向左，想看右边内容或切换到下一张）
+                    else if (dx < 0 && isAtRightEdge) {
+                        onEdgeSwipe?.invoke(false)
+                        viewPagerSwipeController?.invoke(true)
+                    }
+                    
+                    lastX = event.x
+                }
             }
+            // 返回 false 让事件继续传递给 SSIV
+            false
         }
+    }
+    
+    /**
+     * 更新边缘状态
+     */
+    private fun updateEdgeState() {
+        if (!binding.ivPhoto.isReady) {
+            isAtLeftEdge = true
+            isAtRightEdge = true
+            return
+        }
+        
+        val scale = binding.ivPhoto.scale
+        val minScale = binding.ivPhoto.minScale
+        
+        // 如果没有放大，两边都是边缘
+        if (scale <= minScale * 1.01f) {
+            isAtLeftEdge = true
+            isAtRightEdge = true
+            return
+        }
+        
+        // 获取图片可视区域
+        val center = binding.ivPhoto.center ?: PointF(0.5f, 0.5f)
+        val sWidth = binding.ivPhoto.sWidth.toFloat()
+        val viewWidth = binding.ivPhoto.width.toFloat()
+        
+        if (sWidth <= 0) {
+            isAtLeftEdge = true
+            isAtRightEdge = true
+            return
+        }
+        
+        // 计算可视区域的中心在图片坐标系中的位置（0-1 之间）
+        val centerX = center.x / sWidth
+        
+        // 计算可视区域的宽度占图片的比例
+        val visibleRatio = viewWidth / (sWidth * scale)
+        
+        // 计算可视区域左右边界在图片坐标系中的位置
+        val visibleLeft = centerX - visibleRatio / 2
+        val visibleRight = centerX + visibleRatio / 2
+        
+        // 判断是否到达边缘
+        isAtLeftEdge = visibleLeft <= 0.02f
+        isAtRightEdge = visibleRight >= 0.98f
     }
     
     /**
@@ -69,6 +143,23 @@ class PhotoPageViewHolder(
      * 使用延迟策略：单击延迟执行，如果在延迟期间有第二次点击则取消单击
      */
     private fun setupTapDetection() {
+        binding.ivPhoto.setOnImageEventListener(object : SubsamplingScaleImageView.OnImageEventListener {
+            override fun onReady() {
+                binding.progressBar.visibility = View.GONE
+                updateEdgeState()
+            }
+            override fun onImageLoaded() {
+                binding.progressBar.visibility = View.GONE
+                updateEdgeState()
+            }
+            override fun onPreviewLoadError(e: Exception?) {}
+            override fun onImageLoadError(e: Exception?) {
+                binding.progressBar.visibility = View.GONE
+            }
+            override fun onTileLoadError(e: Exception?) {}
+            override fun onPreviewReleased() {}
+        })
+        
         // 为 SSIV 设置触摸监听，处理单击并让双击传递给 SSIV
         binding.ivPhoto.setOnTouchListener { v, event ->
             when (event.action) {
@@ -76,6 +167,7 @@ class PhotoPageViewHolder(
                     downTime = System.currentTimeMillis()
                     downX = event.x
                     downY = event.y
+                    lastX = event.x
                 }
                 MotionEvent.ACTION_UP -> {
                     val upTime = System.currentTimeMillis()
@@ -108,8 +200,25 @@ class PhotoPageViewHolder(
                         }
                     }
                 }
+                MotionEvent.ACTION_MOVE -> {
+                    val dx = event.x - lastX
+                    updateEdgeState()
+                    
+                    // 向右滑动（手指向右，想看左边内容或切换到上一张）
+                    if (dx > 0 && isAtLeftEdge) {
+                        onEdgeSwipe?.invoke(true)
+                        viewPagerSwipeController?.invoke(true)
+                    }
+                    // 向左滑动（手指向左，想看右边内容或切换到下一张）
+                    else if (dx < 0 && isAtRightEdge) {
+                        onEdgeSwipe?.invoke(false)
+                        viewPagerSwipeController?.invoke(true)
+                    }
+                    
+                    lastX = event.x
+                }
             }
-            // 返回 false 让事件继续传递给 SSIV，SSIV 会处理双击放大
+            // 返回 false 让事件继续传递给 SSIV
             false
         }
         
@@ -131,11 +240,53 @@ class PhotoPageViewHolder(
         currentPhoto = photo
         binding.progressBar.visibility = View.VISIBLE
         
+        // 显示 RAW 标签
+        updateRawTag(photo)
+        
         when {
             photo.isVideo -> loadVideo(photo)
             photo.isGif -> loadGif(photo)
             else -> loadImage(photo)
         }
+    }
+    
+    /**
+     * 更新 RAW 标签显示
+     */
+    private fun updateRawTag(photo: Photo) {
+        when {
+            photo.isRaw -> {
+                binding.tvRawTag.visibility = View.VISIBLE
+                binding.tvRawTag.text = "RAW"
+            }
+            photo.pairedRawId != null -> {
+                // 如果是 JPG+RAW 组合，显示组合标签
+                binding.tvRawTag.visibility = View.VISIBLE
+                binding.tvRawTag.text = photo.getBaseFormatName()
+            }
+            else -> {
+                binding.tvRawTag.visibility = View.GONE
+            }
+        }
+    }
+    
+    /**
+     * 设置 RAW 标签可见性
+     */
+    fun setRawTagVisibility(visible: Boolean) {
+        if (visible && (currentPhoto?.isRaw == true || currentPhoto?.pairedRawId != null)) {
+            binding.tvRawTag.visibility = View.VISIBLE
+        } else {
+            binding.tvRawTag.visibility = View.GONE
+        }
+    }
+    
+    /**
+     * 检测图片是否处于放大状态
+     */
+    fun isImageZoomed(): Boolean {
+        if (!binding.ivPhoto.isReady) return false
+        return binding.ivPhoto.scale > binding.ivPhoto.minScale * 1.01f
     }
     
     /**
@@ -191,40 +342,6 @@ class PhotoPageViewHolder(
         // 设置图片旋转角度
         binding.ivPhoto.orientation = photo.orientation
         
-        binding.ivPhoto.setOnImageEventListener(object : SubsamplingScaleImageView.OnImageEventListener {
-            override fun onReady() {
-                binding.progressBar.visibility = View.GONE
-                // 图片加载完成，检测缩放状态控制 ViewPager2
-                updateViewPagerSwipeState()
-            }
-
-            override fun onImageLoaded() {
-                binding.progressBar.visibility = View.GONE
-                updateViewPagerSwipeState()
-            }
-
-            override fun onPreviewLoadError(e: Exception?) {}
-
-            override fun onImageLoadError(e: Exception?) {
-                binding.progressBar.visibility = View.GONE
-            }
-
-            override fun onTileLoadError(e: Exception?) {}
-
-            override fun onPreviewReleased() {}
-        })
-        
-        // 监听缩放变化
-        binding.ivPhoto.setOnStateChangedListener(object : SubsamplingScaleImageView.OnStateChangedListener {
-            override fun onScaleChanged(newScale: Float, origin: Int) {
-                updateViewPagerSwipeState()
-            }
-
-            override fun onCenterChanged(newCenter: PointF?, origin: Int) {
-                updateViewPagerSwipeState()
-            }
-        })
-        
         binding.ivPhoto.setDoubleTapZoomDuration(300)
         binding.ivPhoto.setDoubleTapZoomScale(3f)
         binding.ivPhoto.setMaxScale(5f)
@@ -250,21 +367,6 @@ class PhotoPageViewHolder(
                 }
             }
         }
-    }
-    
-    /**
-     * 更新 ViewPager2 滑动状态
-     * 图片放大时禁用 ViewPager2 滑动，恢复原大时启用
-     */
-    private fun updateViewPagerSwipeState() {
-        if (!binding.ivPhoto.isReady) return
-        
-        val scale = binding.ivPhoto.scale
-        val minScale = binding.ivPhoto.minScale
-        
-        // 只有在图片放大时才禁用 ViewPager2 滑动
-        val isZoomed = scale > minScale * 1.01f
-        viewPagerSwipeController?.invoke(!isZoomed)
     }
     
     /**
@@ -316,7 +418,6 @@ class PhotoPageViewHolder(
         // 清理图片资源
         binding.ivPhoto.recycle()
         binding.ivPhoto.setOnImageEventListener(null)
-        binding.ivPhoto.setOnStateChangedListener(null)
         binding.ivPhoto.setOnTouchListener(null)
         
         Glide.with(binding.root.context).clear(binding.ivGif)

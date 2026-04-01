@@ -54,6 +54,9 @@ class PhotoDetailFragment : Fragment() {
     // 是否处于全屏模式
     private var isFullscreen = false
     
+    // 当前页面是否可以左右滑动切换
+    private var canSwipeToSwitch = true
+    
     private val deleteRequestLauncher = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             Toast.makeText(requireContext(), R.string.deleted, Toast.LENGTH_SHORT).show()
@@ -88,12 +91,12 @@ class PhotoDetailFragment : Fragment() {
     private fun setupViewPager() {
         pagerAdapter = PhotoPagerAdapter(
             onEdgeSwipe = { isSwipeRight ->
-                // 边缘滑动时，短暂启用 ViewPager2 滑动
-                binding.viewPager.isUserInputEnabled = true
+                // 边缘滑动时，允许 ViewPager2 接管滑动
+                canSwipeToSwitch = true
             },
-            viewPagerSwipeController = { enabled ->
-                // 根据图片缩放状态控制 ViewPager2 滑动
-                binding.viewPager.isUserInputEnabled = enabled
+            viewPagerSwipeController = { canSwipe ->
+                // 根据图片缩放状态控制是否可以滑动切换
+                canSwipeToSwitch = canSwipe
             },
             onSingleTap = {
                 // 单击切换全屏模式
@@ -104,10 +107,41 @@ class PhotoDetailFragment : Fragment() {
         binding.viewPager.adapter = pagerAdapter
         binding.viewPager.offscreenPageLimit = 1
         
+        // 拦截 ViewPager2 的触摸事件，根据图片状态决定是否允许滑动
+        binding.viewPager.getChildAt(0).setOnTouchListener { v, event ->
+            val currentItem = pagerAdapter.getCurrentViewHolder()
+            val isImageZoomed = currentItem?.isImageZoomed() ?: false
+            
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    // 按下时，如果图片放大，禁止 ViewPager2 拦截
+                    if (isImageZoomed) {
+                        binding.viewPager.requestDisallowInterceptTouchEvent(true)
+                    }
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    // 移动时，根据当前状态和边缘检测决定是否允许 ViewPager2 拦截
+                    if (isImageZoomed && !canSwipeToSwitch) {
+                        binding.viewPager.requestDisallowInterceptTouchEvent(true)
+                    } else {
+                        binding.viewPager.requestDisallowInterceptTouchEvent(false)
+                    }
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    // 抬起时重置状态
+                    canSwipeToSwitch = true
+                    binding.viewPager.requestDisallowInterceptTouchEvent(false)
+                }
+            }
+            false
+        }
+        
         // 监听页面切换
         binding.viewPager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
             override fun onPageSelected(position: Int) {
                 viewModel.setPosition(position)
+                // 页面切换后重置状态
+                canSwipeToSwitch = true
             }
         })
     }
@@ -185,6 +219,9 @@ class PhotoDetailFragment : Fragment() {
             binding.rootContainer.setBackgroundColor(resources.getColor(R.color.black, null))
             binding.topBar.visibility = View.GONE
             binding.bottomBar.visibility = View.GONE
+            
+            // 同时隐藏 RAW 标签
+            pagerAdapter.getCurrentViewHolder()?.setRawTagVisibility(false)
         } else {
             // 退出全屏模式：显示系统栏和工具栏，背景变白
             controller.show(WindowInsetsCompat.Type.systemBars())
@@ -192,6 +229,9 @@ class PhotoDetailFragment : Fragment() {
             binding.rootContainer.setBackgroundColor(resources.getColor(R.color.white, null))
             binding.topBar.visibility = View.VISIBLE
             binding.bottomBar.visibility = View.VISIBLE
+            
+            // 显示 RAW 标签
+            pagerAdapter.getCurrentViewHolder()?.setRawTagVisibility(true)
         }
     }
     
