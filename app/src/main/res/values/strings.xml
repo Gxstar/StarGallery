@@ -81,4 +81,12 @@
     <string name="group_by_month">按月分组</string>
     <string name="group_by_year">按年分组</string>
     <string name="select_group">选择分组方式</string>
+    
+    <!-- 删除选项 -->
+    <string name="delete_options_title">删除选项</string>
+    <string name="move_to_trash">移至回收站</string>
+    <string name="delete_permanently">永久删除</string>
+    <string name="moved_to_trash">已移至回收站</string>
+    <string name="move_to_trash_failed">移至回收站失败</string>
+    <string name="delete_failed">删除失败</string>
 </resources>

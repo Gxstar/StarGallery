@@ -11,6 +11,7 @@ import android.view.ViewGroup
 import android.widget.Toast
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.core.os.bundleOf
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -24,6 +25,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.viewpager2.widget.ViewPager2
 import com.gxstar.stargallery.R
+import com.gxstar.stargallery.data.repository.MediaRepository
 import com.gxstar.stargallery.databinding.FragmentPhotoDetailBinding
 import com.gxstar.stargallery.ui.photos.PhotosFragment
 import dagger.hilt.android.AndroidEntryPoint
@@ -42,6 +44,9 @@ class PhotoDetailFragment : Fragment() {
     @Inject
     lateinit var sharedPreferences: android.content.SharedPreferences
     
+    @Inject
+    lateinit var mediaRepository: MediaRepository
+    
     private var startY = 0f
     private var isDragging = false
     
@@ -51,6 +56,15 @@ class PhotoDetailFragment : Fragment() {
     private val deleteRequestLauncher = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             Toast.makeText(requireContext(), R.string.deleted, Toast.LENGTH_SHORT).show()
+            // 通知首页刷新数据
+            setFragmentResult(PhotosFragment.REQUEST_KEY_PHOTO_DELETED, bundleOf())
+            findNavController().navigateUp()
+        }
+    }
+    
+    private val trashRequestLauncher = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            Toast.makeText(requireContext(), R.string.moved_to_trash, Toast.LENGTH_SHORT).show()
             // 通知首页刷新数据
             setFragmentResult(PhotosFragment.REQUEST_KEY_PHOTO_DELETED, bundleOf())
             findNavController().navigateUp()
@@ -107,17 +121,57 @@ class PhotoDetailFragment : Fragment() {
         }
 
         binding.btnDelete.setOnClickListener {
-            viewModel.deletePhoto { intentSender ->
-                if (intentSender != null) {
-                    deleteRequestLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
-                } else {
-                    Toast.makeText(requireContext(), "删除失败", Toast.LENGTH_SHORT).show()
-                }
-            }
+            showDeleteOptionsDialog()
         }
         
         binding.btnSend.setOnClickListener {
             shareMedia()
+        }
+    }
+    
+    private fun showDeleteOptionsDialog() {
+        AlertDialog.Builder(requireContext())
+            .setTitle(R.string.delete_options_title)
+            .setItems(arrayOf(
+                getString(R.string.move_to_trash),
+                getString(R.string.delete_permanently)
+            )) { _, which ->
+                when (which) {
+                    0 -> moveToTrash()
+                    1 -> deletePermanently()
+                }
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+    
+    private fun moveToTrash() {
+        viewModel.currentPhoto.value?.let { photo ->
+            mediaRepository.trashPhoto(photo)?.let { intentSender ->
+                try {
+                    trashRequestLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    Toast.makeText(requireContext(), R.string.move_to_trash_failed, Toast.LENGTH_SHORT).show()
+                }
+            } ?: run {
+                Toast.makeText(requireContext(), R.string.move_to_trash_failed, Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+    
+    private fun deletePermanently() {
+        viewModel.deletePhoto { intentSender ->
+            if (intentSender != null) {
+                try {
+                    deleteRequestLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    Toast.makeText(requireContext(), R.string.delete_failed, Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                Toast.makeText(requireContext(), R.string.delete_failed, Toast.LENGTH_SHORT).show()
+            }
         }
     }
     

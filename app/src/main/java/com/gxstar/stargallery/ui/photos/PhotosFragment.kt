@@ -83,6 +83,15 @@ class PhotosFragment : Fragment(), DragSelectReceiver {
         }
         exitSelectionMode()
     }
+    
+    // 移至回收站请求的 launcher
+    private val trashRequestLauncher = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            Toast.makeText(requireContext(), R.string.moved_to_trash, Toast.LENGTH_SHORT).show()
+            refreshData()
+        }
+        exitSelectionMode()
+    }
 
     // 收藏请求的 launcher
     private var pendingFavoriteAction = 0
@@ -268,16 +277,48 @@ class PhotosFragment : Fragment(), DragSelectReceiver {
 
         if (photos.isEmpty()) return
 
+        // 显示选择对话框：移至回收站 / 永久删除
+        AlertDialog.Builder(requireContext())
+            .setTitle(R.string.delete_options_title)
+            .setItems(arrayOf(
+                getString(R.string.move_to_trash),
+                getString(R.string.delete_permanently)
+            )) { _, which ->
+                when (which) {
+                    0 -> moveToTrash(photos)
+                    1 -> deletePermanently(photos)
+                }
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+    
+    private fun moveToTrash(photos: List<Photo>) {
+        mediaRepository.trashPhotos(photos)?.let { intentSender ->
+            try {
+                trashRequestLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
+            } catch (e: Exception) {
+                e.printStackTrace()
+                Toast.makeText(requireContext(), R.string.move_to_trash_failed, Toast.LENGTH_SHORT).show()
+                exitSelectionMode()
+            }
+        } ?: run {
+            Toast.makeText(requireContext(), R.string.move_to_trash_failed, Toast.LENGTH_SHORT).show()
+            exitSelectionMode()
+        }
+    }
+    
+    private fun deletePermanently(photos: List<Photo>) {
         mediaRepository.deletePhotos(photos)?.let { intentSender ->
             try {
                 deleteRequestLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
             } catch (e: Exception) {
                 e.printStackTrace()
-                Toast.makeText(requireContext(), "删除失败", Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), R.string.delete_failed, Toast.LENGTH_SHORT).show()
                 exitSelectionMode()
             }
         } ?: run {
-            Toast.makeText(requireContext(), "删除失败", Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), R.string.delete_failed, Toast.LENGTH_SHORT).show()
             exitSelectionMode()
         }
     }

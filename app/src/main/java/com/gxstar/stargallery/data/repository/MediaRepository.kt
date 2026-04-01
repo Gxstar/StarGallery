@@ -315,6 +315,23 @@ class MediaRepository @Inject constructor(
     }
     
     /**
+     * 将单张照片移至回收站 - 返回 IntentSender 供用户确认
+     */
+    fun trashPhoto(photo: Photo): android.content.IntentSender? {
+        return try {
+            val trashRequest = MediaStore.createTrashRequest(
+                contentResolver,
+                listOf(photo.uri),
+                true  // true = 移至回收站, false = 从回收站恢复
+            )
+            trashRequest.intentSender
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+    
+    /**
      * 获取媒体总数（图片+视频）
      */
     suspend fun getPhotoCount(): Int = withContext(Dispatchers.IO) {
@@ -336,6 +353,22 @@ class MediaRepository @Inject constructor(
             val uris = photos.map { it.uri }
             val deleteRequest = MediaStore.createDeleteRequest(contentResolver, uris)
             deleteRequest.intentSender
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+    
+    /**
+     * 批量将照片移至回收站 - 返回 IntentSender 供用户确认
+     */
+    fun trashPhotos(photos: List<Photo>): android.content.IntentSender? {
+        if (photos.isEmpty()) return null
+        
+        return try {
+            val uris = photos.map { it.uri }
+            val trashRequest = MediaStore.createTrashRequest(contentResolver, uris, true)
+            trashRequest.intentSender
         } catch (e: Exception) {
             e.printStackTrace()
             null
