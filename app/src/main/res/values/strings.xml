@@ -49,7 +49,9 @@
     
     <!-- 数量 -->
     <string name="photo_count">%d张</string>
+    <string name="favorite_count">%d张收藏</string>
     <string name="selected_count">已选%d项</string>
+    <string name="filter_favorites">筛选收藏</string>
     
     <!-- 权限 -->
     <string name="permission_required">需要存储权限</string>

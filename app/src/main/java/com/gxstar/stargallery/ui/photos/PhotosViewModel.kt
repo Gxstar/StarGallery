@@ -29,6 +29,8 @@ enum class GroupType {
     DAY, MONTH, YEAR
 }
 
+private data class Quadruple<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
+
 @HiltViewModel
 class PhotosViewModel @Inject constructor(
     private val mediaRepository: MediaRepository,
@@ -44,6 +46,9 @@ class PhotosViewModel @Inject constructor(
 
     private val _currentGroupType = MutableStateFlow(GroupType.DAY)
     val currentGroupType: StateFlow<GroupType> = _currentGroupType.asStateFlow()
+
+    private val _showFavoritesOnly = MutableStateFlow(false)
+    val showFavoritesOnly: StateFlow<Boolean> = _showFavoritesOnly.asStateFlow()
 
     private val _photoCount = MutableStateFlow(0)
     val photoCount: StateFlow<Int> = _photoCount.asStateFlow()
@@ -67,6 +72,10 @@ class PhotosViewModel @Inject constructor(
         }
     }
 
+    fun toggleFavoritesOnly() {
+        _showFavoritesOnly.value = !_showFavoritesOnly.value
+    }
+
     fun loadPhotoCount() {
         viewModelScope.launch {
             _photoCount.value = mediaRepository.getPhotoCount()
@@ -81,27 +90,34 @@ class PhotosViewModel @Inject constructor(
 
     /**
      * 获取带日期分组的Paging Flow
-     * 使用 flatMapLatest 响应排序/分组变化
+     * 使用 flatMapLatest 响应排序/分组/收藏筛选变化
      * 注意: cachedIn 必须在 flatMapLatest 内部，确保每次变化时创建新的缓存
      */
     val photoPagingFlow: Flow<PagingData<PhotoModel>> = combine(
-        _allPhotos, _currentSortType, _currentGroupType
-    ) { photos, sortType, groupType ->
-        Triple(photos, sortType, groupType)
-    }.flatMapLatest { (photos, sortType, groupType) ->
-        // 在后台线程（Flow）中对内存相册进行复杂排序
-        val sortedPhotos = if (photos.isEmpty()) {
+        _allPhotos, _currentSortType, _currentGroupType, _showFavoritesOnly
+    ) { photos, sortType, groupType, showFavoritesOnly ->
+        Quadruple(photos, sortType, groupType, showFavoritesOnly)
+    }.flatMapLatest { (photos, sortType, groupType, showFavoritesOnly) ->
+        // 在后台线程（Flow）中对内存相册进行复杂排序和筛选
+        var processedPhotos = photos
+
+        // 收藏筛选
+        if (showFavoritesOnly) {
+            processedPhotos = processedPhotos.filter { it.isFavorite }
+        }
+
+        val sortedPhotos = if (processedPhotos.isEmpty()) {
             emptyList()
         } else {
             when (sortType) {
                 MediaRepository.SortType.DATE_TAKEN -> {
                     // 当没有EXIF或者拍摄时间为0时，使用文件创建时间作为补充
-                    photos.sortedByDescending { photo ->
+                    processedPhotos.sortedByDescending { photo ->
                         if (photo.dateTaken > 0) photo.dateTaken else (photo.dateAdded * 1000L)
                     }
                 }
                 MediaRepository.SortType.DATE_ADDED -> {
-                    photos.sortedByDescending { it.dateAdded }
+                    processedPhotos.sortedByDescending { it.dateAdded }
                 }
             }
         }
@@ -155,5 +171,16 @@ class PhotosViewModel @Inject constructor(
     fun refresh() {
         loadPhotoCount()
         loadAllPhotos()
+    }
+
+    /**
+     * 获取当前显示的照片数量（考虑收藏筛选）
+     */
+    fun getCurrentPhotoCount(): Int {
+        return if (_showFavoritesOnly.value) {
+            _allPhotos.value.count { it.isFavorite }
+        } else {
+            _photoCount.value
+        }
     }
 }

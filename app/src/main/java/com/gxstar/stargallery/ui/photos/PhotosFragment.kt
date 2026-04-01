@@ -193,6 +193,11 @@ class PhotosFragment : Fragment(), DragSelectReceiver {
         binding.btnShare.setOnClickListener { shareSelectedPhotos() }
         binding.btnFavorite.setOnClickListener { favoriteSelectedPhotos() }
         binding.btnDelete.setOnClickListener { deleteSelectedPhotos() }
+        binding.btnFilter.setOnClickListener { toggleFavoritesFilter() }
+    }
+
+    private fun toggleFavoritesFilter() {
+        viewModel.toggleFavoritesOnly()
     }
 
     private fun shareSelectedPhotos() {
@@ -621,9 +626,32 @@ class PhotosFragment : Fragment(), DragSelectReceiver {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.photoCount.collect { count ->
-                    binding.tvSubtitle.text = getString(R.string.photo_count, count)
+                    updateSubtitle()
                 }
             }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.showFavoritesOnly.collect { showFavoritesOnly ->
+                    // 更新图标
+                    binding.btnFilter.setImageResource(
+                        if (showFavoritesOnly) R.drawable.ic_favorite_filled else R.drawable.ic_favorite
+                    )
+                    // 更新副标题
+                    updateSubtitle()
+                }
+            }
+        }
+    }
+
+    private fun updateSubtitle() {
+        val count = viewModel.getCurrentPhotoCount()
+        val showFavoritesOnly = viewModel.showFavoritesOnly.value
+        binding.tvSubtitle.text = if (showFavoritesOnly) {
+            getString(R.string.favorite_count, count)
+        } else {
+            getString(R.string.photo_count, count)
         }
     }
 
