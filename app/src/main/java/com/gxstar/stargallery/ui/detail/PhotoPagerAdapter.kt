@@ -55,6 +55,8 @@ class PhotoPagerAdapter(
     }
     
     override fun onViewRecycled(holder: ViewHolder) {
+        // 页面被回收时重置缩放
+        holder.viewHolder.resetZoom()
         holder.viewHolder.recycle()
         val position = holder.bindingAdapterPosition
         if (position != RecyclerView.NO_POSITION) {
@@ -79,6 +81,13 @@ class PhotoPagerAdapter(
     fun getCurrentViewHolder(): PhotoPageViewHolder? {
         // 找到第一个未回收的 ViewHolder
         return viewHolders.values.firstOrNull()
+    }
+    
+    /**
+     * 获取指定位置的 ViewHolder
+     */
+    fun getViewHolder(position: Int): PhotoPageViewHolder? {
+        return viewHolders[position]
     }
     
     class ViewHolder(val viewHolder: PhotoPageViewHolder) : RecyclerView.ViewHolder(viewHolder.binding.root)

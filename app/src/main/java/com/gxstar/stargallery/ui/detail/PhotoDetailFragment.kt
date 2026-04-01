@@ -107,6 +107,9 @@ class PhotoDetailFragment : Fragment() {
         binding.viewPager.adapter = pagerAdapter
         binding.viewPager.offscreenPageLimit = 1
         
+        // 记录上一个页面位置
+        var lastPosition = -1
+        
         // 拦截 ViewPager2 的触摸事件，根据图片状态决定是否允许滑动
         binding.viewPager.getChildAt(0).setOnTouchListener { v, event ->
             val currentItem = pagerAdapter.getCurrentViewHolder()
@@ -139,6 +142,12 @@ class PhotoDetailFragment : Fragment() {
         // 监听页面切换
         binding.viewPager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
             override fun onPageSelected(position: Int) {
+                // 页面切换完成后，重置前一个页面的缩放状态（此时前一个页面已不可见，重置是无感的）
+                if (lastPosition >= 0 && lastPosition != position) {
+                    pagerAdapter.getViewHolder(lastPosition)?.resetZoom()
+                }
+                lastPosition = position
+                
                 viewModel.setPosition(position)
                 // 页面切换后重置状态
                 canSwipeToSwitch = true

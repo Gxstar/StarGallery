@@ -342,9 +342,11 @@ class PhotoPageViewHolder(
         // 设置图片旋转角度
         binding.ivPhoto.orientation = photo.orientation
         
+        // 设置双击放大参数
         binding.ivPhoto.setDoubleTapZoomDuration(300)
-        binding.ivPhoto.setDoubleTapZoomScale(3f)
-        binding.ivPhoto.setMaxScale(5f)
+        // 双击放大倍率：从最小缩放 1.8 倍，更自然的放大效果
+        binding.ivPhoto.setDoubleTapZoomScale(1.8f)
+        binding.ivPhoto.setMaxScale(4f)
         
         // 异步加载图片
         CoroutineScope(Dispatchers.Main).launch {
@@ -404,6 +406,15 @@ class PhotoPageViewHolder(
     }
     
     /**
+     * 重置图片到原始大小
+     */
+    fun resetZoom() {
+        if (binding.ivPhoto.isReady) {
+            binding.ivPhoto.resetScaleAndCenter()
+        }
+    }
+    
+    /**
      * 清理资源
      */
     fun recycle() {
@@ -414,6 +425,9 @@ class PhotoPageViewHolder(
         
         tempFile?.delete()
         tempFile = null
+        
+        // 重置图片缩放状态
+        resetZoom()
         
         // 清理图片资源
         binding.ivPhoto.recycle()
