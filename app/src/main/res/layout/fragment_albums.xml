@@ -27,22 +27,6 @@
                 android:layout_height="wrap_content"
                 android:text="@string/albums_title" />
 
-            <ImageButton
-                android:id="@+id/btnSort"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:layout_gravity="end"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:src="@drawable/ic_filter" />
-
-            <ImageButton
-                android:id="@+id/btnAdd"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:layout_gravity="end"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:src="@drawable/ic_add" />
-
         </androidx.appcompat.widget.Toolbar>
 
     </com.google.android.material.appbar.AppBarLayout>
