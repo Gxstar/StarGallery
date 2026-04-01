@@ -286,14 +286,6 @@ class PhotoDetailFragment : Fragment() {
     private fun observeData() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.isLoading.collect { isLoading ->
-                    binding.progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
-                }
-            }
-        }
-        
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.photos.collect { photos ->
                     if (photos.isNotEmpty()) {
                         pagerAdapter.submitList(photos)
