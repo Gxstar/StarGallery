@@ -213,6 +213,7 @@ class PhotoViewHolder(
             )
             binding.ivFavorite.visibility = View.GONE
             binding.ivVideoIndicator.visibility = View.GONE
+            binding.tvFormatTag.visibility = View.GONE
             binding.ivPhoto.alpha = if (isSelected) 0.7f else 1.0f
         } else {
             binding.ivSelected.visibility = View.GONE
@@ -220,6 +221,15 @@ class PhotoViewHolder(
             binding.ivPhoto.alpha = 1.0f
             binding.ivFavorite.visibility = if (photo.isFavorite) View.VISIBLE else View.GONE
             binding.ivVideoIndicator.visibility = if (photo.isVideo) View.VISIBLE else View.GONE
+            
+            // 显示格式标签（RAW、JPG+RAW 等）
+            val formatTag = photo.formatTag
+            if (formatTag.isNotEmpty()) {
+                binding.tvFormatTag.visibility = View.VISIBLE
+                binding.tvFormatTag.text = formatTag
+            } else {
+                binding.tvFormatTag.visibility = View.GONE
+            }
         }
     }
 }

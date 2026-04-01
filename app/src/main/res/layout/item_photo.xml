@@ -38,6 +38,23 @@
             android:src="@drawable/ic_video_indicator"
             android:visibility="gone" />
 
+        <!-- 格式标签（RAW、JPG+RAW 等） -->
+        <TextView
+            android:id="@+id/tvFormatTag"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|start"
+            android:layout_margin="6dp"
+            android:background="#99000000"
+            android:paddingStart="6dp"
+            android:paddingEnd="6dp"
+            android:paddingTop="2dp"
+            android:paddingBottom="2dp"
+            android:textColor="@color/white"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
         <!-- 收藏红心图标 -->
         <ImageView
             android:id="@+id/ivFavorite"

@@ -105,6 +105,7 @@ class MediaRepository @Inject constructor(
 
     /**
      * 加载全部媒体（图片+视频）到内存，用于自定义高级排序
+     * 同名的普通图片和 RAW 照片会合并显示
      */
     suspend fun getAllMedia(): List<Photo> = withContext(Dispatchers.IO) {
         val photos = mutableListOf<Photo>()
@@ -124,7 +125,8 @@ class MediaRepository @Inject constructor(
             MediaStore.Files.FileColumns.BUCKET_DISPLAY_NAME,
             MediaStore.Files.FileColumns.ORIENTATION,
             MediaStore.Files.FileColumns.IS_FAVORITE,
-            MediaStore.Files.FileColumns.MEDIA_TYPE
+            MediaStore.Files.FileColumns.MEDIA_TYPE,
+            MediaStore.Files.FileColumns.DISPLAY_NAME
         )
         // 从 content resolver 加载所有基本属性到内存
         val bundle = Bundle().apply {
@@ -138,7 +140,85 @@ class MediaRepository @Inject constructor(
                 photos.add(cursor.toMediaPhoto())
             }
         }
-        photos
+        
+        // 合并同名照片（JPG+RAW 等）
+        mergeSameNamePhotos(photos)
+    }
+    
+    /**
+     * 合并同名照片：如果存在同名的普通图片和 RAW，则合并显示
+     * 优先级：普通图片 > RAW
+     */
+    private fun mergeSameNamePhotos(photos: List<Photo>): List<Photo> {
+        // 按 displayName（不含扩展名）分组
+        data class PhotoGroup(
+            val normalPhoto: Photo?,  // 普通格式照片
+            val rawPhoto: Photo?      // RAW 照片
+        )
+        
+        val groupedPhotos = mutableMapOf<String, PhotoGroup>()
+        
+        for (photo in photos) {
+            if (photo.displayName.isEmpty() || photo.isVideo) {
+                // 没有文件名或是视频，直接保留
+                continue
+            }
+            
+            val key = "${photo.bucketId}_${photo.displayName}"
+            
+            val existing = groupedPhotos[key]
+            if (photo.isRaw) {
+                // RAW 照片
+                val normalPhoto = existing?.normalPhoto
+                groupedPhotos[key] = PhotoGroup(normalPhoto, photo)
+            } else {
+                // 普通照片
+                val rawPhoto = existing?.rawPhoto
+                groupedPhotos[key] = PhotoGroup(photo, rawPhoto)
+            }
+        }
+        
+        // 构建结果列表
+        val result = mutableListOf<Photo>()
+        val processedKeys = mutableSetOf<String>()
+        
+        for (photo in photos) {
+            if (photo.isVideo) {
+                // 视频直接保留
+                result.add(photo)
+                continue
+            }
+            
+            if (photo.displayName.isEmpty()) {
+                result.add(photo)
+                continue
+            }
+            
+            val key = "${photo.bucketId}_${photo.displayName}"
+            
+            if (processedKeys.contains(key)) {
+                continue
+            }
+            
+            val group = groupedPhotos[key]
+            if (group != null) {
+                if (group.normalPhoto != null) {
+                    // 有普通格式照片，使用它作为主照片，并关联 RAW
+                    val mergedPhoto = group.normalPhoto.copy(
+                        pairedRawId = group.rawPhoto?.id
+                    )
+                    result.add(mergedPhoto)
+                } else if (group.rawPhoto != null) {
+                    // 只有 RAW 照片
+                    result.add(group.rawPhoto)
+                }
+                processedKeys.add(key)
+            } else {
+                result.add(photo)
+            }
+        }
+        
+        return result
     }
 
     suspend fun getPhotoById(id: Long): Photo? = withContext(Dispatchers.IO) {
@@ -473,6 +553,10 @@ class MediaRepository @Inject constructor(
 
         val orientationIndex = getColumnIndex(MediaStore.Files.FileColumns.ORIENTATION)
         val orientation = if (orientationIndex >= 0) getInt(orientationIndex) else 0
+        
+        // 获取文件名（不含扩展名），用于同名照片合并
+        val fileName = getColumnIndex(MediaStore.Files.FileColumns.DISPLAY_NAME).takeIf { it >= 0 }?.let { getString(it) } ?: ""
+        val displayName = fileName.substringBeforeLast(".")
 
         return Photo(
             id = id,
@@ -489,7 +573,8 @@ class MediaRepository @Inject constructor(
             latitude = null,
             longitude = null,
             orientation = orientation,
-            isFavorite = getInt(getColumnIndexOrThrow(MediaStore.Files.FileColumns.IS_FAVORITE)) == 1
+            isFavorite = getInt(getColumnIndexOrThrow(MediaStore.Files.FileColumns.IS_FAVORITE)) == 1,
+            displayName = displayName
         )
     }
     
