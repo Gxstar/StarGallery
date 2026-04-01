@@ -22,10 +22,6 @@ class AlbumsViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    init {
-        loadAlbums()
-    }
-
     fun loadAlbums() {
         viewModelScope.launch {
             _isLoading.value = true

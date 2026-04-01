@@ -81,8 +81,10 @@ class AlbumsFragment : Fragment() {
     }
 
     override fun onDestroyView() {
-        super.onDestroyView()
+        binding.rvAlbums.adapter = null
+        binding.rvAlbums.layoutManager = null
         _binding = null
+        super.onDestroyView()
     }
 }
 
@@ -115,7 +117,7 @@ class AlbumAdapter(
             binding.tvName.text = album.name
             binding.tvCount.text = "${album.photoCount}张"
             
-            Glide.with(binding.ivCover.context)
+            Glide.with(binding.root)
                 .load(album.coverUri)
                 .centerCrop()
                 .into(binding.ivCover)

@@ -171,56 +171,39 @@ class MediaRepository @Inject constructor(
         val albums = mutableListOf<Album>()
         val uri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
         val projection = arrayOf(
+            MediaStore.Images.Media._ID,
             MediaStore.Images.Media.BUCKET_ID,
             MediaStore.Images.Media.BUCKET_DISPLAY_NAME
         )
 
-        val bucketMap = mutableMapOf<Long, MutableList<Photo>>()
+        // 使用 Map 存储相册信息：bucketId -> (封面photoId, 相册名, 数量)
+        data class AlbumInfo(var coverPhotoId: Long, var name: String, var count: Int)
+        val albumMap = mutableMapOf<Long, AlbumInfo>()
 
-        contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
+        // 按拍摄时间降序，这样第一个遇到的图片就是最新/封面
+        contentResolver.query(uri, projection, null, null, "${MediaStore.Images.Media.DATE_TAKEN} DESC")?.use { cursor ->
+            val idIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
             val bucketIdIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.BUCKET_ID)
             val bucketNameIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.BUCKET_DISPLAY_NAME)
-            val idIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
 
             while (cursor.moveToNext()) {
-                val bucketId = cursor.getLong(bucketIdIndex)
                 val photoId = cursor.getLong(idIndex)
-                
-                if (!bucketMap.containsKey(bucketId)) {
-                    bucketMap[bucketId] = mutableListOf()
+                val bucketId = cursor.getLong(bucketIdIndex)
+                val bucketName = cursor.getString(bucketNameIndex) ?: "Unknown"
+
+                val existing = albumMap[bucketId]
+                if (existing != null) {
+                    existing.count++
+                } else {
+                    albumMap[bucketId] = AlbumInfo(photoId, bucketName, 1)
                 }
             }
         }
 
-        // 获取每个相册的照片数量和封面
-        for ((bucketId, _) in bucketMap) {
-            val countProjection = arrayOf(
-                MediaStore.Images.Media._ID,
-                MediaStore.Images.Media.BUCKET_DISPLAY_NAME
-            )
-            val selection = "${MediaStore.Images.Media.BUCKET_ID} = ?"
-            val selectionArgs = arrayOf(bucketId.toString())
-
-            var count = 0
-            var coverUri: Uri? = null
-            var albumName = ""
-
-            contentResolver.query(uri, countProjection, selection, selectionArgs, "${MediaStore.Images.Media.DATE_TAKEN} DESC")?.use { cursor ->
-                while (cursor.moveToNext()) {
-                    if (count == 0) {
-                        val idIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
-                        val nameIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.BUCKET_DISPLAY_NAME)
-                        val photoId = cursor.getLong(idIndex)
-                        coverUri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, photoId)
-                        albumName = cursor.getString(nameIndex) ?: "Unknown"
-                    }
-                    count++
-                }
-            }
-
-            if (count > 0) {
-                albums.add(Album(bucketId, albumName, coverUri, count))
-            }
+        // 转换为 Album 列表
+        for ((bucketId, info) in albumMap) {
+            val coverUri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, info.coverPhotoId)
+            albums.add(Album(bucketId, info.name, coverUri, info.count))
         }
 
         albums.sortedByDescending { it.photoCount }
