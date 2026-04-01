@@ -14,6 +14,21 @@ import com.gxstar.stargallery.databinding.ItemDateHeaderBinding
 import com.gxstar.stargallery.databinding.ItemPhotoBinding
 import me.zhanghai.android.fastscroll.PopupTextProvider
 
+// ==================== UI 模型 ====================
+
+/**
+ * 用于RecyclerView的UI模型
+ * 支持照片项和日期分隔符两种类型
+ */
+sealed class PhotoModel {
+    /** 照片项 */
+    data class PhotoItem(val photo: Photo) : PhotoModel()
+    /** 日期分隔符 */
+    data class SeparatorItem(val dateText: String) : PhotoModel()
+}
+
+// ==================== 适配器 ====================
+
 /**
  * Paging 3 照片适配器
  * 使用Paging 3官方推荐的insertSeparators方式
@@ -131,6 +146,8 @@ class PhotoPagingAdapter(
     }
 }
 
+// ==================== ViewHolder ====================
+
 class HeaderViewHolder(
     private val binding: ItemDateHeaderBinding
 ) : RecyclerView.ViewHolder(binding.root) {
@@ -202,7 +219,6 @@ class PhotoViewHolder(
             binding.selectionOverlay.visibility = View.GONE
             binding.ivPhoto.alpha = 1.0f
             binding.ivFavorite.visibility = if (photo.isFavorite) View.VISIBLE else View.GONE
-            // 显示视频图标
             binding.ivVideoIndicator.visibility = if (photo.isVideo) View.VISIBLE else View.GONE
         }
     }

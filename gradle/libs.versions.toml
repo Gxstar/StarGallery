@@ -29,8 +29,8 @@ navigation = "2.8.0"
 # 分页
 paging = "3.2.1"
 
-# 列表分组
-groupie = "2.10.1"
+# 列表分组 (未使用)
+# groupie = "2.10.1"
 
 # 权限
 permissionx = "1.7.1"
@@ -88,9 +88,9 @@ androidx-navigation-ui = { group = "androidx.navigation", name = "navigation-ui-
 # 分页
 androidx-paging-runtime = { group = "androidx.paging", name = "paging-runtime-ktx", version.ref = "paging" }
 
-# 列表分组
-groupie = { group = "com.github.lisawray.groupie", name = "groupie", version.ref = "groupie" }
-groupie-viewbinding = { group = "com.github.lisawray.groupie", name = "groupie-viewbinding", version.ref = "groupie" }
+# 列表分组 (未使用，已用 Paging 3 insertSeparators 替代)
+# groupie = { group = "com.github.lisawray.groupie", name = "groupie", version.ref = "groupie" }
+# groupie-viewbinding = { group = "com.github.lisawray.groupie", name = "groupie-viewbinding", version.ref = "groupie" }
 
 # 权限
 permissionx = { group = "com.guolindev.permissionx", name = "permissionx", version.ref = "permissionx" }

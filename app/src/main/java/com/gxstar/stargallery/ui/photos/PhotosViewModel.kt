@@ -12,6 +12,7 @@ import androidx.paging.map
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.data.paging.InMemoryPhotoPagingSource
 import com.gxstar.stargallery.data.repository.MediaRepository
+import com.gxstar.stargallery.ui.util.DateUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
@@ -22,10 +23,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.Date
-import java.util.Locale
 import javax.inject.Inject
 
 enum class GroupType {
@@ -138,11 +135,11 @@ class PhotosViewModel @Inject constructor(
                         null
                     } else if (before == null) {
                         // 列表开头，显示第一个日期分隔符
-                        PhotoModel.SeparatorItem(getDateText(after.photo, sortType, groupType))
+                        PhotoModel.SeparatorItem(DateUtils.formatDateText(after.photo, sortType, groupType))
                     } else {
                         // 比较前后两个item的日期，如果不同则插入分隔符
-                        val beforeDate = getDateText(before.photo, sortType, groupType)
-                        val afterDate = getDateText(after.photo, sortType, groupType)
+                        val beforeDate = DateUtils.formatDateText(before.photo, sortType, groupType)
+                        val afterDate = DateUtils.formatDateText(after.photo, sortType, groupType)
                         if (beforeDate != afterDate) {
                             PhotoModel.SeparatorItem(afterDate)
                         } else {
@@ -155,52 +152,8 @@ class PhotosViewModel @Inject constructor(
             .cachedIn(viewModelScope)
     }
 
-    /**
-     * 获取照片的显示日期文本
-     * 根据当前选择的日期分组方式 (日/月/年) 格式化
-     */
-    private fun getDateText(photo: Photo, sortType: MediaRepository.SortType, groupType: GroupType): String {
-        // 计算时间戳，与排序逻辑完全一致
-        val timestampMillis = when (sortType) {
-            MediaRepository.SortType.DATE_TAKEN -> {
-                // 优先 DATE_TAKEN（毫秒），为 0 或负数时用 DATE_ADDED（秒转毫秒）
-                if (photo.dateTaken > 0) photo.dateTaken 
-                else photo.dateAdded * 1000L
-            }
-            MediaRepository.SortType.DATE_ADDED -> photo.dateAdded * 1000L
-        }
-        
-        val date = Date(timestampMillis)
-        
-        val formatStr = when (groupType) {
-            GroupType.DAY -> "yyyy年M月d日"
-            GroupType.MONTH -> "yyyy年M月"
-            GroupType.YEAR -> "yyyy年"
-        }
-        
-        val dateFormat = SimpleDateFormat(formatStr, Locale.CHINA)
-        val dateStr = dateFormat.format(date)
-        
-        // 只有选择“按日分组”时，才进行“今天”、“昨天”判断
-        if (groupType == GroupType.DAY) {
-            val calendar = Calendar.getInstance()
-            val todayStr = dateFormat.format(calendar.time)
-            calendar.add(Calendar.DAY_OF_YEAR, -1)
-            val yesterdayStr = dateFormat.format(calendar.time)
-            
-            return when (dateStr) {
-                todayStr -> "今天"
-                yesterdayStr -> "昨天"
-                else -> dateStr
-            }
-        }
-        
-        return dateStr
-    }
-
     fun refresh() {
         loadPhotoCount()
         loadAllPhotos()
     }
 }
-

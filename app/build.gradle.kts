@@ -75,9 +75,9 @@ dependencies {
     // 分页 - Paging 3
     implementation(libs.androidx.paging.runtime)
 
-    // 列表分组 - Groupie
-    implementation(libs.groupie)
-    implementation(libs.groupie.viewbinding)
+    // 列表分组 - Groupie (未使用，已用 Paging 3 insertSeparators 替代)
+    // implementation(libs.groupie)
+    // implementation(libs.groupie.viewbinding)
 
     // 权限 - PermissionX
     implementation(libs.permissionx)

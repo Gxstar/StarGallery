@@ -6,14 +6,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.data.repository.MediaRepository
+import com.gxstar.stargallery.ui.util.DateUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import javax.inject.Inject
 
 @HiltViewModel
@@ -95,11 +93,8 @@ class PhotoDetailViewModel @Inject constructor(
     }
 
     private fun updateDateInfo(photo: Photo) {
-        val dateFormat = SimpleDateFormat("yyyy年M月d日", Locale.CHINA)
-        val timeFormat = SimpleDateFormat("HH:mm", Locale.CHINA)
-        
-        _dateText.value = dateFormat.format(Date(photo.dateTaken))
-        _infoText.value = timeFormat.format(Date(photo.dateTaken))
+        _dateText.value = DateUtils.formatDate(photo.dateTaken)
+        _infoText.value = DateUtils.formatTime(photo.dateTaken)
     }
 
     fun toggleFavorite() {

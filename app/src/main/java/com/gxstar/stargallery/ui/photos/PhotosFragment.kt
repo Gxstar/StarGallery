@@ -17,6 +17,7 @@ import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.setFragmentResultListener
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -111,10 +112,17 @@ class PhotosFragment : Fragment(), DragSelectReceiver {
         viewModel.setSortType(savedSortType)
         val savedGroupType = loadGroupType()
         viewModel.setGroupType(savedGroupType)
+        setupFragmentResultListener()
         setupRecyclerView()
         setupClickListeners()
         observeData()
         checkPermissions()
+    }
+
+    private fun setupFragmentResultListener() {
+        setFragmentResultListener(REQUEST_KEY_PHOTO_DELETED) { _, _ ->
+            refreshData()
+        }
     }
 
     override fun onResume() {
@@ -621,5 +629,7 @@ class PhotosFragment : Fragment(), DragSelectReceiver {
         private const val KEY_SPAN_COUNT = "span_count"
         private const val KEY_SORT_TYPE = "sort_type"
         private const val KEY_GROUP_TYPE = "group_type"
+        
+        const val REQUEST_KEY_PHOTO_DELETED = "photo_deleted"
     }
 }
