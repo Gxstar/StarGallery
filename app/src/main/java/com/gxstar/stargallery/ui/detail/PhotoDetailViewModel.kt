@@ -62,8 +62,8 @@ class PhotoDetailViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true
             
-            // 加载所有照片
-            val allPhotos = mediaRepository.getAllPhotos(sortType)
+            // 加载所有媒体（图片+视频）
+            val allPhotos = mediaRepository.getAllMedia(sortType)
             _photos.value = allPhotos
             
             // 找到初始照片的位置

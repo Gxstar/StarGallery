@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@android:color/transparent">
@@ -25,12 +26,35 @@
             android:scaleType="fitCenter"
             android:visibility="gone" />
 
+        <!-- 视频封面图 - 使用 Glide 加载视频第一帧 -->
+        <ImageView
+            android:id="@+id/ivVideoCover"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="fitCenter"
+            android:visibility="gone" />
+        
+        <!-- 视频播放按钮 -->
+        <ImageView
+            android:id="@+id/ivPlayButton"
+            android:layout_width="72dp"
+            android:layout_height="72dp"
+            android:layout_gravity="center"
+            android:src="@drawable/ic_play_circle"
+            android:visibility="gone"
+            android:background="@drawable/bg_play_button"
+            android:elevation="4dp" />
+
         <!-- 视频播放器 - Media3 ExoPlayer -->
         <androidx.media3.ui.PlayerView
             android:id="@+id/videoView"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:visibility="gone" />
+            android:visibility="gone"
+            app:show_buffering="when_playing"
+            app:use_controller="true"
+            app:resize_mode="fit"
+            app:surface_type="surface_view" />
 
     </FrameLayout>
 

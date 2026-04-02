@@ -362,6 +362,9 @@ class PhotoDetailFragment : Fragment() {
         // 清理资源
         pagerAdapter.clear()
         
+        // 释放视频播放器
+        ExoPlayerManager.release()
+        
         // 退出时恢复系统栏显示
         try {
             val activity = activity

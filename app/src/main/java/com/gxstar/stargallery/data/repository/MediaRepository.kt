@@ -107,7 +107,7 @@ class MediaRepository @Inject constructor(
      * 加载全部媒体（图片+视频）到内存，用于自定义高级排序
      * 同名的普通图片和 RAW 照片会合并显示
      */
-    suspend fun getAllMedia(): List<Photo> = withContext(Dispatchers.IO) {
+    suspend fun getAllMedia(sortType: SortType = SortType.DATE_TAKEN): List<Photo> = withContext(Dispatchers.IO) {
         val photos = mutableListOf<Photo>()
         val uri = MediaStore.Files.getContentUri("external")
         val selection = "(${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE} " +
@@ -128,11 +128,24 @@ class MediaRepository @Inject constructor(
             MediaStore.Files.FileColumns.MEDIA_TYPE,
             MediaStore.Files.FileColumns.DISPLAY_NAME
         )
+        
+        val sortOrder = when (sortType) {
+            SortType.DATE_TAKEN -> "${MediaStore.Files.FileColumns.DATE_TAKEN} DESC"
+            SortType.DATE_ADDED -> "${MediaStore.Files.FileColumns.DATE_ADDED} DESC"
+        }
+        
         // 从 content resolver 加载所有基本属性到内存
         val bundle = Bundle().apply {
             // 显式排除回收站项
             putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, MediaStore.MATCH_EXCLUDE)
             putString(ContentResolver.QUERY_ARG_SQL_SELECTION, selection)
+            putStringArray(ContentResolver.QUERY_ARG_SORT_COLUMNS, arrayOf(
+                when (sortType) {
+                    SortType.DATE_TAKEN -> MediaStore.Files.FileColumns.DATE_TAKEN
+                    SortType.DATE_ADDED -> MediaStore.Files.FileColumns.DATE_ADDED
+                }
+            ))
+            putInt(ContentResolver.QUERY_ARG_SORT_DIRECTION, ContentResolver.QUERY_SORT_DIRECTION_DESCENDING)
         }
 
         contentResolver.query(uri, projection, bundle, null)?.use { cursor ->

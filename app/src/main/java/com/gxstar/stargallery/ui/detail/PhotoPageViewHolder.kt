@@ -236,6 +236,7 @@ class PhotoPageViewHolder(
     /**
      * 绑定照片数据
      */
+    @OptIn(UnstableApi::class)
     fun bind(photo: Photo) {
         currentPhoto = photo
         binding.progressBar.visibility = View.VISIBLE
@@ -243,11 +244,35 @@ class PhotoPageViewHolder(
         // 显示 RAW 标签
         updateRawTag(photo)
         
-        when {
-            photo.isVideo -> loadVideo(photo)
-            photo.isGif -> loadGif(photo)
-            else -> loadImage(photo)
+        // 如果是视频且正在播放，恢复播放状态
+        if (photo.isVideo && ExoPlayerManager.getCurrentVideoId() == photo.id) {
+            restoreVideoPlayback(photo)
+        } else {
+            when {
+                photo.isVideo -> loadVideo(photo)
+                photo.isGif -> loadGif(photo)
+                else -> loadImage(photo)
+            }
         }
+    }
+    
+    /**
+     * 恢复视频播放状态（滑动回来时）
+     */
+    @OptIn(UnstableApi::class)
+    private fun restoreVideoPlayback(photo: Photo) {
+        binding.ivPhoto.visibility = View.GONE
+        binding.ivGif.visibility = View.GONE
+        binding.ivVideoCover.visibility = View.GONE
+        binding.ivPlayButton.visibility = View.GONE
+        binding.videoView.visibility = View.VISIBLE
+        
+        viewPagerSwipeController?.invoke(true)
+        
+        exoPlayer = ExoPlayerManager.getPlayer(binding.root.context)
+        binding.videoView.player = exoPlayer
+        
+        binding.progressBar.visibility = View.GONE
     }
     
     /**
@@ -296,20 +321,55 @@ class PhotoPageViewHolder(
     private fun loadVideo(photo: Photo) {
         binding.ivPhoto.visibility = View.GONE
         binding.ivGif.visibility = View.GONE
-        binding.videoView.visibility = View.VISIBLE
         
         // 视频时启用 ViewPager2 滑动
         viewPagerSwipeController?.invoke(true)
         
-        exoPlayer = ExoPlayer.Builder(binding.root.context).build().apply {
-            binding.videoView.player = this
-            val mediaItem = MediaItem.fromUri(photo.uri)
-            setMediaItem(mediaItem)
-            prepare()
-            playWhenReady = true
+        // 显示视频封面和播放按钮
+        binding.ivVideoCover.visibility = View.VISIBLE
+        binding.ivPlayButton.visibility = View.VISIBLE
+        binding.videoView.visibility = View.GONE
+        
+        // 使用 Glide 加载视频第一帧作为封面
+        Glide.with(binding.root.context)
+            .load(photo.uri)
+            .placeholder(android.R.color.black)
+            .into(binding.ivVideoCover)
+        
+        // 点击播放按钮开始播放
+        binding.ivPlayButton.setOnClickListener {
+            startVideoPlayback(photo)
+        }
+        
+        // 点击封面也触发播放
+        binding.ivVideoCover.setOnClickListener {
+            startVideoPlayback(photo)
         }
         
         binding.progressBar.visibility = View.GONE
+    }
+    
+    /**
+     * 开始视频播放
+     */
+    @OptIn(UnstableApi::class)
+    private fun startVideoPlayback(photo: Photo) {
+        // 隐藏封面和播放按钮
+        binding.ivVideoCover.visibility = View.GONE
+        binding.ivPlayButton.visibility = View.GONE
+        
+        // 显示播放器
+        binding.videoView.visibility = View.VISIBLE
+        
+        // 使用单例播放器
+        exoPlayer = ExoPlayerManager.getPlayer(binding.root.context)
+        binding.videoView.player = exoPlayer
+        
+        // 如果正在播放其他视频，先停止
+        if (ExoPlayerManager.getCurrentVideoId() != photo.id) {
+            ExoPlayerManager.clear()
+            ExoPlayerManager.play(photo.id, photo.uri, autoPlay = true)
+        }
     }
     
     /**
@@ -420,7 +480,8 @@ class PhotoPageViewHolder(
     fun recycle() {
         handler.removeCallbacksAndMessages(null)
         
-        exoPlayer?.release()
+        // 清理视频播放器引用（但不释放单例）
+        binding.videoView.player = null
         exoPlayer = null
         
         tempFile?.delete()
@@ -435,6 +496,11 @@ class PhotoPageViewHolder(
         binding.ivPhoto.setOnTouchListener(null)
         
         Glide.with(binding.root.context).clear(binding.ivGif)
+        Glide.with(binding.root.context).clear(binding.ivVideoCover)
+        
+        // 重置视频相关视图
+        binding.ivVideoCover.visibility = View.GONE
+        binding.ivPlayButton.visibility = View.GONE
     }
     
     companion object {
