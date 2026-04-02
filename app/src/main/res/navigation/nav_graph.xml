@@ -10,7 +10,11 @@
         android:label="@string/photos_title">
         <action
             android:id="@+id/action_photosFragment_to_photoDetailFragment"
-            app:destination="@id/photoDetailFragment" />
+            app:destination="@id/photoDetailFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right" />
         <action
             android:id="@+id/action_photosFragment_to_trashFragment"
             app:destination="@id/trashFragment" />
@@ -50,7 +54,11 @@
             app:argType="string" />
         <action
             android:id="@+id/action_albumDetailFragment_to_photoDetailFragment"
-            app:destination="@id/photoDetailFragment" />
+            app:destination="@id/photoDetailFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right" />
     </fragment>
 
     <fragment
