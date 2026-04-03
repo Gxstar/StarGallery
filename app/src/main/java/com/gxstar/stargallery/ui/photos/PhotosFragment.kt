@@ -34,7 +34,6 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.gxstar.stargallery.R
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.data.repository.MediaRepository
-import com.gxstar.stargallery.databinding.DialogColumnsBinding
 import com.gxstar.stargallery.databinding.FragmentPhotosBinding
 import com.gxstar.stargallery.ui.common.DeleteOptionsBottomSheet
 import com.permissionx.guolindev.PermissionX
@@ -506,31 +505,17 @@ class PhotosFragment : Fragment(), DragSelectReceiver {
     override fun getItemCount(): Int = photoAdapter.itemCount
 
     private fun showColumnsDialog() {
-        val dialogBinding = DialogColumnsBinding.inflate(layoutInflater)
-        when (currentSpanCount) {
-            3 -> dialogBinding.rb3.isChecked = true
-            4 -> dialogBinding.rb4.isChecked = true
-            5 -> dialogBinding.rb5.isChecked = true
-            6 -> dialogBinding.rb6.isChecked = true
-            7 -> dialogBinding.rb7.isChecked = true
-            8 -> dialogBinding.rb8.isChecked = true
-        }
+        val options = arrayOf("3", "4", "5", "6", "7", "8")
+        val checkedItem = currentSpanCount - 3 // 3列对应索引0，4列对应索引1，以此类推
 
         MaterialAlertDialogBuilder(requireContext())
-            .setView(dialogBinding.root)
-            .setPositiveButton(R.string.confirm) { _, _ ->
-                val newSpan = when {
-                    dialogBinding.rb3.isChecked -> 3
-                    dialogBinding.rb4.isChecked -> 4
-                    dialogBinding.rb5.isChecked -> 5
-                    dialogBinding.rb6.isChecked -> 6
-                    dialogBinding.rb7.isChecked -> 7
-                    dialogBinding.rb8.isChecked -> 8
-                    else -> 4
-                }
+            .setTitle(R.string.select_columns)
+            .setSingleChoiceItems(options, checkedItem) { dialog, which ->
+                val newSpan = which + 3 // 索引0对应3列，索引1对应4列，以此类推
                 if (newSpan != currentSpanCount) {
                     updateSpanCount(newSpan)
                 }
+                dialog.dismiss()
             }
             .setNegativeButton(R.string.cancel, null)
             .show()

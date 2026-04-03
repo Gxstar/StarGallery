@@ -400,38 +400,44 @@ class AlbumDetailFragment : Fragment(), DragSelectReceiver {
     }
 
     private fun showColumnsDialog() {
-        val dialogBinding = com.gxstar.stargallery.databinding.DialogColumnsBinding.inflate(layoutInflater)
-        when (currentSpanCount) {
-            3 -> dialogBinding.rb3.isChecked = true
-            4 -> dialogBinding.rb4.isChecked = true
-            5 -> dialogBinding.rb5.isChecked = true
-            6 -> dialogBinding.rb6.isChecked = true
-            7 -> dialogBinding.rb7.isChecked = true
-            8 -> dialogBinding.rb8.isChecked = true
-        }
+        val options = arrayOf("3", "4", "5", "6", "7", "8")
+        val checkedItem = currentSpanCount - 3 // 3列对应索引0，4列对应索引1，以此类推
 
         MaterialAlertDialogBuilder(requireContext())
-            .setView(dialogBinding.root)
-            .setPositiveButton(R.string.confirm) { _, _ ->
-                val newSpan = when {
-                    dialogBinding.rb3.isChecked -> 3
-                    dialogBinding.rb4.isChecked -> 4
-                    dialogBinding.rb5.isChecked -> 5
-                    dialogBinding.rb6.isChecked -> 6
-                    dialogBinding.rb7.isChecked -> 7
-                    dialogBinding.rb8.isChecked -> 8
-                    else -> 4
-                }
+            .setTitle(R.string.select_columns)
+            .setSingleChoiceItems(options, checkedItem) { dialog, which ->
+                val newSpan = which + 3 // 索引0对应3列，索引1对应4列，以此类推
                 if (newSpan != currentSpanCount) {
-                    sharedPreferences.edit().putInt(KEY_SPAN_COUNT, newSpan).apply()
-                    currentSpanCount = newSpan
-                    calculateItemSize()
-                    setupRecyclerView()
-                    observePagingData()
+                    updateSpanCount(newSpan)
                 }
+                dialog.dismiss()
             }
             .setNegativeButton(R.string.cancel, null)
             .show()
+    }
+    
+    /**
+     * 更新列数（丝滑切换，不重建 RecyclerView）
+     */
+    private fun updateSpanCount(newSpanCount: Int) {
+        // 保存新的列数
+        sharedPreferences.edit().putInt(KEY_SPAN_COUNT, newSpanCount).apply()
+        currentSpanCount = newSpanCount
+        
+        // 重新计算图片大小
+        calculateItemSize()
+        
+        // 更新 LayoutManager 的列数
+        gridLayoutManager.spanCount = newSpanCount
+        
+        // 更新适配器配置
+        photoAdapter.updateConfig(itemSize, newSpanCount)
+        
+        // 更新 ItemDecoration（需要移除旧的再添加新的）
+        while (binding.rvPhotos.itemDecorationCount > 0) {
+            binding.rvPhotos.removeItemDecorationAt(0)
+        }
+        binding.rvPhotos.addItemDecoration(GridSpacingItemDecoration(newSpanCount, dpToPx(2), true))
     }
 
     private fun enterSelectionMode() {
