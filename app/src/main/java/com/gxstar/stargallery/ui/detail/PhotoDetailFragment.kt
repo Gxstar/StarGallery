@@ -3,6 +3,7 @@ package com.gxstar.stargallery.ui.detail
 import android.app.Activity
 import android.content.Intent
 import android.content.IntentSender
+import android.graphics.Color
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.MotionEvent
@@ -11,8 +12,8 @@ import android.view.ViewGroup
 import android.widget.Toast
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AlertDialog
 import androidx.core.os.bundleOf
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -43,9 +44,6 @@ class PhotoDetailFragment : Fragment() {
     private lateinit var pagerAdapter: PhotoPagerAdapter
     
     @Inject
-    lateinit var sharedPreferences: android.content.SharedPreferences
-    
-    @Inject
     lateinit var mediaRepository: MediaRepository
     
     private var startY = 0f
@@ -60,7 +58,6 @@ class PhotoDetailFragment : Fragment() {
     private val deleteRequestLauncher = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             Toast.makeText(requireContext(), R.string.deleted, Toast.LENGTH_SHORT).show()
-            // 通知首页刷新数据
             setFragmentResult(PhotosFragment.REQUEST_KEY_PHOTO_DELETED, bundleOf())
             handlePhotoDeleted()
         }
@@ -69,30 +66,18 @@ class PhotoDetailFragment : Fragment() {
     private val trashRequestLauncher = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             Toast.makeText(requireContext(), R.string.moved_to_trash, Toast.LENGTH_SHORT).show()
-            // 通知首页刷新数据
             setFragmentResult(PhotosFragment.REQUEST_KEY_PHOTO_DELETED, bundleOf())
             handlePhotoDeleted()
         }
     }
     
-    /**
-     * 处理照片删除后的逻辑
-     * 如果还有剩余照片，滑动到下一张；否则返回列表页
-     */
     private fun handlePhotoDeleted() {
         val currentPosition = binding.viewPager.currentItem
-        
-        // 从适配器中移除当前照片（先移除，实现动画效果）
         pagerAdapter.removePhotoAt(currentPosition)
-        
-        // 从 ViewModel 中移除并检查是否还有剩余照片
         val hasMorePhotos = viewModel.removeCurrentPhoto(currentPosition)
-        
         if (!hasMorePhotos) {
-            // 没有剩余照片，返回列表页
             findNavController().navigateUp()
         }
-        // 如果还有剩余照片，ViewPager 会自动显示下一张（原来位置的照片被删除后，后面的照片前移）
     }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
@@ -102,48 +87,54 @@ class PhotoDetailFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        setupWindowInsets()
         setupViewPager()
         setupViews()
         setupSwipeToDismiss()
         observeData()
+        
+        // 初始状态下应用状态栏图标颜色
+        updateSystemBarIcons(!isFullscreen)
+    }
+
+    /**
+     * 设置 Window Insets 监听
+     * 处理顶栏和底栏的 Padding，使其完美避开状态栏和导航栏
+     */
+    private fun setupWindowInsets() {
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, windowInsets ->
+            val systemBars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
+            
+            // 顶栏增加状态栏高度的 padding
+            binding.topBar.setPadding(0, systemBars.top, 0, 0)
+            // 底栏增加导航栏高度的 padding
+            binding.bottomBar.setPadding(0, binding.bottomBar.paddingTop, 0, systemBars.bottom)
+            
+            windowInsets
+        }
     }
 
     private fun setupViewPager() {
         pagerAdapter = PhotoPagerAdapter(
-            onEdgeSwipe = { isSwipeRight ->
-                // 边缘滑动时，允许 ViewPager2 接管滑动
-                canSwipeToSwitch = true
-            },
-            viewPagerSwipeController = { canSwipe ->
-                // 根据图片缩放状态控制是否可以滑动切换
-                canSwipeToSwitch = canSwipe
-            },
-            onSingleTap = {
-                // 单击切换全屏模式
-                toggleFullscreen()
-            }
+            onEdgeSwipe = { canSwipeToSwitch = true },
+            viewPagerSwipeController = { canSwipe -> canSwipeToSwitch = canSwipe },
+            onSingleTap = { toggleFullscreen() }
         )
         
         binding.viewPager.adapter = pagerAdapter
         binding.viewPager.offscreenPageLimit = 1
         
-        // 记录上一个页面位置
         var lastPosition = -1
         
-        // 拦截 ViewPager2 的触摸事件，根据图片状态决定是否允许滑动
         binding.viewPager.getChildAt(0).setOnTouchListener { v, event ->
             val currentItem = pagerAdapter.getCurrentViewHolder()
             val isImageZoomed = currentItem?.isImageZoomed() ?: false
             
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
-                    // 按下时，如果图片放大，禁止 ViewPager2 拦截
-                    if (isImageZoomed) {
-                        binding.viewPager.requestDisallowInterceptTouchEvent(true)
-                    }
+                    if (isImageZoomed) binding.viewPager.requestDisallowInterceptTouchEvent(true)
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    // 移动时，根据当前状态和边缘检测决定是否允许 ViewPager2 拦截
                     if (isImageZoomed && !canSwipeToSwitch) {
                         binding.viewPager.requestDisallowInterceptTouchEvent(true)
                     } else {
@@ -151,7 +142,6 @@ class PhotoDetailFragment : Fragment() {
                     }
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    // 抬起时重置状态
                     canSwipeToSwitch = true
                     binding.viewPager.requestDisallowInterceptTouchEvent(false)
                 }
@@ -159,17 +149,13 @@ class PhotoDetailFragment : Fragment() {
             false
         }
         
-        // 监听页面切换
         binding.viewPager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
             override fun onPageSelected(position: Int) {
-                // 页面切换完成后，重置前一个页面的缩放状态（此时前一个页面已不可见，重置是无感的）
                 if (lastPosition >= 0 && lastPosition != position) {
                     pagerAdapter.getViewHolder(lastPosition)?.resetZoom()
                 }
                 lastPosition = position
-                
                 viewModel.setPosition(position)
-                // 页面切换后重置状态
                 canSwipeToSwitch = true
             }
         })
@@ -191,6 +177,11 @@ class PhotoDetailFragment : Fragment() {
         binding.btnSend.setOnClickListener {
             shareMedia()
         }
+
+        binding.btnInfo.setOnClickListener {
+            // 这里可以展示更多信息弹窗或跳转
+            Toast.makeText(requireContext(), R.string.more_info_not_implemented, Toast.LENGTH_SHORT).show()
+        }
     }
     
     private fun showDeleteOptionsDialog() {
@@ -206,11 +197,8 @@ class PhotoDetailFragment : Fragment() {
                 try {
                     trashRequestLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
                 } catch (e: Exception) {
-                    e.printStackTrace()
                     Toast.makeText(requireContext(), R.string.move_to_trash_failed, Toast.LENGTH_SHORT).show()
                 }
-            } ?: run {
-                Toast.makeText(requireContext(), R.string.move_to_trash_failed, Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -221,52 +209,61 @@ class PhotoDetailFragment : Fragment() {
                 try {
                     deleteRequestLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
                 } catch (e: Exception) {
-                    e.printStackTrace()
                     Toast.makeText(requireContext(), R.string.delete_failed, Toast.LENGTH_SHORT).show()
                 }
-            } else {
-                Toast.makeText(requireContext(), R.string.delete_failed, Toast.LENGTH_SHORT).show()
             }
         }
     }
     
     /**
      * 切换全屏模式
+     * 采用平滑的 Alpha 动画切换工具栏可见性
      */
     private fun toggleFullscreen() {
         isFullscreen = !isFullscreen
         
-        val activity = requireActivity()
-        val window = activity.window
-        val controller = WindowCompat.getInsetsController(window, window.decorView)
+        val controller = WindowCompat.getInsetsController(requireActivity().window, requireActivity().window.decorView)
         
         if (isFullscreen) {
-            // 进入全屏模式：隐藏系统栏和工具栏，背景变黑
+            // 隐藏系统栏
             controller.hide(WindowInsetsCompat.Type.systemBars())
             controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             
-            binding.rootContainer.setBackgroundColor(resources.getColor(R.color.black, null))
-            binding.topBar.visibility = View.GONE
-            binding.bottomBar.visibility = View.GONE
-            
-            // 同时隐藏 RAW 标签
+            // 动画切换背景和工具栏
+            binding.rootContainer.setBackgroundColor(Color.BLACK)
+            fadeView(binding.topBar, false)
+            fadeView(binding.bottomBar, false)
             pagerAdapter.getCurrentViewHolder()?.setRawTagVisibility(false)
         } else {
-            // 退出全屏模式：显示系统栏和工具栏，背景变白
+            // 显示系统栏
             controller.show(WindowInsetsCompat.Type.systemBars())
             
-            binding.rootContainer.setBackgroundColor(resources.getColor(R.color.white, null))
-            binding.topBar.visibility = View.VISIBLE
-            binding.bottomBar.visibility = View.VISIBLE
-            
-            // 显示 RAW 标签
+            binding.rootContainer.setBackgroundColor(Color.WHITE)
+            fadeView(binding.topBar, true)
+            fadeView(binding.bottomBar, true)
             pagerAdapter.getCurrentViewHolder()?.setRawTagVisibility(true)
+        }
+        
+        updateSystemBarIcons(!isFullscreen)
+    }
+
+    private fun fadeView(view: View, show: Boolean) {
+        view.animate()
+            .alpha(if (show) 1f else 0f)
+            .setDuration(200)
+            .withStartAction { if (show) view.visibility = View.VISIBLE }
+            .withEndAction { if (!show) view.visibility = View.GONE }
+            .start()
+    }
+
+    private fun updateSystemBarIcons(lightBars: Boolean) {
+        val window = requireActivity().window
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            isAppearanceLightStatusBars = lightBars
+            isAppearanceLightNavigationBars = lightBars
         }
     }
     
-    /**
-     * 设置下拉返回功能
-     */
     private fun setupSwipeToDismiss() {
         binding.viewPager.setOnTouchListener { _, event ->
             when (event.action) {
@@ -276,9 +273,7 @@ class PhotoDetailFragment : Fragment() {
                 }
                 MotionEvent.ACTION_MOVE -> {
                     val deltaY = event.rawY - startY
-                    if (kotlin.math.abs(deltaY) > 50) {
-                        isDragging = true
-                    }
+                    if (kotlin.math.abs(deltaY) > 50) isDragging = true
                     if (isDragging) {
                         val alpha = 1f - kotlin.math.abs(deltaY) / 500f
                         binding.viewPager.alpha = alpha.coerceIn(0.3f, 1f)
@@ -309,8 +304,6 @@ class PhotoDetailFragment : Fragment() {
                 viewModel.photos.collect { photos ->
                     if (photos.isNotEmpty()) {
                         pagerAdapter.submitList(photos)
-                        
-                        // 设置初始位置
                         val initialPosition = viewModel.getInitialPosition()
                         if (binding.viewPager.currentItem != initialPosition) {
                             binding.viewPager.setCurrentItem(initialPosition, false)
@@ -323,39 +316,31 @@ class PhotoDetailFragment : Fragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.currentPhoto.collect { photo ->
-                    photo?.let {
-                        updateFavoriteIcon(it.isFavorite)
-                    }
+                    photo?.let { updateFavoriteIcon(it.isFavorite) }
                 }
             }
         }
 
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.dateText.collect { date ->
-                    binding.tvDate.text = date
-                }
+                viewModel.dateText.collect { date -> binding.tvDate.text = date }
             }
         }
 
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.infoText.collect { info ->
-                    binding.tvInfo.text = info
-                }
+                viewModel.infoText.collect { info -> binding.tvInfo.text = info }
             }
         }
     }
     
     private fun shareMedia() {
         val photo = viewModel.currentPhoto.value ?: return
-        
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = photo.mimeType
             putExtra(Intent.EXTRA_STREAM, photo.uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        
         startActivity(Intent.createChooser(intent, getString(R.string.send)))
     }
 
@@ -366,37 +351,20 @@ class PhotoDetailFragment : Fragment() {
     
     override fun onResume() {
         super.onResume()
-        // 恢复时确保工具栏和背景色正确
         if (isFullscreen) {
-            binding.rootContainer.setBackgroundColor(resources.getColor(R.color.black, null))
-            binding.topBar.visibility = View.GONE
-            binding.bottomBar.visibility = View.GONE
-        } else {
-            binding.rootContainer.setBackgroundColor(resources.getColor(R.color.white, null))
-            binding.topBar.visibility = View.VISIBLE
-            binding.bottomBar.visibility = View.VISIBLE
+            val controller = WindowCompat.getInsetsController(requireActivity().window, requireActivity().window.decorView)
+            controller.hide(WindowInsetsCompat.Type.systemBars())
         }
+        updateSystemBarIcons(!isFullscreen)
     }
 
     override fun onDestroyView() {
-        // 清理资源
+        // 退出时确保恢复系统栏显示
+        val controller = WindowCompat.getInsetsController(requireActivity().window, requireActivity().window.decorView)
+        controller.show(WindowInsetsCompat.Type.systemBars())
+        
         pagerAdapter.clear()
-        
-        // 释放视频播放器
         ExoPlayerManager.release()
-        
-        // 退出时恢复系统栏显示
-        try {
-            val activity = activity
-            if (activity != null && !activity.isFinishing && !activity.isDestroyed) {
-                val window = activity.window
-                val controller = WindowCompat.getInsetsController(window, window.decorView)
-                controller.show(WindowInsetsCompat.Type.systemBars())
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-        
         _binding = null
         super.onDestroyView()
     }

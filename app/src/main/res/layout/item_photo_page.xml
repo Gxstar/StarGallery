@@ -5,20 +5,20 @@
     android:layout_height="match_parent"
     android:background="@android:color/transparent">
 
-    <!-- 媒体容器 -->
+    <!-- Media Container - Ensures everything fills the screen -->
     <FrameLayout
         android:id="@+id/mediaContainer"
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
-        <!-- 超大图片查看器 - 用于普通照片和超大照片 -->
+        <!-- Image Viewer - Main display for photos -->
         <com.gxstar.stargallery.ui.detail.EdgeSubsamplingScaleImageView
             android:id="@+id/ivPhoto"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:visibility="gone" />
 
-        <!-- GIF 图片查看器 - Glide 原生支持 GIF -->
+        <!-- GIF Viewer -->
         <ImageView
             android:id="@+id/ivGif"
             android:layout_width="match_parent"
@@ -26,7 +26,7 @@
             android:scaleType="fitCenter"
             android:visibility="gone" />
 
-        <!-- 视频封面图 - 使用 Glide 加载视频第一帧 -->
+        <!-- Video Cover -->
         <ImageView
             android:id="@+id/ivVideoCover"
             android:layout_width="match_parent"
@@ -34,7 +34,7 @@
             android:scaleType="fitCenter"
             android:visibility="gone" />
         
-        <!-- 视频播放按钮 -->
+        <!-- Large Play Button -->
         <ImageView
             android:id="@+id/ivPlayButton"
             android:layout_width="72dp"
@@ -45,7 +45,7 @@
             android:background="@drawable/bg_play_button"
             android:elevation="4dp" />
 
-        <!-- 视频播放器 - Media3 ExoPlayer -->
+        <!-- Video Player View -->
         <androidx.media3.ui.PlayerView
             android:id="@+id/videoView"
             android:layout_width="match_parent"
@@ -53,20 +53,20 @@
             android:visibility="gone"
             app:show_buffering="never"
             app:use_controller="true"
-            app:resize_mode="zoom"
+            app:resize_mode="fit"
             app:surface_type="surface_view"
             app:controller_layout_id="@layout/exo_player_controller_view"
             app:auto_show="false" />
 
     </FrameLayout>
 
-    <!-- RAW 格式标签 -->
+    <!-- RAW Status Tag (positioned below the potential status bar area) -->
     <TextView
         android:id="@+id/tvRawTag"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="top|end"
-        android:layout_marginTop="60dp"
+        android:layout_marginTop="100dp"
         android:layout_marginEnd="16dp"
         android:background="@drawable/bg_raw_tag"
         android:paddingStart="8dp"
@@ -81,7 +81,7 @@
         android:visibility="gone"
         android:elevation="2dp" />
 
-    <!-- 加载进度条 -->
+    <!-- Loading Spinner -->
     <ProgressBar
         android:id="@+id/progressBar"
         android:layout_width="48dp"
