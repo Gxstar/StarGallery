@@ -35,13 +35,26 @@ sealed class PhotoModel {
  * 支持日期header占据整行
  */
 class PhotoPagingAdapter(
-    private val itemSize: Int,
-    private val spanCount: Int,
+    private var itemSize: Int,
+    private var spanCount: Int,
     private val onPhotoClick: (Photo) -> Unit,
     private val onPhotoLongClick: ((Photo) -> Boolean)? = null,
     private val isSelectionModeProvider: () -> Boolean = { false },
     private val isSelectedProvider: (Long) -> Boolean = { false }
 ) : PagingDataAdapter<PhotoModel, RecyclerView.ViewHolder>(PHOTO_DIFF_CALLBACK), PopupTextProvider {
+
+    /**
+     * 更新配置（列数和图片大小）
+     * 用于动态切换列数时避免重建整个 RecyclerView
+     */
+    fun updateConfig(newItemSize: Int, newSpanCount: Int) {
+        if (itemSize != newItemSize || spanCount != newSpanCount) {
+            itemSize = newItemSize
+            spanCount = newSpanCount
+            // 通知所有照片项更新（不包含 header）
+            notifyItemRangeChanged(0, itemCount)
+        }
+    }
 
     companion object {
         private const val TYPE_HEADER = 0
@@ -89,7 +102,8 @@ class PhotoPagingAdapter(
                     parent,
                     false
                 )
-                PhotoViewHolder(binding, itemSize, onPhotoClick, onPhotoLongClick, isSelectionModeProvider, isSelectedProvider)
+                // 传入获取 itemSize 的函数，支持动态更新
+                PhotoViewHolder(binding, { itemSize }, onPhotoClick, onPhotoLongClick, isSelectionModeProvider, isSelectedProvider)
             }
         }
     }
@@ -159,7 +173,7 @@ class HeaderViewHolder(
 
 class PhotoViewHolder(
     private val binding: ItemPhotoBinding,
-    private val itemSize: Int,
+    private val itemSizeProvider: () -> Int,
     private val onPhotoClick: (Photo) -> Unit,
     private val onPhotoLongClick: ((Photo) -> Boolean)?,
     private val isSelectionModeProvider: () -> Boolean,
@@ -182,6 +196,7 @@ class PhotoViewHolder(
     }
 
     private fun loadImage(photo: Photo) {
+        val itemSize = itemSizeProvider()
         val requestBuilder = Glide.with(binding.ivPhoto.context)
             .load(photo.uri)
             .placeholder(android.R.color.darker_gray)

@@ -529,16 +529,35 @@ class PhotosFragment : Fragment(), DragSelectReceiver {
                     else -> 4
                 }
                 if (newSpan != currentSpanCount) {
-                    saveSpanCount(newSpan)
-                    currentSpanCount = newSpan
-                    calculateItemSize()
-                    // 重新设置RecyclerView
-                    setupRecyclerView()
-                    observePagingData()
+                    updateSpanCount(newSpan)
                 }
             }
             .setNegativeButton(R.string.cancel, null)
             .show()
+    }
+    
+    /**
+     * 更新列数（丝滑切换，不重建 RecyclerView）
+     */
+    private fun updateSpanCount(newSpanCount: Int) {
+        // 保存新的列数
+        saveSpanCount(newSpanCount)
+        currentSpanCount = newSpanCount
+        
+        // 重新计算图片大小
+        calculateItemSize()
+        
+        // 更新 LayoutManager 的列数
+        gridLayoutManager.spanCount = newSpanCount
+        
+        // 更新适配器配置
+        photoAdapter.updateConfig(itemSize, newSpanCount)
+        
+        // 更新 ItemDecoration（需要移除旧的再添加新的）
+        while (binding.rvPhotos.itemDecorationCount > 0) {
+            binding.rvPhotos.removeItemDecorationAt(0)
+        }
+        binding.rvPhotos.addItemDecoration(GridSpacingItemDecoration(newSpanCount, dpToPx(2), true))
     }
 
     private fun setupRecyclerView() {

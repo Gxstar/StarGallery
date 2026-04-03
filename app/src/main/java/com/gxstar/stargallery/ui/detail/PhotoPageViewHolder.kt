@@ -138,10 +138,9 @@ class PhotoPageViewHolder(
     }
     
     /**
-     * 设置单击/双击检测
-     * 使用延迟策略：单击延迟执行，如果在延迟期间有第二次点击则取消单击
+     * 设置图片加载事件监听器
      */
-    private fun setupTapDetection() {
+    private fun setupImageEventListener() {
         binding.ivPhoto.setOnImageEventListener(object : SubsamplingScaleImageView.OnImageEventListener {
             override fun onReady() {
                 binding.progressBar.visibility = View.GONE
@@ -158,7 +157,13 @@ class PhotoPageViewHolder(
             override fun onTileLoadError(e: Exception?) {}
             override fun onPreviewReleased() {}
         })
-        
+    }
+    
+    /**
+     * 设置单击/双击检测
+     * 使用延迟策略：单击延迟执行，如果在延迟期间有第二次点击则取消单击
+     */
+    private fun setupTapDetection() {
         // 为 SSIV 设置触摸监听，处理单击并让双击传递给 SSIV
         binding.ivPhoto.setOnTouchListener { v, event ->
             when (event.action) {
@@ -238,7 +243,12 @@ class PhotoPageViewHolder(
     @OptIn(UnstableApi::class)
     fun bind(photo: Photo) {
         currentPhoto = photo
+        
+        // 重置视图状态
         binding.progressBar.visibility = View.VISIBLE
+        
+        // 重新设置图片加载事件监听器（recycle 时会被清除）
+        setupImageEventListener()
         
         // 显示 RAW 标签
         updateRawTag(photo)
