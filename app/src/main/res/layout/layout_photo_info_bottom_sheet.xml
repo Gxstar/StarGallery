@@ -17,10 +17,10 @@
             android:text="@string/info"
             android:textSize="22sp"
             android:fontFamily="sans-serif-medium"
-            android:layout_marginBottom="20dp"
+            android:layout_marginBottom="24dp"
             android:textColor="@color/text_primary"/>
 
-        <!-- Group: File Info -->
+        <!-- Group: File Info (Hierarchy) -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -31,19 +31,34 @@
             android:textAllCaps="true"
             android:layout_marginBottom="8dp"/>
 
-        <include layout="@layout/item_photo_info_row" android:id="@+id/rowFilename"/>
-        <include layout="@layout/item_photo_info_row" android:id="@+id/rowDimensions"/>
-        <include layout="@layout/item_photo_info_row" android:id="@+id/rowPixels"/>
-        <include layout="@layout/item_photo_info_row" android:id="@+id/rowSize"/>
+        <TextView
+            android:id="@+id/tvFilename"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="@color/text_primary"
+            android:textSize="17sp"
+            android:fontFamily="sans-serif-medium"
+            android:paddingTop="2dp"
+            android:text="---" />
+
+        <TextView
+            android:id="@+id/tvCombinedFileInfo"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="@color/text_secondary"
+            android:textSize="13sp"
+            android:paddingTop="2dp"
+            android:paddingBottom="4dp"
+            android:text="---" />
 
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
-            android:background="#15000000"
-            android:layout_marginTop="12dp"
+            android:background="#12000000"
+            android:layout_marginTop="16dp"
             android:layout_marginBottom="16dp"/>
 
-        <!-- Group: Exposure -->
+        <!-- Group: Exposure (2x2 Professional Grid) -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -52,18 +67,65 @@
             android:textColor="@color/accent"
             android:fontFamily="sans-serif-medium"
             android:textAllCaps="true"
-            android:layout_marginBottom="8dp"/>
-            
-        <include layout="@layout/item_photo_info_row" android:id="@+id/rowAperture"/>
-        <include layout="@layout/item_photo_info_row" android:id="@+id/rowShutter"/>
-        <include layout="@layout/item_photo_info_row" android:id="@+id/rowIso"/>
-        <include layout="@layout/item_photo_info_row" android:id="@+id/rowFocalLength"/>
+            android:layout_marginBottom="12dp"/>
+
+        <GridLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:columnCount="2"
+            android:rowCount="2">
+
+            <!-- Row 1: Aperture | Shutter -->
+            <TextView
+                android:id="@+id/tvAperture"
+                android:layout_width="0dp"
+                android:layout_columnWeight="1"
+                android:layout_height="wrap_content"
+                android:textColor="@color/text_primary"
+                android:textSize="15sp"
+                android:fontFamily="sans-serif-medium"
+                android:paddingBottom="8dp"
+                android:text="---" />
+
+            <TextView
+                android:id="@+id/tvShutter"
+                android:layout_width="0dp"
+                android:layout_columnWeight="1"
+                android:layout_height="wrap_content"
+                android:textColor="@color/text_primary"
+                android:textSize="15sp"
+                android:fontFamily="sans-serif-medium"
+                android:paddingBottom="8dp"
+                android:text="---" />
+
+            <!-- Row 2: ISO | Focal Length -->
+            <TextView
+                android:id="@+id/tvIso"
+                android:layout_width="0dp"
+                android:layout_columnWeight="1"
+                android:layout_height="wrap_content"
+                android:textColor="@color/text_primary"
+                android:textSize="15sp"
+                android:fontFamily="sans-serif-medium"
+                android:text="---" />
+
+            <TextView
+                android:id="@+id/tvFocalLength"
+                android:layout_width="0dp"
+                android:layout_columnWeight="1"
+                android:layout_height="wrap_content"
+                android:textColor="@color/text_primary"
+                android:textSize="15sp"
+                android:fontFamily="sans-serif-medium"
+                android:text="---" />
+
+        </GridLayout>
 
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
-            android:background="#15000000"
-            android:layout_marginTop="12dp"
+            android:background="#12000000"
+            android:layout_marginTop="16dp"
             android:layout_marginBottom="16dp"/>
 
         <!-- Group: Device & Time -->
@@ -75,7 +137,7 @@
             android:textColor="@color/accent"
             android:fontFamily="sans-serif-medium"
             android:textAllCaps="true"
-            android:layout_marginBottom="8dp"/>
+            android:layout_marginBottom="12dp"/>
             
         <include layout="@layout/item_photo_info_row" android:id="@+id/rowCamera"/>
         <include layout="@layout/item_photo_info_row" android:id="@+id/rowLens"/>

@@ -56,29 +56,24 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
     }
 
     private fun setupBaseInfo(photo: Photo) {
-        // 异步获取带扩展名的文件名
+        // 1. 异步获取带扩展名的文件名 (第一行，主显示)
         CoroutineScope(Dispatchers.Main).launch {
             val fullName = withContext(Dispatchers.IO) { getFullFileName(photo.uri) }
-            binding.rowFilename.tvValue.text = fullName ?: photo.displayName
+            binding.tvFilename.text = fullName ?: photo.displayName
         }
-        binding.rowFilename.tvLabel.text = getString(R.string.info_filename)
-        binding.rowSize.tvLabel.text = getString(R.string.info_file_size)
-        binding.rowSize.tvValue.text = formatFileSize(photo.size)
 
+        // 2. 基础信息暂存 (第二行，弱化显示)
+        val sizeStr = formatFileSize(photo.size)
+        binding.tvCombinedFileInfo.text = sizeStr
+
+        // 3. 其他信息
         binding.rowDate.tvLabel.text = getString(R.string.info_date)
         val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
         val dateMs = if (photo.dateTaken > 0) photo.dateTaken else photo.dateModified * 1000
         binding.rowDate.tvValue.text = sdf.format(dateMs)
 
-        // 占位/基础标签
-        binding.rowDimensions.tvLabel.text = getString(R.string.info_dimensions)
-        binding.rowPixels.tvLabel.text = getString(R.string.info_pixel_count)
         binding.rowCamera.tvLabel.text = getString(R.string.info_camera)
         binding.rowLens.tvLabel.text = getString(R.string.info_lens)
-        binding.rowAperture.tvLabel.text = getString(R.string.info_aperture)
-        binding.rowIso.tvLabel.text = getString(R.string.info_iso)
-        binding.rowShutter.tvLabel.text = getString(R.string.info_shutter_speed)
-        binding.rowFocalLength.tvLabel.text = getString(R.string.info_focal_length)
     }
 
     private fun getFullFileName(uri: android.net.Uri): String? {
@@ -102,12 +97,12 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
         }
     }
 
-    private fun updateExifInfo(metadata: com.drew.metadata.Metadata) {
+    private fun updateExifInfo(metadata: Metadata) {
         val exifIFD0 = metadata.getFirstDirectoryOfType(ExifIFD0Directory::class.java)
         val exifSubIFD = metadata.getFirstDirectoryOfType(ExifSubIFDDirectory::class.java)
         val jpegDir = metadata.getFirstDirectoryOfType(JpegDirectory::class.java)
 
-        // 分辨率与像素量
+        // --- 1. 分辨率、像素量与文件大小合并 (第二行弱化显示) ---
         var width = 0
         var height = 0
         
@@ -119,44 +114,41 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
             height = exifSubIFD.getInteger(ExifSubIFDDirectory.TAG_EXIF_IMAGE_HEIGHT) ?: 0
         }
 
+        val sizeStr = formatFileSize(photo?.size ?: 0)
         if (width > 0 && height > 0) {
-            binding.rowDimensions.tvValue.text = "${width} × ${height}"
             val megapixels = (width.toLong() * height.toLong()) / 1_000_000.0
-            binding.rowPixels.tvValue.text = DecimalFormat("0.0").format(megapixels) + " MP"
+            val pixelsStr = DecimalFormat("0.0").format(megapixels) + " MP"
+            binding.tvCombinedFileInfo.text = "${width}×${height}  •  $pixelsStr  •  $sizeStr"
+        } else {
+            binding.tvCombinedFileInfo.text = sizeStr
         }
 
-        // 相机机型
+        // --- 2. 拍摄参数 (2x2 宫格填充) ---
+        val aperture = exifSubIFD?.getDescription(ExifSubIFDDirectory.TAG_FNUMBER) ?: "---"
+        val shutter = exifSubIFD?.getDescription(ExifSubIFDDirectory.TAG_EXPOSURE_TIME) ?: "---"
+        val iso = exifSubIFD?.getDescription(ExifSubIFDDirectory.TAG_ISO_EQUIVALENT) ?: "---"
+        
+        val focalLength = exifSubIFD?.getDescription(ExifSubIFDDirectory.TAG_FOCAL_LENGTH) ?: "---"
+        val focalLength35mm = exifSubIFD?.getDescription(ExifSubIFDDirectory.TAG_35MM_FILM_EQUIV_FOCAL_LENGTH)
+        val focalDisplay = if (focalLength35mm != null && focalLength != "---" && focalLength != "Unknown") {
+            "$focalLength ($focalLength35mm)"
+        } else {
+            focalLength
+        }
+        
+        binding.tvAperture.text = aperture
+        binding.tvShutter.text = shutter
+        binding.tvIso.text = if (iso != "---") (if (iso.startsWith("ISO", true)) iso else "ISO $iso") else "---"
+        binding.tvFocalLength.text = focalDisplay
+
+        // --- 3. 设备信息 ---
         val make = exifIFD0?.getString(ExifIFD0Directory.TAG_MAKE) ?: ""
         val model = exifIFD0?.getString(ExifIFD0Directory.TAG_MODEL) ?: ""
         val cameraDisplay = if (model.contains(make, true)) model else "$make $model"
         binding.rowCamera.tvValue.text = cameraDisplay.ifBlank { "Unknown" }
 
-        // 镜头型号
         val lensModel = exifSubIFD?.getString(ExifSubIFDDirectory.TAG_LENS_MODEL) ?: "Unknown"
         binding.rowLens.tvValue.text = lensModel
-
-        // 光圈
-        val aperture = exifSubIFD?.getDescription(ExifSubIFDDirectory.TAG_FNUMBER) ?: "Unknown"
-        binding.rowAperture.tvValue.text = aperture
-
-        // ISO
-        val iso = exifSubIFD?.getDescription(ExifSubIFDDirectory.TAG_ISO_EQUIVALENT) ?: "Unknown"
-        binding.rowIso.tvValue.text = iso
-
-        // 快门速度
-        val shutter = exifSubIFD?.getDescription(ExifSubIFDDirectory.TAG_EXPOSURE_TIME) ?: "Unknown"
-        binding.rowShutter.tvValue.text = shutter
-
-        // 焦距 (物理焦距 + 等效焦距)
-        val focalLength = exifSubIFD?.getDescription(ExifSubIFDDirectory.TAG_FOCAL_LENGTH) ?: "Unknown"
-        val focalLength35mm = exifSubIFD?.getDescription(ExifSubIFDDirectory.TAG_35MM_FILM_EQUIV_FOCAL_LENGTH)
-        
-        val focalDisplay = if (focalLength35mm != null && focalLength != "Unknown") {
-            "$focalLength ($focalLength35mm)"
-        } else {
-            focalLength
-        }
-        binding.rowFocalLength.tvValue.text = focalDisplay
     }
 
     private fun formatFileSize(size: Long): String {
