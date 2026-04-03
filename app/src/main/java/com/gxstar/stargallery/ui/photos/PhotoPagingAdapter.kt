@@ -12,6 +12,7 @@ import com.gxstar.stargallery.R
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.databinding.ItemDateHeaderBinding
 import com.gxstar.stargallery.databinding.ItemPhotoBinding
+import com.gxstar.stargallery.ui.common.DragSelectHelper
 import me.zhanghai.android.fastscroll.PopupTextProvider
 
 // ==================== UI 模型 ====================
@@ -41,7 +42,8 @@ class PhotoPagingAdapter(
     private val onPhotoLongClick: ((Photo) -> Boolean)? = null,
     private val isSelectionModeProvider: () -> Boolean = { false },
     private val isSelectedProvider: (Long) -> Boolean = { false }
-) : PagingDataAdapter<PhotoModel, RecyclerView.ViewHolder>(PHOTO_DIFF_CALLBACK), PopupTextProvider {
+) : PagingDataAdapter<PhotoModel, RecyclerView.ViewHolder>(PHOTO_DIFF_CALLBACK), 
+    DragSelectHelper.PhotoProvider, PopupTextProvider {
 
     /**
      * 更新配置（列数和图片大小）
@@ -118,10 +120,17 @@ class PhotoPagingAdapter(
         }
     }
 
-    fun getPhoto(position: Int): Photo? {
+    override fun getPhoto(position: Int): Photo? {
         if (position < 0 || position >= itemCount) return null
         val item = getItem(position) ?: return null
         return if (item is PhotoModel.PhotoItem) item.photo else null
+    }
+
+    // ========== DragSelectHelper.PhotoProvider 实现 ==========
+    override fun notifyItemNeedsUpdate(position: Int) {
+        if (position >= 0 && position < itemCount) {
+            notifyItemChanged(position)
+        }
     }
 
     fun getDateText(position: Int): String {

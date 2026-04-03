@@ -24,6 +24,7 @@ import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.data.repository.MediaRepository
 import com.gxstar.stargallery.databinding.FragmentTrashBinding
 import com.gxstar.stargallery.databinding.ItemPhotoBinding
+import com.gxstar.stargallery.ui.common.DragSelectHelper
 import com.gxstar.stargallery.ui.photos.GridSpacingItemDecoration
 import com.gxstar.stargallery.ui.photos.PhotosFragment
 import dagger.hilt.android.AndroidEntryPoint
@@ -38,11 +39,12 @@ class TrashFragment : Fragment() {
 
     private val viewModel: TrashViewModel by viewModels()
     private lateinit var adapter: TrashAdapter
+    private lateinit var gridLayoutManager: GridLayoutManager
+    private lateinit var dragSelectHelper: DragSelectHelper
     
     @Inject
     lateinit var mediaRepository: MediaRepository
 
-    private val selectedPhotoIds = mutableSetOf<Long>()
     private var isSelectionMode = false
     private var currentSpanCount = 4
     private var itemSize = 0
@@ -50,7 +52,6 @@ class TrashFragment : Fragment() {
     private val deleteRequestLauncher = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             Toast.makeText(requireContext(), R.string.deleted, Toast.LENGTH_SHORT).show()
-            // 通知首页刷新
             setFragmentResult(PhotosFragment.REQUEST_KEY_PHOTO_DELETED, Bundle.EMPTY)
             viewModel.loadTrashedPhotos()
         }
@@ -60,7 +61,6 @@ class TrashFragment : Fragment() {
     private val restoreRequestLauncher = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             Toast.makeText(requireContext(), R.string.restored, Toast.LENGTH_SHORT).show()
-            // 通知首页刷新
             setFragmentResult(PhotosFragment.REQUEST_KEY_PHOTO_DELETED, Bundle.EMPTY)
             viewModel.loadTrashedPhotos()
         }
@@ -94,23 +94,35 @@ class TrashFragment : Fragment() {
             itemSize = itemSize,
             onPhotoClick = { photo ->
                 if (isSelectionMode) {
-                    togglePhotoSelection(photo)
+                    dragSelectHelper.toggleSelection(photo)
+                } else {
+                    showPhotoPreview(photo)
                 }
             },
             onPhotoLongClick = { photo ->
-                if (!isSelectionMode) {
-                    enterSelectionMode()
-                    togglePhotoSelection(photo)
-                }
-                true
+                dragSelectHelper.getPosition(photo.id)?.let { pos ->
+                    if (!isSelectionMode) enterSelectionMode()
+                    dragSelectHelper.startDragSelection(pos)
+                    true
+                } ?: false
             },
             isSelectionModeProvider = { isSelectionMode },
-            isSelectedProvider = { id -> selectedPhotoIds.contains(id) }
+            isSelectedProvider = { id -> dragSelectHelper.isSelected(id) }
         )
 
-        binding.rvPhotos.layoutManager = GridLayoutManager(requireContext(), currentSpanCount)
+        // 创建拖动选择辅助类
+        dragSelectHelper = DragSelectHelper(adapter) { count ->
+            if (count == 0) exitSelectionMode()
+            else binding.tvSelectionCount.text = getString(R.string.selected, count)
+        }
+
+        gridLayoutManager = GridLayoutManager(requireContext(), currentSpanCount)
+        val dragSelectTouchListener = dragSelectHelper.createTouchListener(requireContext())
+
+        binding.rvPhotos.layoutManager = gridLayoutManager
         binding.rvPhotos.adapter = adapter
         binding.rvPhotos.addItemDecoration(GridSpacingItemDecoration(currentSpanCount, dpToPx(2), true))
+        binding.rvPhotos.addOnItemTouchListener(dragSelectTouchListener)
         binding.rvPhotos.setHasFixedSize(true)
     }
 
@@ -137,6 +149,7 @@ class TrashFragment : Fragment() {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.photos.collect { photos ->
                     adapter.submitList(photos)
+                    dragSelectHelper.updatePositionMap()
                     binding.tvEmpty.visibility = if (photos.isEmpty()) View.VISIBLE else View.GONE
                     binding.rvPhotos.visibility = if (photos.isEmpty()) View.GONE else View.VISIBLE
                 }
@@ -162,7 +175,6 @@ class TrashFragment : Fragment() {
 
     private fun enterSelectionMode() {
         isSelectionMode = true
-        selectedPhotoIds.clear()
         binding.normalToolbar.visibility = View.GONE
         binding.selectionToolbar.visibility = View.VISIBLE
         binding.tvSelectionCount.text = getString(R.string.selected, 0)
@@ -171,28 +183,10 @@ class TrashFragment : Fragment() {
 
     private fun exitSelectionMode() {
         isSelectionMode = false
-        selectedPhotoIds.clear()
+        dragSelectHelper.clearSelection()
         binding.normalToolbar.visibility = View.VISIBLE
         binding.selectionToolbar.visibility = View.GONE
         refreshVisibleItems()
-    }
-
-    private fun togglePhotoSelection(photo: Photo) {
-        if (selectedPhotoIds.contains(photo.id)) {
-            selectedPhotoIds.remove(photo.id)
-        } else {
-            selectedPhotoIds.add(photo.id)
-        }
-        adapter.notifyDataSetChanged()
-        updateSelectionUI()
-    }
-
-    private fun updateSelectionUI() {
-        if (selectedPhotoIds.isEmpty()) {
-            exitSelectionMode()
-        } else {
-            binding.tvSelectionCount.text = getString(R.string.selected, selectedPhotoIds.size)
-        }
     }
 
     private fun refreshVisibleItems() {
@@ -204,10 +198,17 @@ class TrashFragment : Fragment() {
         }
     }
 
-    private fun restoreSelectedPhotos() {
-        if (selectedPhotoIds.isEmpty()) return
+    private fun showPhotoPreview(photo: Photo) {
+        TrashPhotoPreviewDialog.newInstance(photo) {
+            viewModel.loadTrashedPhotos()
+        }.show(childFragmentManager, TrashPhotoPreviewDialog.TAG)
+    }
 
-        val photos = viewModel.photos.value.filter { selectedPhotoIds.contains(it.id) }
+    private fun restoreSelectedPhotos() {
+        val selectedIds = dragSelectHelper.selectedPhotoIds
+        if (selectedIds.isEmpty()) return
+
+        val photos = viewModel.photos.value.filter { selectedIds.contains(it.id) }
         if (photos.isEmpty()) return
 
         mediaRepository.restorePhotos(photos)?.let { intentSender ->
@@ -225,11 +226,12 @@ class TrashFragment : Fragment() {
     }
 
     private fun showDeleteConfirmDialog() {
-        if (selectedPhotoIds.isEmpty()) return
+        val selectedIds = dragSelectHelper.selectedPhotoIds
+        if (selectedIds.isEmpty()) return
 
         MaterialAlertDialogBuilder(requireContext())
             .setTitle(R.string.delete_permanently_confirm_title)
-            .setMessage(getString(R.string.delete_permanently_confirm_message, selectedPhotoIds.size))
+            .setMessage(getString(R.string.delete_permanently_confirm_message, selectedIds.size))
             .setPositiveButton(R.string.delete_permanently) { _, _ ->
                 deleteSelectedPhotos()
             }
@@ -238,7 +240,8 @@ class TrashFragment : Fragment() {
     }
 
     private fun deleteSelectedPhotos() {
-        val photos = viewModel.photos.value.filter { selectedPhotoIds.contains(it.id) }
+        val selectedIds = dragSelectHelper.selectedPhotoIds
+        val photos = viewModel.photos.value.filter { selectedIds.contains(it.id) }
         if (photos.isEmpty()) return
 
         mediaRepository.deletePhotos(photos)?.let { intentSender ->
@@ -256,8 +259,10 @@ class TrashFragment : Fragment() {
     }
 
     override fun onDestroyView() {
-        super.onDestroyView()
+        binding.rvPhotos.adapter = null
+        binding.rvPhotos.layoutManager = null
         _binding = null
+        super.onDestroyView()
     }
 }
 
@@ -267,7 +272,7 @@ class TrashAdapter(
     private val onPhotoLongClick: (Photo) -> Boolean,
     private val isSelectionModeProvider: () -> Boolean,
     private val isSelectedProvider: (Long) -> Boolean
-) : RecyclerView.Adapter<TrashAdapter.PhotoViewHolder>() {
+) : RecyclerView.Adapter<TrashAdapter.PhotoViewHolder>(), DragSelectHelper.PhotoProvider {
 
     private val items = mutableListOf<Photo>()
 
@@ -277,6 +282,20 @@ class TrashAdapter(
         notifyDataSetChanged()
     }
 
+    // ========== PhotoProvider 实现 ==========
+    override fun getPhoto(position: Int): Photo? {
+        return if (position in items.indices) items[position] else null
+    }
+
+    override fun getItemCount(): Int = items.size
+
+    override fun notifyItemNeedsUpdate(position: Int) {
+        if (position in items.indices) {
+            notifyItemChanged(position)
+        }
+    }
+
+    // ========== RecyclerView.Adapter 实现 ==========
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PhotoViewHolder {
         val binding = ItemPhotoBinding.inflate(LayoutInflater.from(parent.context), parent, false)
         return PhotoViewHolder(binding, itemSize, onPhotoClick, onPhotoLongClick, isSelectionModeProvider, isSelectedProvider)
@@ -285,8 +304,6 @@ class TrashAdapter(
     override fun onBindViewHolder(holder: PhotoViewHolder, position: Int) {
         holder.bind(items[position])
     }
-
-    override fun getItemCount(): Int = items.size
 
     class PhotoViewHolder(
         private val binding: ItemPhotoBinding,
@@ -301,7 +318,6 @@ class TrashAdapter(
             val isSelectionMode = isSelectionModeProvider()
             val isSelected = isSelectedProvider(photo.id)
 
-            // 设置固定大小
             binding.root.layoutParams.width = itemSize
             binding.root.layoutParams.height = itemSize
 
