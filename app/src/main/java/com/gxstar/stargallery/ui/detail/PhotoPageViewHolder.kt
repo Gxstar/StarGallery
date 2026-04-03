@@ -1,5 +1,4 @@
 package com.gxstar.stargallery.ui.detail
-
 import android.graphics.PointF
 import android.os.Handler
 import android.os.Looper

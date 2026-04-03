@@ -125,6 +125,42 @@ class PhotoDetailViewModel @Inject constructor(
     }
     
     /**
+     * 从列表中移除指定位置的照片
+     * @param position 要移除的照片位置
+     * @return 是否还有剩余照片（如果返回 false 表示已删除最后一张，需要返回列表页）
+     */
+    fun removeCurrentPhoto(position: Int): Boolean {
+        val currentList = _photos.value.toMutableList()
+        
+        if (position !in currentList.indices) return false
+        
+        // 移除照片
+        currentList.removeAt(position)
+        _photos.value = currentList
+        
+        // 如果列表为空，返回 false 表示需要退出
+        if (currentList.isEmpty()) {
+            return false
+        }
+        
+        // 计算新位置
+        val newPosition = if (position >= currentList.size) {
+            // 如果删除的是最后一张，则移动到新的最后一张
+            currentList.size - 1
+        } else {
+            // 否则保持当前位置（此时已经是下一张照片了）
+            position
+        }
+        
+        // 更新当前照片
+        _currentPosition.value = newPosition
+        _currentPhoto.value = currentList[newPosition]
+        updateDateInfo(currentList[newPosition])
+        
+        return true
+    }
+    
+    /**
      * 获取初始位置
      */
     fun getInitialPosition(): Int {

@@ -62,7 +62,7 @@ class PhotoDetailFragment : Fragment() {
             Toast.makeText(requireContext(), R.string.deleted, Toast.LENGTH_SHORT).show()
             // 通知首页刷新数据
             setFragmentResult(PhotosFragment.REQUEST_KEY_PHOTO_DELETED, bundleOf())
-            findNavController().navigateUp()
+            handlePhotoDeleted()
         }
     }
     
@@ -71,8 +71,28 @@ class PhotoDetailFragment : Fragment() {
             Toast.makeText(requireContext(), R.string.moved_to_trash, Toast.LENGTH_SHORT).show()
             // 通知首页刷新数据
             setFragmentResult(PhotosFragment.REQUEST_KEY_PHOTO_DELETED, bundleOf())
+            handlePhotoDeleted()
+        }
+    }
+    
+    /**
+     * 处理照片删除后的逻辑
+     * 如果还有剩余照片，滑动到下一张；否则返回列表页
+     */
+    private fun handlePhotoDeleted() {
+        val currentPosition = binding.viewPager.currentItem
+        
+        // 从适配器中移除当前照片（先移除，实现动画效果）
+        pagerAdapter.removePhotoAt(currentPosition)
+        
+        // 从 ViewModel 中移除并检查是否还有剩余照片
+        val hasMorePhotos = viewModel.removeCurrentPhoto(currentPosition)
+        
+        if (!hasMorePhotos) {
+            // 没有剩余照片，返回列表页
             findNavController().navigateUp()
         }
+        // 如果还有剩余照片，ViewPager 会自动显示下一张（原来位置的照片被删除后，后面的照片前移）
     }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {

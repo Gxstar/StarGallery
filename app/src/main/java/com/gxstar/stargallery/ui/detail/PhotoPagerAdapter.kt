@@ -26,6 +26,19 @@ class PhotoPagerAdapter(
     }
     
     /**
+     * 移除指定位置的照片
+     * 使用 notifyItemRemoved 实现更平滑的动画效果
+     */
+    fun removePhotoAt(position: Int) {
+        if (position in photos.indices) {
+            photos.removeAt(position)
+            notifyItemRemoved(position)
+            // 通知后续位置变化
+            notifyItemRangeChanged(position, photos.size - position)
+        }
+    }
+    
+    /**
      * 获取指定位置的照片
      */
     fun getPhoto(position: Int): Photo? {
