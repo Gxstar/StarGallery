@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_bottom_sheet"
+    android:padding="24dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/info"
+            android:textSize="22sp"
+            android:fontFamily="sans-serif-medium"
+            android:layout_marginBottom="20dp"
+            android:textColor="@color/text_primary"/>
+
+        <!-- Group: File Info -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="文件信息"
+            android:textSize="12sp"
+            android:textColor="@color/accent"
+            android:fontFamily="sans-serif-medium"
+            android:textAllCaps="true"
+            android:layout_marginBottom="8dp"/>
+
+        <include layout="@layout/item_photo_info_row" android:id="@+id/rowFilename"/>
+        <include layout="@layout/item_photo_info_row" android:id="@+id/rowDimensions"/>
+        <include layout="@layout/item_photo_info_row" android:id="@+id/rowPixels"/>
+        <include layout="@layout/item_photo_info_row" android:id="@+id/rowSize"/>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#15000000"
+            android:layout_marginTop="12dp"
+            android:layout_marginBottom="16dp"/>
+
+        <!-- Group: Exposure -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="拍摄参数"
+            android:textSize="12sp"
+            android:textColor="@color/accent"
+            android:fontFamily="sans-serif-medium"
+            android:textAllCaps="true"
+            android:layout_marginBottom="8dp"/>
+            
+        <include layout="@layout/item_photo_info_row" android:id="@+id/rowAperture"/>
+        <include layout="@layout/item_photo_info_row" android:id="@+id/rowShutter"/>
+        <include layout="@layout/item_photo_info_row" android:id="@+id/rowIso"/>
+        <include layout="@layout/item_photo_info_row" android:id="@+id/rowFocalLength"/>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#15000000"
+            android:layout_marginTop="12dp"
+            android:layout_marginBottom="16dp"/>
+
+        <!-- Group: Device & Time -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="设备与时间"
+            android:textSize="12sp"
+            android:textColor="@color/accent"
+            android:fontFamily="sans-serif-medium"
+            android:textAllCaps="true"
+            android:layout_marginBottom="8dp"/>
+            
+        <include layout="@layout/item_photo_info_row" android:id="@+id/rowCamera"/>
+        <include layout="@layout/item_photo_info_row" android:id="@+id/rowLens"/>
+        <include layout="@layout/item_photo_info_row" android:id="@+id/rowDate"/>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="32dp"/>
+
+    </LinearLayout>
+</androidx.core.widget.NestedScrollView>

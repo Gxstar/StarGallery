@@ -52,6 +52,7 @@ leakcanary = "2.14"
 
 # 协程
 coroutines = "1.8.1"
+metadataExtractor = "2.19.0"
 
 # 测试
 junit = "4.13.2"
@@ -113,6 +114,7 @@ leakcanary = { group = "com.squareup.leakcanary", name = "leakcanary-android", v
 
 # 协程
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
+metadata-extractor = { group = "com.drewnoakes", name = "metadata-extractor", version.ref = "metadataExtractor" }
 
 # 测试
 junit = { group = "junit", name = "junit", version.ref = "junit" }

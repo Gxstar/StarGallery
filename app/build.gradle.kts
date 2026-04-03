@@ -84,6 +84,7 @@ dependencies {
 
     // EXIF 信息
     implementation(libs.androidx.exifinterface)
+    implementation(libs.metadata.extractor)
 
     // 视频播放 - Media3 (ExoPlayer)
     implementation(libs.androidx.media3.exoplayer)

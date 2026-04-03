@@ -103,4 +103,18 @@
     <string name="delete_permanently_confirm_title">永久删除</string>
     <string name="delete_permanently_confirm_message">确定要永久删除选中的 %d 项吗？此操作无法撤销。</string>
     <string name="more_info_not_implemented">查看详情功能开发中</string>
+    
+    <!-- 图片信息 -->
+    <string name="info_filename">文件名</string>
+    <string name="info_dimensions">分辨率</string>
+    <string name="info_pixel_count">像素</string>
+    <string name="info_file_size">文件大小</string>
+    <string name="info_camera">机型</string>
+    <string name="info_lens">镜头</string>
+    <string name="info_aperture">光圈</string>
+    <string name="info_iso">ISO</string>
+    <string name="info_shutter_speed">快门速度</string>
+    <string name="info_focal_length">焦距</string>
+    <string name="info_path">路径</string>
+    <string name="info_date">拍摄日期</string>
 </resources>

@@ -179,8 +179,9 @@ class PhotoDetailFragment : Fragment() {
         }
 
         binding.btnInfo.setOnClickListener {
-            // 这里可以展示更多信息弹窗或跳转
-            Toast.makeText(requireContext(), R.string.more_info_not_implemented, Toast.LENGTH_SHORT).show()
+            viewModel.currentPhoto.value?.let { photo ->
+                PhotoInfoBottomSheet.newInstance(photo).show(childFragmentManager, PhotoInfoBottomSheet.TAG)
+            }
         }
     }
     

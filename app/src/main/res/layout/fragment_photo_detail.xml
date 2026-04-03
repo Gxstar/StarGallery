@@ -43,9 +43,10 @@
                 android:gravity="center"
                 android:orientation="vertical"
                 app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toStartOf="@id/btnInfo"
+                app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toEndOf="@id/btnBack"
-                app:layout_constraintTop_toTopOf="parent">
+                app:layout_constraintTop_toTopOf="parent"
+                android:layout_marginEnd="48dp">
 
                 <TextView
                     android:id="@+id/tvDate"
@@ -64,17 +65,6 @@
                     android:ellipsize="end" />
 
             </LinearLayout>
-
-            <ImageButton
-                android:id="@+id/btnInfo"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:src="@drawable/ic_more"
-                android:contentDescription="@string/more"
-                app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintTop_toTopOf="parent" />
 
         </androidx.constraintlayout.widget.ConstraintLayout>
 
@@ -116,27 +106,26 @@
         </LinearLayout>
 
         <LinearLayout
-            android:id="@+id/btnEdit"
+            android:id="@+id/btnInfo"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:gravity="center"
             android:orientation="vertical"
-            android:padding="8dp"
-            android:visibility="gone">
+            android:padding="8dp">
 
             <ImageView
                 android:layout_width="24dp"
                 android:layout_height="24dp"
-                android:src="@drawable/ic_edit" />
+                android:src="@drawable/ic_info" />
 
             <TextView
                 style="@style/TextAppearance.Caption"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
-                android:text="@string/edit" />
+                android:text="@string/info" />
 
         </LinearLayout>
 
