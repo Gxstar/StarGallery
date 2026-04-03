@@ -51,10 +51,12 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:visibility="gone"
-            app:show_buffering="when_playing"
+            app:show_buffering="never"
             app:use_controller="true"
-            app:resize_mode="fit"
-            app:surface_type="surface_view" />
+            app:resize_mode="zoom"
+            app:surface_type="surface_view"
+            app:controller_layout_id="@layout/exo_player_controller_view"
+            app:auto_show="false" />
 
     </FrameLayout>
 
