@@ -15,21 +15,28 @@
 | 大图查看 | SubsamplingScaleImageView |
 | 手势视图 | GestureViews |
 | 分页加载 | Paging 3 |
-| 列表分组 | Groupie |
-| 权限管理 | PermissionX |
-| 视频播放 | Media3 (ExoPlayer) |
 | 快速滚动 | RecyclerView FastScroll |
 | 拖动多选 | drag-select-recyclerview |
-| EXIF 信息 | androidx.exifinterface |
+| 权限管理 | PermissionX |
+| 视频播放 | Media3 (ExoPlayer) |
+| EXIF 信息 | ExifInterface + Metadata Extractor |
+| 异步处理 | Coroutines + Flow |
+| 内存检测 | LeakCanary (Debug) |
 | 异步处理 | Coroutines + Flow |
 
 ## 功能特性
 
 ### 照片浏览
-- 按日期分组展示照片
+- 按日期分组展示照片 (使用 Paging 3 `insertSeparators`)
 - 网格布局，支持 3-8 列自定义
 - 快速滚动条定位
-- 支持拖动多选模式
+- 支持拖动多选模式 (drag-select-recyclerview)
+
+### RAW 格式识别
+- 自动识别 DNG、ARW、CR2、CR3、NEF 等 RAW 格式
+- RAW 文件单独分组展示，便于专业摄影管理
+
+### 照片详情
 
 ### 照片详情
 - 高清大图查看
@@ -44,17 +51,13 @@
 
 ### 批量选择
 - 长按进入选择模式
-- 拖动选择连续照片
+- 拖动选择连续照片 (drag-select-recyclerview)
 - 多选照片进行批量操作
 - 支持全选功能
 
-### 收藏功能
-- 切换收藏状态
-- 使用系统 MediaStore API 实现，与系统相册同步
-
-### 分享与删除
-- 批量分享照片
-- 使用系统 API 进行删除操作，需要用户确认
+### 收藏与删除
+- **收藏**: 使用系统 MediaStore API，与系统相册完全同步
+- **删除**: 通过 `MediaStore.createDeleteRequest()` 实现逻辑删除，需要用户确认
 
 ## 权限说明
 

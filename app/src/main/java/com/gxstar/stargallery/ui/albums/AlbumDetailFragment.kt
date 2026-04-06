@@ -1,5 +1,6 @@
 package com.gxstar.stargallery.ui.albums
 
+import android.content.res.Configuration
 import android.Manifest
 import android.app.Activity
 import android.content.Intent
@@ -125,6 +126,12 @@ class AlbumDetailFragment : Fragment(), DragSelectReceiver {
         setupRecyclerView()
         observeData()
         checkPermissions()
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        calculateItemSize()
+        photoAdapter.updateConfig(itemSize, currentSpanCount)
     }
 
     private fun loadSpanCount() {

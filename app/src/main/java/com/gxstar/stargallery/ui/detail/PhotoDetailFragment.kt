@@ -1,5 +1,6 @@
 package com.gxstar.stargallery.ui.detail
 
+import android.content.res.Configuration
 import android.app.Activity
 import android.content.Intent
 import android.content.IntentSender
@@ -357,6 +358,12 @@ class PhotoDetailFragment : Fragment() {
             controller.hide(WindowInsetsCompat.Type.systemBars())
         }
         updateSystemBarIcons(!isFullscreen)
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        // 屏幕旋转时重置缩放状态
+        pagerAdapter.getCurrentViewHolder()?.resetZoom()
     }
 
     override fun onDestroyView() {

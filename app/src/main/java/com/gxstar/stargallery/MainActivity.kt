@@ -1,5 +1,6 @@
 package com.gxstar.stargallery
 
+import android.content.res.Configuration
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
@@ -68,6 +69,12 @@ class MainActivity : AppCompatActivity() {
             
             windowInsets
         }
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        // 屏幕旋转后重新应用底部导航栏的 insets
+        binding.bottomNav.requestApplyInsets()
     }
 
     private fun setupNavigation() {

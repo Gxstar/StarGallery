@@ -1,5 +1,6 @@
 package com.gxstar.stargallery.ui.trash
 
+import android.content.res.Configuration
 import android.app.Activity
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -78,6 +79,12 @@ class TrashFragment : Fragment() {
         setupRecyclerView()
         setupClickListeners()
         observeData()
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        calculateItemSize()
+        adapter.updateItemSize(itemSize)
     }
 
     private fun calculateItemSize() {
@@ -267,7 +274,7 @@ class TrashFragment : Fragment() {
 }
 
 class TrashAdapter(
-    private val itemSize: Int,
+    private var itemSize: Int,
     private val onPhotoClick: (Photo) -> Unit,
     private val onPhotoLongClick: (Photo) -> Boolean,
     private val isSelectionModeProvider: () -> Boolean,
@@ -279,6 +286,11 @@ class TrashAdapter(
     fun submitList(photos: List<Photo>) {
         items.clear()
         items.addAll(photos)
+        notifyDataSetChanged()
+    }
+
+    fun updateItemSize(newSize: Int) {
+        itemSize = newSize
         notifyDataSetChanged()
     }
 

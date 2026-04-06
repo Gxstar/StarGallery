@@ -1,5 +1,6 @@
 package com.gxstar.stargallery.ui.photos
 
+import android.content.res.Configuration
 import android.Manifest
 import android.app.Activity
 import android.content.Intent
@@ -132,6 +133,13 @@ class PhotosFragment : Fragment() {
             refreshData()
             needsRefresh = false
         }
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        // 屏幕旋转时重新计算项目大小
+        calculateItemSize()
+        photoAdapter.updateConfig(itemSize, currentSpanCount)
     }
 
     fun onBackPressed(): Boolean {
