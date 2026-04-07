@@ -47,6 +47,27 @@ class IntentSenderManager(private val fragment: Fragment) {
         }
 
     /**
+     * 设置收藏操作结果回调
+     */
+    fun setFavoriteCallback(onResult: (Boolean) -> Unit) {
+        favoriteCallback = onResult
+    }
+
+    /**
+     * 设置移至回收站操作结果回调
+     */
+    fun setTrashCallback(onResult: (Boolean) -> Unit) {
+        trashCallback = onResult
+    }
+
+    /**
+     * 设置永久删除操作结果回调
+     */
+    fun setDeleteCallback(onResult: (Boolean) -> Unit) {
+        deleteCallback = onResult
+    }
+
+    /**
      * 启动收藏操作
      */
     fun launchFavorite(

@@ -55,25 +55,16 @@ class BatchActionHandler(
     fun favoritePhotos(
         photos: List<Photo>,
         favoriteLauncher: ActivityResultLauncher<IntentSenderRequest>,
-        onComplete: (successMessage: String?) -> Unit
+        actionType: Int
     ): Boolean {
         if (photos.isEmpty()) {
-            onComplete(null)
             return false
         }
 
         val photosToFavorite = photos.filter { !it.isFavorite }
         val photosToUnfavorite = photos.filter { it.isFavorite }
 
-        val actionType = when {
-            photosToFavorite.isNotEmpty() && photosToUnfavorite.isNotEmpty() -> FAVORITE_ACTION_MIXED
-            photosToFavorite.isNotEmpty() -> FAVORITE_ACTION_ADD
-            photosToUnfavorite.isNotEmpty() -> FAVORITE_ACTION_REMOVE
-            else -> FAVORITE_ACTION_NONE
-        }
-
         if (actionType == FAVORITE_ACTION_NONE) {
-            onComplete(null)
             return false
         }
 
@@ -99,7 +90,6 @@ class BatchActionHandler(
                 R.string.add_to_favorite_failed,
                 Toast.LENGTH_SHORT
             ).show()
-            onComplete(null)
         }
 
         return hasRequest
@@ -107,26 +97,30 @@ class BatchActionHandler(
 
     /**
      * 显示删除选项对话框
+     * @return 是否需要启动 IntentSender
      */
     fun showDeleteOptions(
         photos: List<Photo>,
         trashLauncher: ActivityResultLauncher<IntentSenderRequest>,
         deleteLauncher: ActivityResultLauncher<IntentSenderRequest>,
-        onComplete: () -> Unit
-    ) {
+        onIntentNotNeeded: () -> Unit
+    ): Boolean {
         if (photos.isEmpty()) {
-            onComplete()
-            return
+            return false
         }
 
         DeleteOptionsBottomSheet.newInstance(
             onMoveToTrash = {
-                moveToTrash(photos, trashLauncher, onComplete)
+                moveToTrash(photos, trashLauncher, onIntentNotNeeded)
             },
             onDeletePermanently = {
-                deletePermanently(photos, deleteLauncher, onComplete)
+                deletePermanently(photos, deleteLauncher, onIntentNotNeeded)
             }
         ).show(fragmentManager, DeleteOptionsBottomSheet.TAG)
+
+        // 返回 true 表示会启动 IntentSender（假设通常需要）
+        // 实际是否启动在 lambda 中处理
+        return true
     }
 
     /**

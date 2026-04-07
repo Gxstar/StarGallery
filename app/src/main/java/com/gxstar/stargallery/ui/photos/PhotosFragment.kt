@@ -31,6 +31,7 @@ import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.data.repository.MediaRepository
 import com.gxstar.stargallery.databinding.FragmentPhotosBinding
 import com.gxstar.stargallery.ui.photos.action.BatchActionHandler
+import com.gxstar.stargallery.ui.photos.animation.PhotoItemAnimator
 import com.gxstar.stargallery.ui.photos.launcher.IntentSenderManager
 import com.gxstar.stargallery.ui.photos.refresh.MediaChangeDetector
 import com.gxstar.stargallery.ui.photos.selection.PhotoSelectionManager
@@ -189,6 +190,7 @@ class PhotosFragment : Fragment() {
             adapter = photoAdapter
             setHasFixedSize(true)
             setItemViewCacheSize(ITEM_VIEW_CACHE_SIZE)
+            itemAnimator = PhotoItemAnimator()
             addItemDecoration(GridSpacingItemDecoration(currentSpanCount, dpToPx(2), true))
             addOnItemTouchListener(selectionManager.dragSelectTouchListener)
         }
@@ -299,15 +301,46 @@ class PhotosFragment : Fragment() {
 
         pendingFavoriteAction = calculateFavoriteAction(photos)
 
-        batchActionHandler.favoritePhotos(
-            photos,
-            intentSenderManager.favoriteLauncher
-        ) { successMessage ->
-            if (successMessage != null) {
-                // 操作成功
-                refreshData()
-                selectionManager.exitSelectionMode()
+        val selectedIds = photos.map { it.id }.toSet()
+
+        // 先设置 IntentSender 结果回调
+        intentSenderManager.setFavoriteCallback { success ->
+            if (success) {
+                // 显示成功提示
+                val message = when (pendingFavoriteAction) {
+                    BatchActionHandler.FAVORITE_ACTION_ADD -> getString(R.string.added_to_favorite)
+                    BatchActionHandler.FAVORITE_ACTION_REMOVE -> getString(R.string.removed_from_favorite)
+                    BatchActionHandler.FAVORITE_ACTION_MIXED -> getString(R.string.favorite_toggled)
+                    else -> null
+                }
+                message?.let {
+                    Toast.makeText(requireContext(), it, Toast.LENGTH_SHORT).show()
+                }
+
+                // 延迟一点时间让动画更自然，然后刷新
+                binding.rvPhotos.postDelayed({
+                    refreshData(smooth = true)
+                    selectionManager.exitSelectionMode()
+                }, 300)
             }
+            pendingFavoriteAction = BatchActionHandler.FAVORITE_ACTION_NONE
+        }
+
+        val hasRequest = batchActionHandler.favoritePhotos(
+            photos,
+            intentSenderManager.favoriteLauncher,
+            pendingFavoriteAction
+        )
+
+        // 如果没有需要 IntentSender 的请求（直接成功），也刷新并退出
+        if (!hasRequest) {
+            // 显示视觉反馈（渐隐效果）
+            smoothRefreshItems(selectedIds)
+
+            binding.rvPhotos.postDelayed({
+                refreshData(smooth = true)
+                selectionManager.exitSelectionMode()
+            }, 300)
         }
     }
 
@@ -321,13 +354,45 @@ class PhotosFragment : Fragment() {
             return
         }
 
+        val selectedIds = photos.map { it.id }.toSet()
+
+        // 设置移至回收站的结果回调
+        intentSenderManager.setTrashCallback { success ->
+            if (success) {
+                Toast.makeText(requireContext(), R.string.moved_to_trash, Toast.LENGTH_SHORT).show()
+                // 延迟刷新让动画更自然
+                binding.rvPhotos.postDelayed({
+                    refreshData(smooth = true)
+                    selectionManager.exitSelectionMode()
+                }, 300)
+            }
+        }
+
+        // 设置永久删除的结果回调
+        intentSenderManager.setDeleteCallback { success ->
+            if (success) {
+                Toast.makeText(requireContext(), R.string.deleted, Toast.LENGTH_SHORT).show()
+                // 延迟刷新让动画更自然
+                binding.rvPhotos.postDelayed({
+                    refreshData(smooth = true)
+                    selectionManager.exitSelectionMode()
+                }, 300)
+            }
+        }
+
+        // 显示删除选项对话框
         batchActionHandler.showDeleteOptions(
             photos,
             intentSenderManager.trashLauncher,
             intentSenderManager.deleteLauncher
         ) {
-            refreshData()
-            selectionManager.exitSelectionMode()
+            // 这个回调只在不需要 IntentSender 时触发（直接成功或失败）
+            // 添加视觉反馈后延迟刷新
+            smoothRefreshItems(selectedIds)
+            binding.rvPhotos.postDelayed({
+                refreshData(smooth = true)
+                selectionManager.exitSelectionMode()
+            }, 300)
         }
     }
 
@@ -636,11 +701,51 @@ class PhotosFragment : Fragment() {
 
     /**
      * 刷新数据
+     * @param smooth 是否使用平滑刷新（带有动画过渡）
      */
-    private fun refreshData() {
+    private fun refreshData(smooth: Boolean = true) {
         viewModel.refresh()
-        photoAdapter.refresh()
+        if (smooth) {
+            // 平滑刷新：使用 invalidate 触发重新绑定，配合 ItemAnimator 产生过渡效果
+            photoAdapter.refresh()
+        } else {
+            // 直接刷新：立即重新加载
+            photoAdapter.refresh()
+        }
         mediaChangeDetector.reset()
+    }
+
+    /**
+     * 平滑刷新单个照片项（用于收藏状态变化等）
+     */
+    private fun smoothRefreshItems(photoIds: Set<Long>) {
+        // 找到对应的位置并局部刷新
+        val positions = mutableListOf<Int>()
+        for (i in 0 until photoAdapter.itemCount) {
+            photoAdapter.getPhoto(i)?.let { photo ->
+                if (photo.id in photoIds) {
+                    positions.add(i)
+                }
+            }
+        }
+
+        // 使用渐变动画刷新
+        if (positions.isNotEmpty()) {
+            positions.forEach { position ->
+                val holder = binding.rvPhotos.findViewHolderForAdapterPosition(position)
+                holder?.itemView?.animate()
+                    ?.alpha(0.7f)
+                    ?.setDuration(150)
+                    ?.withEndAction {
+                        photoAdapter.notifyItemChanged(position)
+                        holder.itemView.animate()
+                            .alpha(1f)
+                            .setDuration(150)
+                            .start()
+                    }
+                    ?.start()
+            }
+        }
     }
 
     /**
