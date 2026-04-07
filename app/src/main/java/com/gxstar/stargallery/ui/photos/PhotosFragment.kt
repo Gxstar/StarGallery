@@ -145,11 +145,10 @@ class PhotosFragment : Fragment() {
             childFragmentManager
         )
 
-        // 媒体变化检测器（自动刷新）
+        // 媒体变化检测器（自动刷新）- 使用 ContentObserver 实时监听
         mediaChangeDetector = MediaChangeDetector(
-            this,
-            mediaRepository,
-            sharedPreferences
+            viewLifecycleOwner,
+            requireContext()
         ) {
             // 检测到变化时自动刷新
             refreshData()
