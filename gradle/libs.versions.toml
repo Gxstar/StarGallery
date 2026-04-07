@@ -5,14 +5,14 @@ kotlin = "2.3.20"
 ksp = "2.3.6"
 
 # AndroidX 核心
-coreKtx = "1.12.0"
+coreKtx = "1.17.0"
 appcompat = "1.6.1"
 material = "1.11.0"
 constraintlayout = "2.1.4"
 activityKtx = "1.8.2"
 fragmentKtx = "1.6.2"
-lifecycleRuntimeKtx = "2.7.0"
-lifecycleViewmodelKtx = "2.7.0"
+lifecycleRuntimeKtx = "2.9.2"
+lifecycleViewmodelKtx = "2.9.2"
 
 # 图片加载
 glide = "4.16.0"
@@ -28,7 +28,7 @@ hiltNavigationFragment = "1.2.0"
 navigation = "2.9.7"
 
 # 分页
-paging = "3.2.1"
+paging = "3.4.0"
 
 # 列表分组 (未使用)
 # groupie = "2.10.1"
@@ -40,7 +40,7 @@ permissionx = "1.7.1"
 exifinterface = "1.3.7"
 
 # 视频播放
-media3 = "1.4.1"
+media3 = "1.10.0"
 
 # 快速滚动
 androidFastScroll = "1.3.0"
@@ -52,7 +52,7 @@ dragSelectRecyclerview = "2.4.0"
 leakcanary = "2.14"
 
 # 协程
-coroutines = "1.8.1"
+coroutines = "1.10.1"
 metadataExtractor = "2.19.0"
 
 # 测试
