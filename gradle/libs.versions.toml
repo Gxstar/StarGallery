@@ -1,7 +1,8 @@
 [versions]
 # AGP 和 Kotlin
-agp = "8.5.0"
-kotlin = "1.9.24"
+agp = "9.0.0"
+kotlin = "2.3.20"
+ksp = "2.3.6"
 
 # AndroidX 核心
 coreKtx = "1.12.0"
@@ -20,11 +21,11 @@ subsamplingScaleImageView = "3.10.0"
 gestureViews = "2.8.3"
 
 # 依赖注入
-hilt = "2.51.1"
+hilt = "2.59.2"
 hiltNavigationFragment = "1.2.0"
 
 # 导航
-navigation = "2.8.0"
+navigation = "2.9.7"
 
 # 分页
 paging = "3.2.1"
@@ -123,7 +124,6 @@ androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-co
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
-kotlin-kapt = { id = "org.jetbrains.kotlin.kapt", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 navigation-safeargs = { id = "androidx.navigation.safeargs.kotlin", version.ref = "navigation" }
