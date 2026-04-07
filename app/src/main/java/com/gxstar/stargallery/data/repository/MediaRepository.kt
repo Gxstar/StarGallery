@@ -622,4 +622,34 @@ class MediaRepository @Inject constructor(
             isFavorite = getInt(getColumnIndexOrThrow(MediaStore.Files.FileColumns.IS_FAVORITE)) == 1
         )
     }
+
+    /**
+     * 获取最新媒体的时间戳（毫秒）
+     * 用于检测媒体库是否有变化
+     */
+    suspend fun getLatestMediaTimestamp(sortType: SortType = SortType.DATE_TAKEN): Long = withContext(Dispatchers.IO) {
+        val uri = MediaStore.Files.getContentUri("external")
+        val sortColumn = when (sortType) {
+            SortType.DATE_TAKEN -> MediaStore.Files.FileColumns.DATE_TAKEN
+            SortType.DATE_ADDED -> MediaStore.Files.FileColumns.DATE_ADDED
+        }
+
+        val bundle = Bundle().apply {
+            putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, MediaStore.MATCH_EXCLUDE)
+            putString(
+                ContentResolver.QUERY_ARG_SQL_SELECTION,
+                "(${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE} " +
+                        "OR ${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO})"
+            )
+            putStringArray(ContentResolver.QUERY_ARG_SORT_COLUMNS, arrayOf(sortColumn))
+            putInt(ContentResolver.QUERY_ARG_SORT_DIRECTION, ContentResolver.QUERY_SORT_DIRECTION_DESCENDING)
+            putInt(ContentResolver.QUERY_ARG_LIMIT, 1)
+        }
+
+        contentResolver.query(uri, arrayOf(sortColumn), bundle, null)?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                cursor.getLong(0)
+            } else 0L
+        } ?: 0L
+    }
 }

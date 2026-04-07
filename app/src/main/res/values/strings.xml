@@ -104,6 +104,10 @@
     <string name="delete_permanently_confirm_message">确定要永久删除选中的 %d 项吗？此操作无法撤销。</string>
     <string name="more_info_not_implemented">查看详情功能开发中</string>
     
+    <!-- 自动刷新 -->
+    <string name="new_photos_detected">检测到新照片</string>
+    <string name="no_photos_selected">请先选择照片</string>
+    
     <!-- 图片信息 -->
     <string name="info_filename">文件名</string>
     <string name="info_dimensions">分辨率</string>

@@ -19,7 +19,8 @@ data class Photo(
     val orientation: Int = 0,
     val isFavorite: Boolean = false,
     val displayName: String = "",  // 文件名（不含扩展名），用于同名合并
-    val pairedRawId: Long? = null  // 关联的 RAW 文件 ID（如果存在同名 RAW）
+    val pairedRawId: Long? = null, // 关联的 RAW 文件 ID（如果存在同名 RAW）
+    val hasRawPair: Boolean = false // 是否有配对的 RAW 文件（用于 UI 显示标签）
 ) {
     val isVideo: Boolean
         get() = mimeType.startsWith("video/")

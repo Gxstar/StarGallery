@@ -208,20 +208,24 @@ class PhotoViewHolder(
         val itemSize = itemSizeProvider()
         val requestBuilder = Glide.with(binding.ivPhoto.context)
             .load(photo.uri)
-            .placeholder(android.R.color.darker_gray)
+            .placeholder(R.drawable.ic_photo_placeholder)
+            .error(R.drawable.ic_photo_error)
             .centerCrop()
-            .diskCacheStrategy(DiskCacheStrategy.ALL)
+            .diskCacheStrategy(DiskCacheStrategy.RESOURCE)  // 只缓存处理后的图片，减少内存占用
             .skipMemoryCache(false)
+            .dontAnimate()  // 禁用默认动画，提升滑动流畅度
 
         if (itemSize > 0) {
-            val thumbnailSize = (itemSize * 0.1f).toInt().coerceAtLeast(50)
+            // 优化缩略图策略：使用 1/4 尺寸的缩略图作为预览
+            val thumbnailSize = (itemSize / 2).coerceAtLeast(100)
             requestBuilder
                 .override(itemSize, itemSize)
                 .thumbnail(
                     Glide.with(binding.ivPhoto.context)
                         .load(photo.uri)
                         .override(thumbnailSize, thumbnailSize)
-                        .diskCacheStrategy(DiskCacheStrategy.ALL)
+                        .centerCrop()
+                        .diskCacheStrategy(DiskCacheStrategy.RESOURCE)
                 )
         }
 
