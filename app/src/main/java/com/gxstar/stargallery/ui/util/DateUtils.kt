@@ -1,5 +1,6 @@
 package com.gxstar.stargallery.ui.util
 
+import android.content.Context
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.data.repository.MediaRepository
 import com.gxstar.stargallery.ui.photos.GroupType
@@ -10,6 +11,7 @@ import java.util.Locale
 
 /**
  * 日期格式化工具类
+ * 优化：使用日历精确判断日期分组，确保同一天的照片显示相同的日期标题
  */
 object DateUtils {
 
@@ -29,40 +31,62 @@ object DateUtils {
 
     /**
      * 格式化日期文本（用于列表分组标题）
-     * 支持按日/月/年分组，自动识别"今天"、"昨天"
+     * 同一天的照片统一显示"今天"、"昨天"或具体日期
      */
     fun formatDateText(
+        context: Context,
         photo: Photo, 
         sortType: MediaRepository.SortType, 
         groupType: GroupType
     ): String {
         val timestampMillis = getTimestampMillis(photo, sortType)
-        val date = Date(timestampMillis)
         
-        val formatStr = when (groupType) {
-            GroupType.DAY -> "yyyy年M月d日"
-            GroupType.MONTH -> "yyyy年M月"
-            GroupType.YEAR -> "yyyy年"
+        return when (groupType) {
+            GroupType.DAY -> formatRelativeDay(timestampMillis)
+            GroupType.MONTH -> formatMonth(timestampMillis)
+            GroupType.YEAR -> formatYear(timestampMillis)
         }
+    }
+
+    /**
+     * 格式化相对日期（今天、昨天、或具体日期）
+     * 使用日历精确判断日期，确保同一天的照片分组一致
+     */
+    private fun formatRelativeDay(timestampMillis: Long): String {
+        val photoCalendar = Calendar.getInstance().apply { timeInMillis = timestampMillis }
+        val todayCalendar = Calendar.getInstance()
         
-        val dateFormat = SimpleDateFormat(formatStr, Locale.CHINA)
-        val dateStr = dateFormat.format(date)
+        // 比较年、月、日
+        val photoYear = photoCalendar.get(Calendar.YEAR)
+        val photoDayOfYear = photoCalendar.get(Calendar.DAY_OF_YEAR)
+        val todayYear = todayCalendar.get(Calendar.YEAR)
+        val todayDayOfYear = todayCalendar.get(Calendar.DAY_OF_YEAR)
         
-        // 只有选择"按日分组"时，才进行"今天"、"昨天"判断
-        if (groupType == GroupType.DAY) {
-            val calendar = Calendar.getInstance()
-            val todayStr = dateFormat.format(calendar.time)
-            calendar.add(Calendar.DAY_OF_YEAR, -1)
-            val yesterdayStr = dateFormat.format(calendar.time)
-            
-            return when (dateStr) {
-                todayStr -> "今天"
-                yesterdayStr -> "昨天"
-                else -> dateStr
-            }
+        return when {
+            photoYear == todayYear && photoDayOfYear == todayDayOfYear -> "今天"
+            photoYear == todayYear && photoDayOfYear == todayDayOfYear - 1 -> "昨天"
+            // 处理跨年情况（1月1日显示"昨天"）
+            photoYear == todayYear - 1 && 
+                photoCalendar.get(Calendar.DAY_OF_YEAR) == photoCalendar.getActualMaximum(Calendar.DAY_OF_YEAR) &&
+                todayDayOfYear == 1 -> "昨天"
+            else -> formatDate(timestampMillis)
         }
-        
-        return dateStr
+    }
+
+    /**
+     * 格式化月份（yyyy年M月）
+     */
+    private fun formatMonth(timestampMillis: Long): String {
+        val dateFormat = SimpleDateFormat("yyyy年M月", Locale.CHINA)
+        return dateFormat.format(Date(timestampMillis))
+    }
+
+    /**
+     * 格式化年份（yyyy年）
+     */
+    private fun formatYear(timestampMillis: Long): String {
+        val dateFormat = SimpleDateFormat("yyyy年", Locale.CHINA)
+        return dateFormat.format(Date(timestampMillis))
     }
 
     /**

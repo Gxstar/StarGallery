@@ -47,6 +47,9 @@ dependencies {
     implementation(libs.androidx.fragment.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
+    
+    // SplashScreen API
+    implementation(libs.androidx.core.splashscreen)
 
     // 图片加载 - Glide
     implementation(libs.glide)

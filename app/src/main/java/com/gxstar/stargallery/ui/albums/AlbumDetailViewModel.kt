@@ -94,13 +94,15 @@ class AlbumDetailViewModel @Inject constructor(
     }
 
     /**
-     * 获取带日期分组的Paging Flow
+     * 基础照片数据流（排序后，但不包含分组逻辑）
+     * 只有当照片数据或排序方式变化时才会重新加载
      */
-    val photoPagingFlow: Flow<PagingData<PhotoModel>> = combine(
-        _photos, _currentSortType, _currentGroupType
-    ) { photos, sortType, groupType ->
-        Triple(photos, sortType, groupType)
-    }.flatMapLatest { (photos, sortType, groupType) ->
+    private val basePhotoPagingFlow: Flow<PagingData<PhotoModel.PhotoItem>> = combine(
+        _photos,
+        _currentSortType
+    ) { photos, sortType ->
+        Pair(photos, sortType)
+    }.flatMapLatest { (photos, sortType) ->
         // 排序
         val sortedPhotos = if (photos.isEmpty()) {
             emptyList()
@@ -133,25 +135,38 @@ class AlbumDetailViewModel @Inject constructor(
             .map { pagingData ->
                 pagingData.map { photo -> PhotoModel.PhotoItem(photo) }
             }
-            .map { pagingData ->
-                pagingData.insertSeparators { before: PhotoModel.PhotoItem?, after: PhotoModel.PhotoItem? ->
-                    if (after == null) {
-                        null
-                    } else if (before == null) {
-                        PhotoModel.SeparatorItem(DateUtils.formatDateText(after.photo, sortType, groupType))
+            .cachedIn(viewModelScope)
+    }
+
+    /**
+     * 带日期分组的照片数据流
+     * 分组模式切换时只重新计算分隔符，不重新加载照片数据
+     */
+    val photoPagingFlow: Flow<PagingData<PhotoModel>> = combine(
+        basePhotoPagingFlow,
+        _currentSortType,
+        _currentGroupType
+    ) { pagingData, sortType, groupType ->
+        Triple(pagingData, sortType, groupType)
+    }.flatMapLatest { (pagingData, sortType, groupType) ->
+        kotlinx.coroutines.flow.flowOf(
+            pagingData.insertSeparators { before, after ->
+                if (after == null) {
+                    null
+                } else if (before == null) {
+                    PhotoModel.SeparatorItem(DateUtils.formatDateText(context, after.photo, sortType, groupType))
+                } else {
+                    val beforeDate = DateUtils.formatDateText(context, before.photo, sortType, groupType)
+                    val afterDate = DateUtils.formatDateText(context, after.photo, sortType, groupType)
+                    if (beforeDate != afterDate) {
+                        PhotoModel.SeparatorItem(afterDate)
                     } else {
-                        val beforeDate = DateUtils.formatDateText(before.photo, sortType, groupType)
-                        val afterDate = DateUtils.formatDateText(after.photo, sortType, groupType)
-                        if (beforeDate != afterDate) {
-                            PhotoModel.SeparatorItem(afterDate)
-                        } else {
-                            null
-                        }
+                        null
                     }
                 }
             }
-            .cachedIn(viewModelScope)
-    }
+        )
+    }.cachedIn(viewModelScope)
 
     fun refresh() {
         loadPhotos()

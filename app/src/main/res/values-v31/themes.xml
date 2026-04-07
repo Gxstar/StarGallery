@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- 启动画面主题 (Android 12+ API 31+) -->
+    <style name="Theme.App.Starting" parent="Theme.SplashScreen">
+        <!-- 启动画面背景色 -->
+        <item name="windowSplashScreenBackground">@color/white</item>
+        <!-- 启动画面图标 -->
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        <!-- 图标动画时长 -->
+        <item name="android:windowSplashScreenAnimationDuration">500</item>
+        <!-- 启动后切换到主主题 -->
+        <item name="postSplashScreenTheme">@style/Theme.StarGallery</item>
+    </style>
+
+</resources>

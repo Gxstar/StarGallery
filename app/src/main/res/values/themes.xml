@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
+    <!-- 启动画面主题 (兼容低版本，实际主题在 values-v31 中) -->
+    <style name="Theme.App.Starting" parent="Theme.StarGallery" />
+
     <style name="Theme.StarGallery" parent="Theme.Material3.Light.NoActionBar">
         <item name="colorPrimary">@color/primary</item>
         <item name="colorPrimaryDark">@color/primary_dark</item>

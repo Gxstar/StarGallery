@@ -1,6 +1,5 @@
 package com.gxstar.stargallery.ui.photos
 
-import android.content.ContentResolver
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -85,21 +84,20 @@ class PhotosViewModel @Inject constructor(
     }
 
     /**
-     * 使用 MediaStorePagingSource 进行真正的分页查询
-     * 避免一次性加载所有照片到内存
+     * 基础照片数据流（不包含分组逻辑）
+     * 当排序方式或筛选条件变化时才会重新加载
      */
-    val photoPagingFlow: Flow<PagingData<PhotoModel>> = combine(
+    private val basePhotoPagingFlow: Flow<PagingData<PhotoModel.PhotoItem>> = combine(
         _currentSortType,
-        _currentGroupType,
         _showFavoritesOnly
-    ) { sortType, groupType, showFavoritesOnly ->
-        Triple(sortType, groupType, showFavoritesOnly)
-    }.flatMapLatest { (sortType, groupType, showFavoritesOnly) ->
+    ) { sortType, showFavoritesOnly ->
+        Pair(sortType, showFavoritesOnly)
+    }.flatMapLatest { (sortType, showFavoritesOnly) ->
         Pager(
             config = PagingConfig(
                 pageSize = PAGE_SIZE,
                 enablePlaceholders = false,
-                initialLoadSize = PAGE_SIZE * 2,  // 初始加载2页，平衡速度与内存
+                initialLoadSize = PAGE_SIZE * 2,
                 prefetchDistance = PREFETCH_DISTANCE
             ),
             pagingSourceFactory = {
@@ -111,50 +109,48 @@ class PhotosViewModel @Inject constructor(
             }
         ).flow
             .map { pagingData ->
-                // 将 Photo 转换为 PhotoModel.PhotoItem
-                pagingData.map { photo ->
-                    PhotoModel.PhotoItem(photo)
-                }
-            }
-            .map { pagingData ->
-                // 使用 insertSeparators 插入日期分隔符
-                pagingData.insertSeparators { before: PhotoModel.PhotoItem?, after: PhotoModel.PhotoItem? ->
-                    if (after == null) {
-                        // 到达列表末尾，不需要分隔符
-                        null
-                    } else if (before == null) {
-                        // 列表开头，显示第一个日期分隔符
-                        PhotoModel.SeparatorItem(DateUtils.formatDateText(after.photo, sortType, groupType))
-                    } else {
-                        // 比较前后两个 item 的日期，如果不同则插入分隔符
-                        val beforeDate = DateUtils.formatDateText(before.photo, sortType, groupType)
-                        val afterDate = DateUtils.formatDateText(after.photo, sortType, groupType)
-                        if (beforeDate != afterDate) {
-                            PhotoModel.SeparatorItem(afterDate)
-                        } else {
-                            null
-                        }
-                    }
-                }
+                pagingData.map { photo -> PhotoModel.PhotoItem(photo) }
             }
             .cachedIn(viewModelScope)
     }
+
+    /**
+     * 带日期分组的照片数据流
+     * 分组模式切换时只重新计算分隔符，不重新加载照片数据
+     */
+    val photoPagingFlow: Flow<PagingData<PhotoModel>> = combine(
+        basePhotoPagingFlow,
+        _currentSortType,
+        _currentGroupType
+    ) { pagingData, sortType, groupType ->
+        Triple(pagingData, sortType, groupType)
+    }.flatMapLatest { (pagingData, sortType, groupType) ->
+        // 将 PagingData 转换为带分隔符的格式
+        // 注意：这里只是转换，不会触发重新加载
+        kotlinx.coroutines.flow.flowOf(
+            pagingData.insertSeparators { before, after ->
+                if (after == null) {
+                    null
+                } else if (before == null) {
+                    PhotoModel.SeparatorItem(DateUtils.formatDateText(context, after.photo, sortType, groupType))
+                } else {
+                    val beforeDate = DateUtils.formatDateText(context, before.photo, sortType, groupType)
+                    val afterDate = DateUtils.formatDateText(context, after.photo, sortType, groupType)
+                    if (beforeDate != afterDate) {
+                        PhotoModel.SeparatorItem(afterDate)
+                    } else {
+                        null
+                    }
+                }
+            }
+        )
+    }.cachedIn(viewModelScope)
 
     fun refresh() {
         loadPhotoCount()
     }
 
-    /**
-     * 获取当前显示的照片数量（考虑收藏筛选）
-     */
     fun getCurrentPhotoCount(): Int {
-        // 分页模式下需要异步查询，这里先返回总数量
-        // 实际显示数量会在 UI 层根据分页数据更新
-        return if (_showFavoritesOnly.value) {
-            // 收藏数量需要单独查询，这里简化处理
-            _photoCount.value  // TODO: 实现收藏照片数量查询
-        } else {
-            _photoCount.value
-        }
+        return _photoCount.value
     }
 }
