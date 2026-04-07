@@ -1,6 +1,6 @@
 [versions]
 # AGP 和 Kotlin
-agp = "9.0.0"
+agp = "9.1.0"
 kotlin = "2.3.20"
 ksp = "2.3.6"
 
