@@ -55,11 +55,14 @@ class PhotosViewModel @Inject constructor(
     private val _photoCount = MutableStateFlow(0)
     val photoCount: StateFlow<Int> = _photoCount.asStateFlow()
 
+    private val _favoriteCount = MutableStateFlow(0)
+    val favoriteCount: StateFlow<Int> = _favoriteCount.asStateFlow()
+
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     init {
-        loadPhotoCount()
+        loadCounts()
     }
 
     fun setSortType(sortType: MediaRepository.SortType) {
@@ -78,9 +81,12 @@ class PhotosViewModel @Inject constructor(
         _showFavoritesOnly.value = !_showFavoritesOnly.value
     }
 
-    fun loadPhotoCount() {
+    fun loadCounts() {
         viewModelScope.launch {
             _photoCount.value = mediaRepository.getPhotoCount()
+        }
+        viewModelScope.launch {
+            _favoriteCount.value = mediaRepository.getFavoriteCount()
         }
     }
 
@@ -148,10 +154,14 @@ class PhotosViewModel @Inject constructor(
     }.cachedIn(viewModelScope)
 
     fun refresh() {
-        loadPhotoCount()
+        loadCounts()
     }
 
     fun getCurrentPhotoCount(): Int {
-        return _photoCount.value
+        return if (_showFavoritesOnly.value) {
+            _favoriteCount.value
+        } else {
+            _photoCount.value
+        }
     }
 }

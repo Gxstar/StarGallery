@@ -432,6 +432,23 @@ class MediaRepository @Inject constructor(
     }
 
     /**
+     * 获取收藏媒体总数（图片+视频）
+     */
+    suspend fun getFavoriteCount(): Int = withContext(Dispatchers.IO) {
+        val uri = MediaStore.Files.getContentUri("external")
+        val selection = "(${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE} " +
+                "OR ${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO}) " +
+                "AND ${MediaStore.Files.FileColumns.IS_FAVORITE} = 1"
+        val bundle = Bundle().apply {
+            putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, MediaStore.MATCH_EXCLUDE)
+            putString(ContentResolver.QUERY_ARG_SQL_SELECTION, selection)
+        }
+        contentResolver.query(uri, arrayOf(MediaStore.Files.FileColumns._ID), bundle, null)?.use { cursor ->
+            cursor.count
+        } ?: 0
+    }
+
+    /**
      * 批量删除照片 - 返回 IntentSender 供用户确认
      */
     fun deletePhotos(photos: List<Photo>): android.content.IntentSender? {
