@@ -75,7 +75,12 @@ class PhotoSelectionManager(
         if (!_isSelectionMode.value) {
             enterSelectionMode()
         }
-        dragSelectHelper.startDragSelection(position)
+        // 校准位置，确保 idToPosition 映射正确
+        val photo = dragSelectHelper.getPhotoAtPosition(position)
+        if (photo != null) {
+            val correctPosition = dragSelectHelper.findCorrectPosition(photo.id, position)
+            dragSelectHelper.startDragSelection(correctPosition)
+        }
     }
 
     /**

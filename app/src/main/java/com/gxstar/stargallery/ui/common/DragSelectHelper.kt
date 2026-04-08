@@ -47,14 +47,15 @@ class DragSelectHelper(
      * 开始拖动选择
      */
     fun startDragSelection(position: Int) {
-        photoProvider.getPhoto(position)?.let { photo ->
+        val correctPosition = findCorrectPosition(photoProvider.getPhoto(position)?.id ?: -1, position)
+        photoProvider.getPhoto(correctPosition)?.let { photo ->
             if (!selectedIds.contains(photo.id)) {
                 selectedIds.add(photo.id)
-                photoProvider.notifyItemNeedsUpdate(position)
+                photoProvider.notifyItemNeedsUpdate(correctPosition)
                 onSelectionChanged(selectedIds.size)
             }
         }
-        touchListener?.setIsActive(true, position)
+        touchListener?.setIsActive(true, correctPosition)
     }
 
     /**
@@ -97,7 +98,49 @@ class DragSelectHelper(
     /**
      * 获取照片的位置
      */
-    fun getPosition(photoId: Long): Int? = idToPosition[photoId]
+    fun getPosition(photoId: Long): Int? {
+        // 先尝试从缓存获取
+        idToPosition[photoId]?.let { cachedPosition ->
+            // 验证缓存是否正确
+            val cachedPhoto = photoProvider.getPhoto(cachedPosition)
+            if (cachedPhoto?.id == photoId) {
+                return cachedPosition
+            }
+        }
+        // 缓存无效或不存在，遍历查找
+        return findCorrectPosition(photoId)
+    }
+
+    /**
+     * 获取指定位置的 Photo
+     */
+    fun getPhotoAtPosition(position: Int): Photo? {
+        return photoProvider.getPhoto(position)
+    }
+
+    /**
+     * 查找正确的位置（验证 idToPosition 缓存）
+     */
+    fun findCorrectPosition(photoId: Long, hintPosition: Int? = null): Int {
+        // 如果有暗示位置，先验证暗示位置是否正确
+        hintPosition?.let { hint ->
+            val photoAtHint = photoProvider.getPhoto(hint)
+            if (photoAtHint?.id == photoId) {
+                return hint
+            }
+        }
+        // 遍历查找正确的位置
+        for (i in 0 until photoProvider.getItemCount()) {
+            val photo = photoProvider.getPhoto(i)
+            if (photo?.id == photoId) {
+                // 更新缓存
+                idToPosition[photoId] = i
+                return i
+            }
+        }
+        // 找不到返回暗示位置或 -1
+        return hintPosition ?: -1
+    }
 
     // ========== DragSelectReceiver 实现 ==========
     
