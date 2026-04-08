@@ -36,6 +36,7 @@ import com.gxstar.stargallery.ui.photos.launcher.IntentSenderManager
 import com.gxstar.stargallery.ui.photos.refresh.MediaChangeDetector
 import com.gxstar.stargallery.ui.photos.selection.PhotoSelectionManager
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
@@ -475,8 +476,8 @@ class PhotosFragment : Fragment() {
                         isWarmedUp = true
                         binding.rvPhotos.postDelayed({
                             warmupSpanCache()
-                            preloadInitialImages()
-                        }, 200)
+                            // preloadInitialImages 已由 RecyclerViewPreloader 处理，无需额外预加载
+                        }, 500)
                     }
                 }
             }
@@ -836,35 +837,38 @@ class PhotosFragment : Fragment() {
     /**
      * 预热 span 缓存，避免首次滑动时卡顿
      * 在数据加载完成后调用，提前计算前几项的 span 信息
+     * 在后台线程执行，避免阻塞主线程
      */
     private fun warmupSpanCache() {
         if (photoAdapter.itemCount == 0) return
         val spanLookup = gridLayoutManager.spanSizeLookup ?: return
 
-        // 预计算前 30 项的 span 信息（覆盖首屏和预加载区域）
-        val warmupCount = minOf(30, photoAdapter.itemCount)
-        for (i in 0 until warmupCount) {
-            try {
-                spanLookup.getSpanSize(i)
-                spanLookup.getSpanIndex(i, currentSpanCount)
-            } catch (e: Exception) {
-                // 忽略计算错误
-                break
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.Default) {
+            // 预计算前 30 项的 span 信息（覆盖首屏和预加载区域）
+            val warmupCount = minOf(30, photoAdapter.itemCount)
+            for (i in 0 until warmupCount) {
+                try {
+                    spanLookup.getSpanSize(i)
+                    spanLookup.getSpanIndex(i, currentSpanCount)
+                } catch (e: Exception) {
+                    // 忽略计算错误
+                    break
+                }
             }
         }
     }
 
     /**
      * 预加载首屏图片到 Glide 缓存
-     * 减少首次滑动时的图片解码延迟
+     * 已由 RecyclerViewPreloader 处理，此方法保留但不再主动调用
+     * 减少重复预加载造成的资源竞争
      */
     private fun preloadInitialImages() {
-        val preloadCount = minOf(20, photoAdapter.itemCount)
+        val preloadCount = minOf(12, photoAdapter.itemCount)
         val thumbnailSize = (itemSize / 2).coerceAtLeast(100)
 
         for (i in 0 until preloadCount) {
             val photo = photoAdapter.getPhoto(i) ?: continue
-            // 预加载缩略图到内存缓存
             Glide.with(requireContext())
                 .load(photo.uri)
                 .override(itemSize, itemSize)
@@ -889,7 +893,7 @@ class PhotosFragment : Fragment() {
     companion object {
         private const val DEFAULT_SPAN_COUNT = 4
         private const val ITEM_VIEW_CACHE_SIZE = 24
-        private const val PRELOAD_ITEM_COUNT = 20
+        private const val PRELOAD_ITEM_COUNT = 12
         // RecyclerView 预取数量（每行预取的数量 * 列数）
         private const val PREFETCH_ITEM_COUNT = 12
 
