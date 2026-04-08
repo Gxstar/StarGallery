@@ -1,6 +1,7 @@
 package com.gxstar.stargallery.ui.detail
 
 import android.view.ViewGroup
+import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import com.gxstar.stargallery.data.model.Photo
 
@@ -15,14 +16,28 @@ class PhotoPagerAdapter(
 
     private val photos = mutableListOf<Photo>()
     private val viewHolders = mutableMapOf<Int, PhotoPageViewHolder>()
-    
+
+    private val diffCallback = object : DiffUtil.Callback() {
+        override fun getOldListSize() = photos.size
+        override fun getNewListSize() = photos.size
+
+        override fun areItemsTheSame(oldPos: Int, newPos: Int): Boolean {
+            return photos[oldPos].id == photos[newPos].id
+        }
+
+        override fun areContentsTheSame(oldPos: Int, newPos: Int): Boolean {
+            return photos[oldPos] == photos[newPos]
+        }
+    }
+
     /**
-     * 提交照片列表
+     * 提交照片列表，使用 DiffUtil 智能更新
      */
     fun submitList(newPhotos: List<Photo>) {
+        val diffResult = DiffUtil.calculateDiff(diffCallback)
         photos.clear()
         photos.addAll(newPhotos)
-        notifyDataSetChanged()
+        diffResult.dispatchUpdatesTo(this)
     }
     
     /**
