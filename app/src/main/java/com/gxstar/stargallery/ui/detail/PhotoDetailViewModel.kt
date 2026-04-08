@@ -105,24 +105,36 @@ class PhotoDetailViewModel @Inject constructor(
         _infoText.value = DateUtils.formatTime(photo.dateTaken)
     }
 
-    fun toggleFavorite() {
-        viewModelScope.launch {
-            _currentPhoto.value?.let { photo ->
-                val success = mediaRepository.toggleFavoriteDirect(photo)
-                if (success) {
-                    val updatedPhoto = photo.copy(isFavorite = !photo.isFavorite)
-                    _currentPhoto.value = updatedPhoto
-                    
-                    // 更新列表中的照片
-                    val currentList = _photos.value.toMutableList()
-                    val index = currentList.indexOfFirst { it.id == photo.id }
-                    if (index >= 0) {
-                        currentList[index] = updatedPhoto
-                        _photos.value = currentList
-                    }
-                }
+    fun prepareToggleFavorite(): IntentSender? {
+        var intentSender: IntentSender? = null
+        _currentPhoto.value?.let { photo ->
+            val newFavoriteState = !photo.isFavorite
+            intentSender = mediaRepository.setFavorite(listOf(photo), newFavoriteState)
+            if (intentSender != null) {
+                _pendingFavoritePhoto = photo
+                _pendingFavoriteState = newFavoriteState
             }
         }
+        return intentSender
+    }
+
+    private var _pendingFavoritePhoto: Photo? = null
+    private var _pendingFavoriteState: Boolean = false
+
+    fun onFavoriteConfirmed() {
+        _pendingFavoritePhoto?.let { photo ->
+            val updatedPhoto = photo.copy(isFavorite = _pendingFavoriteState)
+            _currentPhoto.value = updatedPhoto
+            
+            val currentList = _photos.value.toMutableList()
+            val index = currentList.indexOfFirst { it.id == photo.id }
+            if (index >= 0) {
+                currentList[index] = updatedPhoto
+                _photos.value = currentList
+            }
+        }
+        _pendingFavoritePhoto = null
+        _pendingFavoriteState = false
     }
 
     fun deletePhoto(onResult: (IntentSender?) -> Unit) {

@@ -71,6 +71,12 @@ class PhotoDetailFragment : Fragment() {
             handlePhotoDeleted()
         }
     }
+
+    private val favoriteRequestLauncher = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            viewModel.onFavoriteConfirmed()
+        }
+    }
     
     private fun handlePhotoDeleted() {
         val currentPosition = binding.viewPager.currentItem
@@ -168,7 +174,14 @@ class PhotoDetailFragment : Fragment() {
         }
 
         binding.btnFavorite.setOnClickListener {
-            viewModel.toggleFavorite()
+            val intentSender = viewModel.prepareToggleFavorite()
+            if (intentSender != null) {
+                try {
+                    favoriteRequestLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
+                } catch (e: Exception) {
+                    Toast.makeText(requireContext(), R.string.add_to_favorite_failed, Toast.LENGTH_SHORT).show()
+                }
+            }
         }
 
         binding.btnDelete.setOnClickListener {
