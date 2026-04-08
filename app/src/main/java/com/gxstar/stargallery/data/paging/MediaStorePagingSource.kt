@@ -27,18 +27,28 @@ class MediaStorePagingSource(
         private const val RAW_MERGE_WINDOW = 100  // RAW 合并检查窗口大小
     }
 
+    /**
+     * getRefreshKey 使用 anchorPosition 找到最近的 page，然后计算恢复位置
+     */
     override fun getRefreshKey(state: PagingState<Int, Photo>): Int? {
         return state.anchorPosition?.let { anchorPosition ->
-            state.closestPageToPosition(anchorPosition)?.prevKey?.plus(1)
-                ?: state.closestPageToPosition(anchorPosition)?.nextKey?.minus(1)
+            val anchorPage = state.closestPageToPosition(anchorPosition)
+            anchorPage?.prevKey?.let { prevKey ->
+                prevKey + 1
+            } ?: anchorPage?.nextKey?.let { nextKey ->
+                maxOf(0, nextKey - 1)
+            }
         }
     }
 
     override suspend fun load(params: LoadParams<Int>): LoadResult<Int, Photo> = withContext(Dispatchers.IO) {
         try {
+            // 注意：offset 必须基于固定的 PAGE_SIZE，不能用 params.loadSize
+            // 因为首次加载 initialLoadSize=PAGE_SIZE=60，后续是 PAGE_SIZE=60
+            // 如果用 params.loadSize=120，会导致 offset 计算错误产生数据重复
             val page = params.key ?: 0
+            val offset = page * PAGE_SIZE
             val pageSize = params.loadSize
-            val offset = page * pageSize
 
             // 使用 Bundle 进行分页查询（Android 10+ 支持）
             val photos = queryPhotosWithPagination(offset, pageSize)

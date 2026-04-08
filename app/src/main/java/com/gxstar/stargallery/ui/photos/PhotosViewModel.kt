@@ -101,7 +101,7 @@ class PhotosViewModel @Inject constructor(
                 config = PagingConfig(
                     pageSize = PAGE_SIZE,
                     enablePlaceholders = false,
-                    initialLoadSize = PAGE_SIZE * 2,
+                    initialLoadSize = PAGE_SIZE,
                     prefetchDistance = PREFETCH_DISTANCE
                 ),
                 pagingSourceFactory = {
