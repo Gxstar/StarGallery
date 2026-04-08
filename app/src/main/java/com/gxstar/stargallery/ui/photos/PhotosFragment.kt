@@ -72,6 +72,7 @@ class PhotosFragment : Fragment() {
     // 状态
     private var currentSpanCount = DEFAULT_SPAN_COUNT
     private var itemSize = 0
+    private var isWarmedUp = false  // 是否已预热（首次加载完成后的优化）
 
     // 收藏操作类型（用于显示对应的 Toast 消息）
     private var pendingFavoriteAction = BatchActionHandler.FAVORITE_ACTION_NONE
@@ -178,9 +179,17 @@ class PhotosFragment : Fragment() {
         gridLayoutManager = GridLayoutManager(requireContext(), currentSpanCount).apply {
             spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
                 override fun getSpanSize(position: Int): Int {
+                    // 防御性检查：避免在数据未准备好时访问导致卡顿
+                    if (position < 0 || position >= photoAdapter.itemCount) return 1
                     return if (photoAdapter.getItemViewType(position) == 0) currentSpanCount else 1
                 }
-            }.apply { isSpanIndexCacheEnabled = true }
+            }.apply {
+                isSpanIndexCacheEnabled = true
+            }
+            // 增加布局预取数量，减少首次滑动卡顿
+            isItemPrefetchEnabled = true
+            isMeasurementCacheEnabled = true
+            initialPrefetchItemCount = PREFETCH_ITEM_COUNT
         }
 
         // RecyclerView 配置
@@ -460,6 +469,15 @@ class PhotosFragment : Fragment() {
                     binding.progressBar.visibility = if (isInitialLoading) View.VISIBLE else View.GONE
                     binding.emptyStateView.visibility = if (isEmpty && !isInitialLoading) View.VISIBLE else View.GONE
                     binding.rvPhotos.visibility = if (isInitialLoading || hasError) View.GONE else View.VISIBLE
+
+                    // 首次加载完成后预热，减少后续滑动卡顿
+                    if (!isInitialLoading && !isWarmedUp && photoAdapter.itemCount > 0) {
+                        isWarmedUp = true
+                        binding.rvPhotos.postDelayed({
+                            warmupSpanCache()
+                            preloadInitialImages()
+                        }, 200)
+                    }
                 }
             }
         }
@@ -815,6 +833,47 @@ class PhotosFragment : Fragment() {
         itemSize = (screenWidth - itemSpacing) / currentSpanCount
     }
 
+    /**
+     * 预热 span 缓存，避免首次滑动时卡顿
+     * 在数据加载完成后调用，提前计算前几项的 span 信息
+     */
+    private fun warmupSpanCache() {
+        if (photoAdapter.itemCount == 0) return
+        val spanLookup = gridLayoutManager.spanSizeLookup ?: return
+
+        // 预计算前 30 项的 span 信息（覆盖首屏和预加载区域）
+        val warmupCount = minOf(30, photoAdapter.itemCount)
+        for (i in 0 until warmupCount) {
+            try {
+                spanLookup.getSpanSize(i)
+                spanLookup.getSpanIndex(i, currentSpanCount)
+            } catch (e: Exception) {
+                // 忽略计算错误
+                break
+            }
+        }
+    }
+
+    /**
+     * 预加载首屏图片到 Glide 缓存
+     * 减少首次滑动时的图片解码延迟
+     */
+    private fun preloadInitialImages() {
+        val preloadCount = minOf(20, photoAdapter.itemCount)
+        val thumbnailSize = (itemSize / 2).coerceAtLeast(100)
+
+        for (i in 0 until preloadCount) {
+            val photo = photoAdapter.getPhoto(i) ?: continue
+            // 预加载缩略图到内存缓存
+            Glide.with(requireContext())
+                .load(photo.uri)
+                .override(itemSize, itemSize)
+                .centerCrop()
+                .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.RESOURCE)
+                .preload(thumbnailSize, thumbnailSize)
+        }
+    }
+
     private fun dpToPx(dp: Int): Int = (dp * resources.displayMetrics.density).toInt()
 
     override fun onDestroyView() {
@@ -831,6 +890,8 @@ class PhotosFragment : Fragment() {
         private const val DEFAULT_SPAN_COUNT = 4
         private const val ITEM_VIEW_CACHE_SIZE = 24
         private const val PRELOAD_ITEM_COUNT = 20
+        // RecyclerView 预取数量（每行预取的数量 * 列数）
+        private const val PREFETCH_ITEM_COUNT = 12
 
         private const val KEY_SPAN_COUNT = "span_count"
         private const val KEY_SORT_TYPE = "sort_type"
