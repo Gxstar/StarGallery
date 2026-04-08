@@ -338,7 +338,132 @@ class MediaRepository @Inject constructor(
                 photos.add(cursor.toMediaPhoto())
             }
         }
-        photos
+
+        // 合并同名照片（JPG+RAW 等）
+        mergeSameNamePhotos(photos)
+    }
+
+    /**
+     * 加载相册内所有媒体（不合并 RAW，用于详情页滑动）
+     * JPG 和同名 RAW 都会出现在列表中
+     */
+    suspend fun getPhotosByBucketWithRaw(bucketId: Long, sortType: SortType = SortType.DATE_TAKEN): List<Photo> = withContext(Dispatchers.IO) {
+        val photos = mutableListOf<Photo>()
+        val uri = MediaStore.Files.getContentUri("external")
+        val projection = arrayOf(
+            MediaStore.Files.FileColumns._ID,
+            MediaStore.Files.FileColumns.DATE_TAKEN,
+            MediaStore.Files.FileColumns.DATE_MODIFIED,
+            MediaStore.Files.FileColumns.DATE_ADDED,
+            MediaStore.Files.FileColumns.MIME_TYPE,
+            MediaStore.Files.FileColumns.WIDTH,
+            MediaStore.Files.FileColumns.HEIGHT,
+            MediaStore.Files.FileColumns.SIZE,
+            MediaStore.Files.FileColumns.BUCKET_ID,
+            MediaStore.Files.FileColumns.BUCKET_DISPLAY_NAME,
+            MediaStore.Files.FileColumns.ORIENTATION,
+            MediaStore.Files.FileColumns.IS_FAVORITE,
+            MediaStore.Files.FileColumns.MEDIA_TYPE,
+            MediaStore.Files.FileColumns.DISPLAY_NAME
+        )
+
+        val selection = "${MediaStore.Files.FileColumns.BUCKET_ID} = ? " +
+            "AND (${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE} " +
+            "OR ${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO})"
+        val selectionArgs = arrayOf(bucketId.toString())
+
+        val sortColumn = when (sortType) {
+            SortType.DATE_TAKEN -> MediaStore.Files.FileColumns.DATE_TAKEN
+            SortType.DATE_ADDED -> MediaStore.Files.FileColumns.DATE_ADDED
+        }
+        val sortOrder = "$sortColumn DESC"
+
+        contentResolver.query(uri, projection, selection, selectionArgs, sortOrder)?.use { cursor ->
+            while (cursor.moveToNext()) {
+                photos.add(cursor.toMediaPhoto())
+            }
+        }
+
+        // 标记 JPG+RAW 组，但不隐藏 RAW
+        markRawPairs(photos)
+    }
+
+    /**
+     * 加载全部媒体（不合并 RAW，用于详情页滑动）
+     * JPG 和同名 RAW 都会出现在列表中
+     */
+    suspend fun getAllMediaWithRaw(sortType: SortType = SortType.DATE_TAKEN): List<Photo> = withContext(Dispatchers.IO) {
+        val photos = mutableListOf<Photo>()
+        val uri = MediaStore.Files.getContentUri("external")
+        val selection = "(${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE} " +
+                "OR ${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO})"
+        val projection = arrayOf(
+            MediaStore.Files.FileColumns._ID,
+            MediaStore.Files.FileColumns.DATE_TAKEN,
+            MediaStore.Files.FileColumns.DATE_MODIFIED,
+            MediaStore.Files.FileColumns.DATE_ADDED,
+            MediaStore.Files.FileColumns.MIME_TYPE,
+            MediaStore.Files.FileColumns.WIDTH,
+            MediaStore.Files.FileColumns.HEIGHT,
+            MediaStore.Files.FileColumns.SIZE,
+            MediaStore.Files.FileColumns.BUCKET_ID,
+            MediaStore.Files.FileColumns.BUCKET_DISPLAY_NAME,
+            MediaStore.Files.FileColumns.ORIENTATION,
+            MediaStore.Files.FileColumns.IS_FAVORITE,
+            MediaStore.Files.FileColumns.MEDIA_TYPE,
+            MediaStore.Files.FileColumns.DISPLAY_NAME
+        )
+
+        val sortColumn = when (sortType) {
+            SortType.DATE_TAKEN -> MediaStore.Files.FileColumns.DATE_TAKEN
+            SortType.DATE_ADDED -> MediaStore.Files.FileColumns.DATE_ADDED
+        }
+
+        val bundle = Bundle().apply {
+            putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, MediaStore.MATCH_EXCLUDE)
+            putString(ContentResolver.QUERY_ARG_SQL_SELECTION, selection)
+            putStringArray(ContentResolver.QUERY_ARG_SORT_COLUMNS, arrayOf(sortColumn))
+            putInt(ContentResolver.QUERY_ARG_SORT_DIRECTION, ContentResolver.QUERY_SORT_DIRECTION_DESCENDING)
+        }
+
+        contentResolver.query(uri, projection, bundle, null)?.use { cursor ->
+            while (cursor.moveToNext()) {
+                photos.add(cursor.toMediaPhoto())
+            }
+        }
+
+        // 标记 JPG+RAW 组，但不隐藏 RAW
+        markRawPairs(photos)
+    }
+
+    /**
+     * 标记 JPG+RAW 组：JPG 标记 hasRawPair，但不隐藏 RAW
+     */
+    private fun markRawPairs(photos: MutableList<Photo>): List<Photo> {
+        // 按 displayName 分组找出 JPG+RAW 对
+        val rawLookup = mutableMapOf<String, Photo>()
+
+        for (photo in photos) {
+            if (photo.displayName.isEmpty() || photo.isVideo) continue
+            if (photo.isRaw) {
+                val key = "${photo.bucketId}_${photo.displayName}"
+                rawLookup[key] = photo
+            }
+        }
+
+        // 标记 JPG 是否有对应的 RAW
+        for (i in photos.indices) {
+            val photo = photos[i]
+            if (!photo.isRaw && !photo.isVideo && photo.displayName.isNotEmpty()) {
+                val key = "${photo.bucketId}_${photo.displayName}"
+                val rawPhoto = rawLookup[key]
+                if (rawPhoto != null) {
+                    photos[i] = photo.copy(hasRawPair = true, pairedRawId = rawPhoto.id)
+                }
+            }
+        }
+
+        return photos
     }
 
     /**

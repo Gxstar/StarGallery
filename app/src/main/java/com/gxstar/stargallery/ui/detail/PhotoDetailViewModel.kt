@@ -64,12 +64,13 @@ class PhotoDetailViewModel @Inject constructor(
             _isLoading.value = true
 
             // 根据 bucketId 决定加载全部照片还是相册内照片
+            // 使用 WithRaw 方法保留 RAW 照片，以便详情页能滑动到
             val allPhotos = if (bucketId > 0) {
-                // 加载指定相册的照片
-                mediaRepository.getPhotosByBucket(bucketId, sortType)
+                // 加载指定相册的照片（保留 RAW）
+                mediaRepository.getPhotosByBucketWithRaw(bucketId, sortType)
             } else {
-                // 加载所有媒体（图片+视频）
-                mediaRepository.getAllMedia(sortType)
+                // 加载所有媒体（保留 RAW）
+                mediaRepository.getAllMediaWithRaw(sortType)
             }
             _photos.value = allPhotos
 
