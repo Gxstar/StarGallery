@@ -19,8 +19,7 @@ import kotlinx.coroutines.withContext
  */
 class MediaStorePagingSource(
     private val contentResolver: ContentResolver,
-    private val sortType: MediaRepository.SortType,
-    private val favoritesOnly: Boolean = false
+    private val sortType: MediaRepository.SortType
 ) : PagingSource<Int, Photo>() {
 
     companion object {
@@ -51,15 +50,8 @@ class MediaStorePagingSource(
                 photos
             }
 
-            // 筛选收藏（如果需要）
-            val filteredPhotos = if (favoritesOnly) {
-                mergedPhotos.filter { it.isFavorite }
-            } else {
-                mergedPhotos
-            }
-
             LoadResult.Page(
-                data = filteredPhotos,
+                data = mergedPhotos,
                 prevKey = if (page == 0) null else page - 1,
                 nextKey = if (photos.size < pageSize) null else page + 1
             )
@@ -79,9 +71,6 @@ class MediaStorePagingSource(
         val selection = buildString {
             append("(${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE}")
             append(" OR ${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO})")
-            if (favoritesOnly) {
-                append(" AND ${MediaStore.Files.FileColumns.IS_FAVORITE} = 1")
-            }
         }
 
         val projection = arrayOf(

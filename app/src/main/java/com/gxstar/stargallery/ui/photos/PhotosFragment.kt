@@ -537,7 +537,9 @@ class PhotosFragment : Fragment() {
             .permissions(*permissions)
             .request { allGranted, _, _ ->
                 if (allGranted) {
-                    viewModel.refresh()
+                    // 首次授权后需要刷新 Paging 数据
+                    refreshData(smooth = false)
+                    viewModel.refresh() // 同时刷新计数
                 }
             }
     }
