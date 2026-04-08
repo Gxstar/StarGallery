@@ -302,33 +302,40 @@ class MediaRepository @Inject constructor(
         albums.sortedByDescending { it.photoCount }
     }
 
-    suspend fun getPhotosByBucket(bucketId: Long): List<Photo> = withContext(Dispatchers.IO) {
+    suspend fun getPhotosByBucket(bucketId: Long, sortType: SortType = SortType.DATE_TAKEN): List<Photo> = withContext(Dispatchers.IO) {
         val photos = mutableListOf<Photo>()
-        val uri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+        val uri = MediaStore.Files.getContentUri("external")
         val projection = arrayOf(
-            MediaStore.Images.Media._ID,
-            MediaStore.Images.Media.DATE_TAKEN,
-            MediaStore.Images.Media.DATE_MODIFIED,
-            MediaStore.Images.Media.DATE_ADDED,
-            MediaStore.Images.Media.MIME_TYPE,
-            MediaStore.Images.Media.WIDTH,
-            MediaStore.Images.Media.HEIGHT,
-            MediaStore.Images.Media.SIZE,
-            MediaStore.Images.Media.BUCKET_ID,
-            MediaStore.Images.Media.BUCKET_DISPLAY_NAME,
-            MediaStore.Images.Media.LATITUDE,
-            MediaStore.Images.Media.LONGITUDE,
-            MediaStore.Images.Media.ORIENTATION,
-            MediaStore.Images.Media.IS_FAVORITE
+            MediaStore.Files.FileColumns._ID,
+            MediaStore.Files.FileColumns.DATE_TAKEN,
+            MediaStore.Files.FileColumns.DATE_MODIFIED,
+            MediaStore.Files.FileColumns.DATE_ADDED,
+            MediaStore.Files.FileColumns.MIME_TYPE,
+            MediaStore.Files.FileColumns.WIDTH,
+            MediaStore.Files.FileColumns.HEIGHT,
+            MediaStore.Files.FileColumns.SIZE,
+            MediaStore.Files.FileColumns.BUCKET_ID,
+            MediaStore.Files.FileColumns.BUCKET_DISPLAY_NAME,
+            MediaStore.Files.FileColumns.ORIENTATION,
+            MediaStore.Files.FileColumns.IS_FAVORITE,
+            MediaStore.Files.FileColumns.MEDIA_TYPE,
+            MediaStore.Files.FileColumns.DISPLAY_NAME
         )
 
-        val selection = "${MediaStore.Images.Media.BUCKET_ID} = ?"
+        val selection = "${MediaStore.Files.FileColumns.BUCKET_ID} = ? " +
+            "AND (${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE} " +
+            "OR ${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO})"
         val selectionArgs = arrayOf(bucketId.toString())
-        val sortOrder = "${MediaStore.Images.Media.DATE_TAKEN} DESC"
+
+        val sortColumn = when (sortType) {
+            SortType.DATE_TAKEN -> MediaStore.Files.FileColumns.DATE_TAKEN
+            SortType.DATE_ADDED -> MediaStore.Files.FileColumns.DATE_ADDED
+        }
+        val sortOrder = "$sortColumn DESC"
 
         contentResolver.query(uri, projection, selection, selectionArgs, sortOrder)?.use { cursor ->
             while (cursor.moveToNext()) {
-                photos.add(cursor.toPhoto())
+                photos.add(cursor.toMediaPhoto())
             }
         }
         photos

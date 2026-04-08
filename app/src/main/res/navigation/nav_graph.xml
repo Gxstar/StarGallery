@@ -40,6 +40,10 @@
             android:name="sortType"
             app:argType="integer"
             android:defaultValue="0" />
+        <argument
+            android:name="bucketId"
+            app:argType="long"
+            android:defaultValue="-1L" />
     </fragment>
 
     <fragment

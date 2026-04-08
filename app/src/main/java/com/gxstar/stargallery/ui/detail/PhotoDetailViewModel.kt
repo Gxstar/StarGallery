@@ -23,7 +23,8 @@ class PhotoDetailViewModel @Inject constructor(
     // 从导航参数获取初始照片ID和排序方式
     private val initialPhotoId: Long = savedStateHandle["photoId"] ?: -1L
     private val sortTypeValue: Int = savedStateHandle["sortType"] ?: 0
-    
+    private val bucketId: Long = savedStateHandle["bucketId"] ?: -1L
+
     private val sortType = when (sortTypeValue) {
         0 -> MediaRepository.SortType.DATE_TAKEN
         1 -> MediaRepository.SortType.DATE_ADDED
@@ -49,7 +50,7 @@ class PhotoDetailViewModel @Inject constructor(
     // 信息文本
     private val _infoText = MutableStateFlow("")
     val infoText: StateFlow<String> = _infoText.asStateFlow()
-    
+
     // 加载状态
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -61,11 +62,17 @@ class PhotoDetailViewModel @Inject constructor(
     private fun loadPhotos() {
         viewModelScope.launch {
             _isLoading.value = true
-            
-            // 加载所有媒体（图片+视频）
-            val allPhotos = mediaRepository.getAllMedia(sortType)
+
+            // 根据 bucketId 决定加载全部照片还是相册内照片
+            val allPhotos = if (bucketId > 0) {
+                // 加载指定相册的照片
+                mediaRepository.getPhotosByBucket(bucketId, sortType)
+            } else {
+                // 加载所有媒体（图片+视频）
+                mediaRepository.getAllMedia(sortType)
+            }
             _photos.value = allPhotos
-            
+
             // 找到初始照片的位置
             val initialPosition = allPhotos.indexOfFirst { it.id == initialPhotoId }
             if (initialPosition >= 0) {
@@ -74,7 +81,7 @@ class PhotoDetailViewModel @Inject constructor(
                 _currentPhoto.value = photo
                 updateDateInfo(photo)
             }
-            
+
             _isLoading.value = false
         }
     }
