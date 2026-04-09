@@ -211,22 +211,12 @@ class PhotoViewHolder(
             .placeholder(R.drawable.ic_photo_placeholder)
             .error(R.drawable.ic_photo_error)
             .centerCrop()
-            .diskCacheStrategy(DiskCacheStrategy.RESOURCE)  // 只缓存处理后的图片，减少内存占用
+            .diskCacheStrategy(DiskCacheStrategy.RESOURCE)
             .skipMemoryCache(false)
-            .dontAnimate()  // 禁用默认动画，提升滑动流畅度
+            .dontAnimate()
 
         if (itemSize > 0) {
-            // 优化缩略图策略：使用 1/4 尺寸的缩略图作为预览
-            val thumbnailSize = (itemSize / 2).coerceAtLeast(100)
-            requestBuilder
-                .override(itemSize, itemSize)
-                .thumbnail(
-                    Glide.with(binding.ivPhoto.context)
-                        .load(photo.uri)
-                        .override(thumbnailSize, thumbnailSize)
-                        .centerCrop()
-                        .diskCacheStrategy(DiskCacheStrategy.RESOURCE)
-                )
+            requestBuilder.override(itemSize, itemSize)
         }
 
         requestBuilder.into(binding.ivPhoto)

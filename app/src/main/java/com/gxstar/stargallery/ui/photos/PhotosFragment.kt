@@ -474,10 +474,7 @@ class PhotosFragment : Fragment() {
                     // 首次加载完成后预热，减少后续滑动卡顿
                     if (!isInitialLoading && !isWarmedUp && photoAdapter.itemCount > 0) {
                         isWarmedUp = true
-                        binding.rvPhotos.postDelayed({
-                            warmupSpanCache()
-                            // preloadInitialImages 已由 RecyclerViewPreloader 处理，无需额外预加载
-                        }, 500)
+                        warmupSpanCache()
                     }
                 }
             }
@@ -844,8 +841,8 @@ class PhotosFragment : Fragment() {
         val spanLookup = gridLayoutManager.spanSizeLookup ?: return
 
         viewLifecycleOwner.lifecycleScope.launch(Dispatchers.Default) {
-            // 预计算前 30 项的 span 信息（覆盖首屏和预加载区域）
-            val warmupCount = minOf(30, photoAdapter.itemCount)
+            // 预计算前 50 项的 span 信息（覆盖首屏和预加载区域）
+            val warmupCount = minOf(50, photoAdapter.itemCount)
             for (i in 0 until warmupCount) {
                 try {
                     spanLookup.getSpanSize(i)
@@ -893,7 +890,7 @@ class PhotosFragment : Fragment() {
     companion object {
         private const val DEFAULT_SPAN_COUNT = 4
         private const val ITEM_VIEW_CACHE_SIZE = 24
-        private const val PRELOAD_ITEM_COUNT = 12
+        private const val PRELOAD_ITEM_COUNT = 6
         // RecyclerView 预取数量（每行预取的数量 * 列数）
         private const val PREFETCH_ITEM_COUNT = 12
 

@@ -39,8 +39,8 @@ class PhotosViewModel @Inject constructor(
 ) : ViewModel() {
 
     companion object {
-        private const val PAGE_SIZE = 60
-        private const val PREFETCH_DISTANCE = 30
+        private const val PAGE_SIZE = 20
+        private const val PREFETCH_DISTANCE = 10
     }
 
     private val _currentSortType = MutableStateFlow(MediaRepository.SortType.DATE_TAKEN)
