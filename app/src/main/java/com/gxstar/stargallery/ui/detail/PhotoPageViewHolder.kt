@@ -189,8 +189,7 @@ class PhotoPageViewHolder(
         currentPhoto = photo
         binding.progressBar.visibility = View.VISIBLE
         setupImageEventListener()
-        updateRawTag(photo)
-        
+
         if (photo.isVideo && ExoPlayerManager.getCurrentVideoId() == photo.id) {
             restoreVideoPlayback(photo)
         } else {
@@ -210,20 +209,7 @@ class PhotoPageViewHolder(
         binding.videoView.player = exoPlayer
         binding.progressBar.visibility = View.GONE
     }
-    
-    private fun updateRawTag(photo: Photo) {
-        val isRawCapable = photo.isRaw || photo.pairedRawId != null
-        binding.tvRawTag.visibility = if (isRawCapable) View.VISIBLE else View.GONE
-        if (isRawCapable) {
-            binding.tvRawTag.text = if (photo.isRaw) "RAW" else photo.getBaseFormatName()
-        }
-    }
-    
-    fun setRawTagVisibility(visible: Boolean) {
-        val isRawCapable = currentPhoto?.isRaw == true || currentPhoto?.pairedRawId != null
-        binding.tvRawTag.visibility = if (visible && isRawCapable) View.VISIBLE else View.GONE
-    }
-    
+
     fun isImageZoomed(): Boolean {
         return binding.ivPhoto.isReady && binding.ivPhoto.scale > binding.ivPhoto.minScale * 1.01f
     }

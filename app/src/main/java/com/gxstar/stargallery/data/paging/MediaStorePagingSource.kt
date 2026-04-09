@@ -15,7 +15,6 @@ import kotlinx.coroutines.withContext
 /**
  * MediaStore 分页数据源
  * 使用 Android 10+ 的 Bundle 分页查询，避免一次性加载所有数据
- * 支持 RAW 照片合并（延迟合并策略）
  */
 class MediaStorePagingSource(
     private val contentResolver: ContentResolver,
@@ -24,7 +23,6 @@ class MediaStorePagingSource(
 
     companion object {
         const val PAGE_SIZE = 60
-        private const val RAW_MERGE_WINDOW = 100  // RAW 合并检查窗口大小
     }
 
     /**
@@ -43,9 +41,6 @@ class MediaStorePagingSource(
 
     override suspend fun load(params: LoadParams<Int>): LoadResult<Int, Photo> = withContext(Dispatchers.IO) {
         try {
-            // 注意：offset 必须基于固定的 PAGE_SIZE，不能用 params.loadSize
-            // 因为首次加载 initialLoadSize=PAGE_SIZE=60，后续是 PAGE_SIZE=60
-            // 如果用 params.loadSize=120，会导致 offset 计算错误产生数据重复
             val page = params.key ?: 0
             val offset = page * PAGE_SIZE
             val pageSize = params.loadSize
@@ -53,15 +48,8 @@ class MediaStorePagingSource(
             // 使用 Bundle 进行分页查询（Android 10+ 支持）
             val photos = queryPhotosWithPagination(offset, pageSize)
 
-            // 延迟 RAW 合并：只在当前页数据进行合并检查
-            val mergedPhotos = if (photos.isNotEmpty()) {
-                mergeRawPhotosInCurrentPage(photos, offset)
-            } else {
-                photos
-            }
-
             LoadResult.Page(
-                data = mergedPhotos,
+                data = photos,
                 prevKey = if (page == 0) null else page - 1,
                 nextKey = if (photos.size < pageSize) null else page + 1
             )
@@ -96,9 +84,7 @@ class MediaStorePagingSource(
             MediaStore.Files.FileColumns.BUCKET_DISPLAY_NAME,
             MediaStore.Files.FileColumns.ORIENTATION,
             MediaStore.Files.FileColumns.IS_FAVORITE,
-            MediaStore.Files.FileColumns.MEDIA_TYPE,
-            MediaStore.Files.FileColumns.DISPLAY_NAME,
-            MediaStore.Files.FileColumns.DATA  // 用于 RAW 识别
+            MediaStore.Files.FileColumns.MEDIA_TYPE
         )
 
         val sortColumn = when (sortType) {
@@ -130,7 +116,6 @@ class MediaStorePagingSource(
             val orientationIndex = cursor.getColumnIndex(MediaStore.Files.FileColumns.ORIENTATION)
             val isFavoriteIndex = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.IS_FAVORITE)
             val mediaTypeIndex = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.MEDIA_TYPE)
-            val displayNameIndex = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DISPLAY_NAME)
 
             while (cursor.moveToNext()) {
                 val id = cursor.getLong(idIndex)
@@ -142,9 +127,6 @@ class MediaStorePagingSource(
                 } else {
                     ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id)
                 }
-
-                val displayName = cursor.getString(displayNameIndex) ?: ""
-                val nameWithoutExtension = displayName.substringBeforeLast(".", displayName)
 
                 photos.add(
                     Photo(
@@ -162,185 +144,12 @@ class MediaStorePagingSource(
                         latitude = null,
                         longitude = null,
                         orientation = if (orientationIndex >= 0) cursor.getInt(orientationIndex) else 0,
-                        isFavorite = cursor.getInt(isFavoriteIndex) == 1,
-                        displayName = nameWithoutExtension
+                        isFavorite = cursor.getInt(isFavoriteIndex) == 1
                     )
                 )
             }
         }
 
         return photos
-    }
-
-    /**
-     * 延迟 RAW 合并策略
-     * 按 displayName 精确查询配对 RAW，而不是依赖位置窗口
-     */
-    private fun mergeRawPhotosInCurrentPage(photos: List<Photo>, currentOffset: Int): List<Photo> {
-        if (photos.isEmpty()) return photos
-
-        // 收集当前页所有需要查询的 key（bucketId + displayName）
-        val lookupKeys = photos
-            .filter { !it.isVideo && it.displayName.isNotEmpty() }
-            .map { "${it.bucketId}_${it.displayName}" }
-            .distinct()
-
-        if (lookupKeys.isEmpty()) return photos
-
-        // 直接查询当前页照片对应的 RAW 文件（精确匹配，不再依赖位置窗口）
-        val rawPhotos = queryRawPhotosByKeys(lookupKeys)
-        if (rawPhotos.isEmpty()) return photos
-
-        // 建立 RAW 文件查找表：bucketId_displayName -> RAW Photo
-        val rawLookup = rawPhotos.associateBy { "${it.bucketId}_${it.displayName}" }
-
-        // 合并逻辑：普通照片关联 RAW，RAW 照片检查是否有普通照片
-        val result = mutableListOf<Photo>()
-        val processedRawIds = mutableSetOf<Long>()
-
-        for (photo in photos) {
-            val lookupKey = "${photo.bucketId}_${photo.displayName}"
-            val pairedRaw = rawLookup[lookupKey]
-
-            if (photo.isRaw) {
-                // 如果是 RAW，检查是否有对应的普通照片在当前页
-                val hasNormalVersion = photos.any { 
-                    !it.isRaw && !it.isVideo && it.bucketId == photo.bucketId && it.displayName == photo.displayName 
-                }
-                if (!hasNormalVersion) {
-                    result.add(photo)
-                }
-                processedRawIds.add(photo.id)
-            } else {
-                // 普通照片，关联 RAW
-                result.add(
-                    photo.copy(
-                        pairedRawId = pairedRaw?.id,
-                        hasRawPair = pairedRaw != null
-                    )
-                )
-                if (pairedRaw != null) {
-                    processedRawIds.add(pairedRaw.id)
-                }
-            }
-        }
-
-        return result
-    }
-
-    /**
-     * 按 displayName 精确查询 RAW 文件（不依赖位置窗口）
-     * 先收集当前页的 bucketId 和 displayName，再精确查询匹配的 RAW
-     */
-    private fun queryRawPhotosByKeys(keys: List<String>): List<Photo> {
-        if (keys.isEmpty()) return emptyList()
-
-        // 收集当前页中已有照片的 bucketId 集合
-        val bucketIdsInPage = keys.mapNotNull { key ->
-            key.substringBefore("_").toLongOrNull()
-        }.distinct()
-
-        if (bucketIdsInPage.isEmpty()) return emptyList()
-
-        val rawPhotos = mutableListOf<Photo>()
-        val uri = MediaStore.Files.getContentUri("external")
-
-        // RAW 格式 MIME 类型
-        val rawMimeTypes = listOf(
-            "image/x-adobe-dng",  // DNG
-            "image/x-sony-arw",   // ARW
-            "image/x-canon-cr2",  // CR2
-            "image/x-canon-cr3",  // CR3
-            "image/x-nikon-nef",  // NEF
-            "image/x-nikon-nrw",  // NRW
-            "image/x-olympus-orf",// ORF
-            "image/x-panasonic-rw2", // RW2
-            "image/x-fuji-raf",   // RAF
-            "image/x-pentax-pef", // PEF
-            "image/x-samsung-srw",// SRW
-            "image/x-sigma-x3f",  // X3F
-            "image/x-hasselblad-3fr", // 3FR
-            "image/x-leica-rwl",  // RWL
-            "image/x-raw"         // 通用 RAW
-        )
-
-        val bucketIdInClause = bucketIdsInPage.joinToString(",")
-        val mimeTypeInClause = rawMimeTypes.joinToString(",") { "'$it'" }
-
-        // 在 SQL 层面限制 bucketId，减少查询范围
-        val selection = buildString {
-            append("${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE}")
-            append(" AND ${MediaStore.Files.FileColumns.BUCKET_ID} IN ($bucketIdInClause)")
-            append(" AND ${MediaStore.Files.FileColumns.MIME_TYPE} IN ($mimeTypeInClause)")
-        }
-
-        val projection = arrayOf(
-            MediaStore.Files.FileColumns._ID,
-            MediaStore.Files.FileColumns.DATE_TAKEN,
-            MediaStore.Files.FileColumns.MIME_TYPE,
-            MediaStore.Files.FileColumns.BUCKET_ID,
-            MediaStore.Files.FileColumns.DISPLAY_NAME,
-            MediaStore.Files.FileColumns.IS_FAVORITE
-        )
-
-        val sortColumn = when (sortType) {
-            MediaRepository.SortType.DATE_TAKEN -> MediaStore.Files.FileColumns.DATE_TAKEN
-            MediaRepository.SortType.DATE_ADDED -> MediaStore.Files.FileColumns.DATE_ADDED
-        }
-
-        val bundle = Bundle().apply {
-            putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, MediaStore.MATCH_EXCLUDE)
-            putString(ContentResolver.QUERY_ARG_SQL_SELECTION, selection)
-            putStringArray(ContentResolver.QUERY_ARG_SORT_COLUMNS, arrayOf(sortColumn))
-            putInt(ContentResolver.QUERY_ARG_SORT_DIRECTION, ContentResolver.QUERY_SORT_DIRECTION_DESCENDING)
-        }
-
-        // 将 keys 转为 Set 用于快速查找
-        val keySet = keys.toSet()
-
-        contentResolver.query(uri, projection, bundle, null)?.use { cursor ->
-            val idIndex = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns._ID)
-            val dateTakenIndex = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_TAKEN)
-            val mimeTypeIndex = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.MIME_TYPE)
-            val bucketIdIndex = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.BUCKET_ID)
-            val displayNameIndex = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DISPLAY_NAME)
-            val isFavoriteIndex = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.IS_FAVORITE)
-
-            while (cursor.moveToNext()) {
-                val bucketId = cursor.getLong(bucketIdIndex)
-                val displayName = cursor.getString(displayNameIndex) ?: ""
-                val nameWithoutExtension = displayName.substringBeforeLast(".", displayName)
-                val key = "${bucketId}_$nameWithoutExtension"
-
-                // 只添加在当前页 lookupKeys 中的 RAW 文件
-                if (key in keySet) {
-                    val id = cursor.getLong(idIndex)
-                    val mimeType = cursor.getString(mimeTypeIndex) ?: "image/x-raw"
-
-                    rawPhotos.add(
-                        Photo(
-                            id = id,
-                            uri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id),
-                            dateTaken = cursor.getLong(dateTakenIndex),
-                            dateModified = 0,
-                            dateAdded = 0,
-                            mimeType = mimeType,
-                            width = 0,
-                            height = 0,
-                            size = 0,
-                            bucketId = bucketId,
-                            bucketName = "",
-                            latitude = null,
-                            longitude = null,
-                            orientation = 0,
-                            isFavorite = cursor.getInt(isFavoriteIndex) == 1,
-                            displayName = nameWithoutExtension
-                        )
-                    )
-                }
-            }
-        }
-
-        return rawPhotos
     }
 }

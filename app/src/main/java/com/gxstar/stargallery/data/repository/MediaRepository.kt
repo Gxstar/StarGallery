@@ -22,7 +22,7 @@ class MediaRepository @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     private val contentResolver = context.contentResolver
-    
+
     /**
      * 排序方式枚举
      */
@@ -105,7 +105,6 @@ class MediaRepository @Inject constructor(
 
     /**
      * 加载全部媒体（图片+视频）到内存，用于自定义高级排序
-     * 同名的普通图片和 RAW 照片会合并显示
      */
     suspend fun getAllMedia(sortType: SortType = SortType.DATE_TAKEN): List<Photo> = withContext(Dispatchers.IO) {
         val photos = mutableListOf<Photo>()
@@ -125,15 +124,14 @@ class MediaRepository @Inject constructor(
             MediaStore.Files.FileColumns.BUCKET_DISPLAY_NAME,
             MediaStore.Files.FileColumns.ORIENTATION,
             MediaStore.Files.FileColumns.IS_FAVORITE,
-            MediaStore.Files.FileColumns.MEDIA_TYPE,
-            MediaStore.Files.FileColumns.DISPLAY_NAME
+            MediaStore.Files.FileColumns.MEDIA_TYPE
         )
-        
+
         val sortOrder = when (sortType) {
             SortType.DATE_TAKEN -> "${MediaStore.Files.FileColumns.DATE_TAKEN} DESC"
             SortType.DATE_ADDED -> "${MediaStore.Files.FileColumns.DATE_ADDED} DESC"
         }
-        
+
         // 从 content resolver 加载所有基本属性到内存
         val bundle = Bundle().apply {
             // 显式排除回收站项
@@ -153,85 +151,8 @@ class MediaRepository @Inject constructor(
                 photos.add(cursor.toMediaPhoto())
             }
         }
-        
-        // 合并同名照片（JPG+RAW 等）
-        mergeSameNamePhotos(photos)
-    }
-    
-    /**
-     * 合并同名照片：如果存在同名的普通图片和 RAW，则合并显示
-     * 优先级：普通图片 > RAW
-     */
-    private fun mergeSameNamePhotos(photos: List<Photo>): List<Photo> {
-        // 按 displayName（不含扩展名）分组
-        data class PhotoGroup(
-            val normalPhoto: Photo?,  // 普通格式照片
-            val rawPhoto: Photo?      // RAW 照片
-        )
-        
-        val groupedPhotos = mutableMapOf<String, PhotoGroup>()
-        
-        for (photo in photos) {
-            if (photo.displayName.isEmpty() || photo.isVideo) {
-                // 没有文件名或是视频，直接保留
-                continue
-            }
-            
-            val key = "${photo.bucketId}_${photo.displayName}"
-            
-            val existing = groupedPhotos[key]
-            if (photo.isRaw) {
-                // RAW 照片
-                val normalPhoto = existing?.normalPhoto
-                groupedPhotos[key] = PhotoGroup(normalPhoto, photo)
-            } else {
-                // 普通照片
-                val rawPhoto = existing?.rawPhoto
-                groupedPhotos[key] = PhotoGroup(photo, rawPhoto)
-            }
-        }
-        
-        // 构建结果列表
-        val result = mutableListOf<Photo>()
-        val processedKeys = mutableSetOf<String>()
-        
-        for (photo in photos) {
-            if (photo.isVideo) {
-                // 视频直接保留
-                result.add(photo)
-                continue
-            }
-            
-            if (photo.displayName.isEmpty()) {
-                result.add(photo)
-                continue
-            }
-            
-            val key = "${photo.bucketId}_${photo.displayName}"
-            
-            if (processedKeys.contains(key)) {
-                continue
-            }
-            
-            val group = groupedPhotos[key]
-            if (group != null) {
-                if (group.normalPhoto != null) {
-                    // 有普通格式照片，使用它作为主照片，并关联 RAW
-                    val mergedPhoto = group.normalPhoto.copy(
-                        pairedRawId = group.rawPhoto?.id
-                    )
-                    result.add(mergedPhoto)
-                } else if (group.rawPhoto != null) {
-                    // 只有 RAW 照片
-                    result.add(group.rawPhoto)
-                }
-                processedKeys.add(key)
-            } else {
-                result.add(photo)
-            }
-        }
-        
-        return result
+
+        photos
     }
 
     suspend fun getPhotoById(id: Long): Photo? = withContext(Dispatchers.IO) {
@@ -318,8 +239,7 @@ class MediaRepository @Inject constructor(
             MediaStore.Files.FileColumns.BUCKET_DISPLAY_NAME,
             MediaStore.Files.FileColumns.ORIENTATION,
             MediaStore.Files.FileColumns.IS_FAVORITE,
-            MediaStore.Files.FileColumns.MEDIA_TYPE,
-            MediaStore.Files.FileColumns.DISPLAY_NAME
+            MediaStore.Files.FileColumns.MEDIA_TYPE
         )
 
         val selection = "${MediaStore.Files.FileColumns.BUCKET_ID} = ? " +
@@ -339,131 +259,7 @@ class MediaRepository @Inject constructor(
             }
         }
 
-        // 合并同名照片（JPG+RAW 等）
-        mergeSameNamePhotos(photos)
-    }
-
-    /**
-     * 加载相册内所有媒体（不合并 RAW，用于详情页滑动）
-     * JPG 和同名 RAW 都会出现在列表中
-     */
-    suspend fun getPhotosByBucketWithRaw(bucketId: Long, sortType: SortType = SortType.DATE_TAKEN): List<Photo> = withContext(Dispatchers.IO) {
-        val photos = mutableListOf<Photo>()
-        val uri = MediaStore.Files.getContentUri("external")
-        val projection = arrayOf(
-            MediaStore.Files.FileColumns._ID,
-            MediaStore.Files.FileColumns.DATE_TAKEN,
-            MediaStore.Files.FileColumns.DATE_MODIFIED,
-            MediaStore.Files.FileColumns.DATE_ADDED,
-            MediaStore.Files.FileColumns.MIME_TYPE,
-            MediaStore.Files.FileColumns.WIDTH,
-            MediaStore.Files.FileColumns.HEIGHT,
-            MediaStore.Files.FileColumns.SIZE,
-            MediaStore.Files.FileColumns.BUCKET_ID,
-            MediaStore.Files.FileColumns.BUCKET_DISPLAY_NAME,
-            MediaStore.Files.FileColumns.ORIENTATION,
-            MediaStore.Files.FileColumns.IS_FAVORITE,
-            MediaStore.Files.FileColumns.MEDIA_TYPE,
-            MediaStore.Files.FileColumns.DISPLAY_NAME
-        )
-
-        val selection = "${MediaStore.Files.FileColumns.BUCKET_ID} = ? " +
-            "AND (${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE} " +
-            "OR ${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO})"
-        val selectionArgs = arrayOf(bucketId.toString())
-
-        val sortColumn = when (sortType) {
-            SortType.DATE_TAKEN -> MediaStore.Files.FileColumns.DATE_TAKEN
-            SortType.DATE_ADDED -> MediaStore.Files.FileColumns.DATE_ADDED
-        }
-        val sortOrder = "$sortColumn DESC"
-
-        contentResolver.query(uri, projection, selection, selectionArgs, sortOrder)?.use { cursor ->
-            while (cursor.moveToNext()) {
-                photos.add(cursor.toMediaPhoto())
-            }
-        }
-
-        // 标记 JPG+RAW 组，但不隐藏 RAW
-        markRawPairs(photos)
-    }
-
-    /**
-     * 加载全部媒体（不合并 RAW，用于详情页滑动）
-     * JPG 和同名 RAW 都会出现在列表中
-     */
-    suspend fun getAllMediaWithRaw(sortType: SortType = SortType.DATE_TAKEN): List<Photo> = withContext(Dispatchers.IO) {
-        val photos = mutableListOf<Photo>()
-        val uri = MediaStore.Files.getContentUri("external")
-        val selection = "(${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE} " +
-                "OR ${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO})"
-        val projection = arrayOf(
-            MediaStore.Files.FileColumns._ID,
-            MediaStore.Files.FileColumns.DATE_TAKEN,
-            MediaStore.Files.FileColumns.DATE_MODIFIED,
-            MediaStore.Files.FileColumns.DATE_ADDED,
-            MediaStore.Files.FileColumns.MIME_TYPE,
-            MediaStore.Files.FileColumns.WIDTH,
-            MediaStore.Files.FileColumns.HEIGHT,
-            MediaStore.Files.FileColumns.SIZE,
-            MediaStore.Files.FileColumns.BUCKET_ID,
-            MediaStore.Files.FileColumns.BUCKET_DISPLAY_NAME,
-            MediaStore.Files.FileColumns.ORIENTATION,
-            MediaStore.Files.FileColumns.IS_FAVORITE,
-            MediaStore.Files.FileColumns.MEDIA_TYPE,
-            MediaStore.Files.FileColumns.DISPLAY_NAME
-        )
-
-        val sortColumn = when (sortType) {
-            SortType.DATE_TAKEN -> MediaStore.Files.FileColumns.DATE_TAKEN
-            SortType.DATE_ADDED -> MediaStore.Files.FileColumns.DATE_ADDED
-        }
-
-        val bundle = Bundle().apply {
-            putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, MediaStore.MATCH_EXCLUDE)
-            putString(ContentResolver.QUERY_ARG_SQL_SELECTION, selection)
-            putStringArray(ContentResolver.QUERY_ARG_SORT_COLUMNS, arrayOf(sortColumn))
-            putInt(ContentResolver.QUERY_ARG_SORT_DIRECTION, ContentResolver.QUERY_SORT_DIRECTION_DESCENDING)
-        }
-
-        contentResolver.query(uri, projection, bundle, null)?.use { cursor ->
-            while (cursor.moveToNext()) {
-                photos.add(cursor.toMediaPhoto())
-            }
-        }
-
-        // 标记 JPG+RAW 组，但不隐藏 RAW
-        markRawPairs(photos)
-    }
-
-    /**
-     * 标记 JPG+RAW 组：JPG 标记 hasRawPair，但不隐藏 RAW
-     */
-    private fun markRawPairs(photos: MutableList<Photo>): List<Photo> {
-        // 按 displayName 分组找出 JPG+RAW 对
-        val rawLookup = mutableMapOf<String, Photo>()
-
-        for (photo in photos) {
-            if (photo.displayName.isEmpty() || photo.isVideo) continue
-            if (photo.isRaw) {
-                val key = "${photo.bucketId}_${photo.displayName}"
-                rawLookup[key] = photo
-            }
-        }
-
-        // 标记 JPG 是否有对应的 RAW
-        for (i in photos.indices) {
-            val photo = photos[i]
-            if (!photo.isRaw && !photo.isVideo && photo.displayName.isNotEmpty()) {
-                val key = "${photo.bucketId}_${photo.displayName}"
-                val rawPhoto = rawLookup[key]
-                if (rawPhoto != null) {
-                    photos[i] = photo.copy(hasRawPair = true, pairedRawId = rawPhoto.id)
-                }
-            }
-        }
-
-        return photos
+        photos
     }
 
     /**
@@ -480,7 +276,7 @@ class MediaRepository @Inject constructor(
             false
         }
     }
-    
+
     /**
      * 切换单张照片收藏状态 - 返回 IntentSender 供用户确认
      */
@@ -497,13 +293,13 @@ class MediaRepository @Inject constructor(
             null
         }
     }
-    
+
     /**
      * 批量设置照片收藏状态 - 返回 IntentSender 供用户确认
      */
     fun setFavorite(photos: List<Photo>, isFavorite: Boolean): android.content.IntentSender? {
         if (photos.isEmpty()) return null
-        
+
         return try {
             val uris = photos.map { it.uri }
             val favoriteRequest = MediaStore.createFavoriteRequest(contentResolver, uris, isFavorite)
@@ -513,7 +309,7 @@ class MediaRepository @Inject constructor(
             null
         }
     }
-    
+
     /**
      * 删除单张照片 - 返回 IntentSender 供用户确认
      */
@@ -529,7 +325,7 @@ class MediaRepository @Inject constructor(
             null
         }
     }
-    
+
     /**
      * 将单张照片移至回收站 - 返回 IntentSender 供用户确认
      */
@@ -546,7 +342,7 @@ class MediaRepository @Inject constructor(
             null
         }
     }
-    
+
     /**
      * 获取媒体总数（图片+视频）
      */
@@ -585,7 +381,7 @@ class MediaRepository @Inject constructor(
      */
     fun deletePhotos(photos: List<Photo>): android.content.IntentSender? {
         if (photos.isEmpty()) return null
-        
+
         return try {
             val uris = photos.map { it.uri }
             val deleteRequest = MediaStore.createDeleteRequest(contentResolver, uris)
@@ -595,13 +391,13 @@ class MediaRepository @Inject constructor(
             null
         }
     }
-    
+
     /**
      * 批量将照片移至回收站 - 返回 IntentSender 供用户确认
      */
     fun trashPhotos(photos: List<Photo>): android.content.IntentSender? {
         if (photos.isEmpty()) return null
-        
+
         return try {
             val uris = photos.map { it.uri }
             val trashRequest = MediaStore.createTrashRequest(contentResolver, uris, true)
@@ -611,13 +407,13 @@ class MediaRepository @Inject constructor(
             null
         }
     }
-    
+
     /**
      * 从回收站恢复照片 - 返回 IntentSender 供用户确认
      */
     fun restorePhotos(photos: List<Photo>): android.content.IntentSender? {
         if (photos.isEmpty()) return null
-        
+
         return try {
             val uris = photos.map { it.uri }
             val restoreRequest = MediaStore.createTrashRequest(contentResolver, uris, false)
@@ -627,7 +423,7 @@ class MediaRepository @Inject constructor(
             null
         }
     }
-    
+
     /**
      * 获取回收站中的媒体（图片+视频）
      * 仅在 Android 11+ (API 30+) 支持系统级回收站
@@ -635,23 +431,23 @@ class MediaRepository @Inject constructor(
     suspend fun getTrashedMedia(): List<Photo> = withContext(Dispatchers.IO) {
         val photos = mutableListOf<Photo>()
         val uri = MediaStore.Files.getContentUri("external")
-        
+
         val bundle = Bundle().apply {
             // 将模式调整为 MATCH_INCLUDE 以包含回收站项
             putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, MediaStore.MATCH_INCLUDE)
-            
+
             // 明确增加过滤条件：is_trashed = 1 且必须是图片或视频
             val selection = "(${MediaStore.MediaColumns.IS_TRASHED} = 1) AND " +
                     "(${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE} " +
                     "OR ${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO})"
-            
+
             putString(ContentResolver.QUERY_ARG_SQL_SELECTION, selection)
-            
+
             // 按拍摄时间降序
             putStringArray(ContentResolver.QUERY_ARG_SORT_COLUMNS, arrayOf(MediaStore.Files.FileColumns.DATE_TAKEN))
             putInt(ContentResolver.QUERY_ARG_SORT_DIRECTION, ContentResolver.QUERY_SORT_DIRECTION_DESCENDING)
         }
-        
+
         val projection = arrayOf(
             MediaStore.Files.FileColumns._ID,
             MediaStore.Files.FileColumns.DATE_TAKEN,
@@ -667,7 +463,7 @@ class MediaRepository @Inject constructor(
             MediaStore.Files.FileColumns.IS_FAVORITE,
             MediaStore.Files.FileColumns.MEDIA_TYPE
         )
-        
+
         contentResolver.query(uri, projection, bundle, null)?.use { cursor ->
             while (cursor.moveToNext()) {
                 photos.add(cursor.toTrashedPhoto())
@@ -679,10 +475,10 @@ class MediaRepository @Inject constructor(
     private fun Cursor.toPhoto(): Photo {
         val id = getLong(getColumnIndexOrThrow(MediaStore.Images.Media._ID))
         val uri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id)
-        
+
         val orientationIndex = getColumnIndex(MediaStore.Images.Media.ORIENTATION)
         val orientation = if (orientationIndex >= 0) getInt(orientationIndex) else 0
-        
+
         return Photo(
             id = id,
             uri = uri,
@@ -705,7 +501,7 @@ class MediaRepository @Inject constructor(
     private fun Cursor.toMediaPhoto(): Photo {
         val id = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns._ID))
         val mimeType = getString(getColumnIndexOrThrow(MediaStore.Files.FileColumns.MIME_TYPE)) ?: "image/jpeg"
-        
+
         // 根据MIME_TYPE确定URI类型（图片或视频）
         val uri: Uri = if (mimeType.startsWith("video/")) {
             ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id)
@@ -715,10 +511,6 @@ class MediaRepository @Inject constructor(
 
         val orientationIndex = getColumnIndex(MediaStore.Files.FileColumns.ORIENTATION)
         val orientation = if (orientationIndex >= 0) getInt(orientationIndex) else 0
-        
-        // 获取文件名（不含扩展名），用于同名照片合并
-        val fileName = getColumnIndex(MediaStore.Files.FileColumns.DISPLAY_NAME).takeIf { it >= 0 }?.let { getString(it) } ?: ""
-        val displayName = fileName.substringBeforeLast(".")
 
         return Photo(
             id = id,
@@ -735,15 +527,14 @@ class MediaRepository @Inject constructor(
             latitude = null,
             longitude = null,
             orientation = orientation,
-            isFavorite = getInt(getColumnIndexOrThrow(MediaStore.Files.FileColumns.IS_FAVORITE)) == 1,
-            displayName = displayName
+            isFavorite = getInt(getColumnIndexOrThrow(MediaStore.Files.FileColumns.IS_FAVORITE)) == 1
         )
     }
-    
+
     private fun Cursor.toTrashedPhoto(): Photo {
         val id = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns._ID))
         val mimeType = getString(getColumnIndexOrThrow(MediaStore.Files.FileColumns.MIME_TYPE)) ?: "image/jpeg"
-        
+
         val uri: Uri = if (mimeType.startsWith("video/")) {
             ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id)
         } else {

@@ -59,7 +59,7 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
         // 1. 异步获取带扩展名的文件名 (第一行，主显示)
         CoroutineScope(Dispatchers.Main).launch {
             val fullName = withContext(Dispatchers.IO) { getFullFileName(photo.uri) }
-            binding.tvFilename.text = fullName ?: photo.displayName
+            binding.tvFilename.text = fullName ?: ""
         }
 
         // 2. 基础信息暂存 (第二行，弱化显示)

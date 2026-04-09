@@ -243,20 +243,18 @@ class PhotoDetailFragment : Fragment() {
             // 隐藏系统栏
             controller.hide(WindowInsetsCompat.Type.systemBars())
             controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            
+
             // 动画切换背景和工具栏
             binding.rootContainer.setBackgroundColor(Color.BLACK)
             fadeView(binding.topBar, false)
             fadeView(binding.bottomBar, false)
-            pagerAdapter.getCurrentViewHolder()?.setRawTagVisibility(false)
         } else {
             // 显示系统栏
             controller.show(WindowInsetsCompat.Type.systemBars())
-            
+
             binding.rootContainer.setBackgroundColor(Color.WHITE)
             fadeView(binding.topBar, true)
             fadeView(binding.bottomBar, true)
-            pagerAdapter.getCurrentViewHolder()?.setRawTagVisibility(true)
         }
         
         updateSystemBarIcons(!isFullscreen)
