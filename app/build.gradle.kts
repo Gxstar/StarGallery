@@ -89,6 +89,10 @@ dependencies {
     // 权限 - PermissionX
     implementation(libs.permissionx)
 
+    // 拖动多选
+    implementation(libs.drag.select.compose)
+    implementation(libs.drag.select.compose.extensions)
+
     // EXIF 信息
     implementation(libs.androidx.exifinterface)
     implementation(libs.metadata.extractor)

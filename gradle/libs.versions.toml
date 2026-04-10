@@ -37,6 +37,9 @@ navigation = "2.9.7"
 # 分页
 paging = "3.4.0"
 
+# 拖动多选
+dragSelectCompose = "3.3.0"
+
 # 权限
 permissionx = "1.7.1"
 
@@ -103,6 +106,10 @@ androidx-paging-runtime-compose = { group = "androidx.paging", name = "paging-co
 
 # 权限
 permissionx = { group = "com.guolindev.permissionx", name = "permissionx", version.ref = "permissionx" }
+
+# 拖动多选
+drag-select-compose = { group = "com.dragselectcompose", name = "core-android", version.ref = "dragSelectCompose" }
+drag-select-compose-extensions = { group = "com.dragselectcompose", name = "extensions", version.ref = "dragSelectCompose" }
 
 # EXIF
 androidx-exifinterface = { group = "androidx.exifinterface", name = "exifinterface", version.ref = "exifinterface" }

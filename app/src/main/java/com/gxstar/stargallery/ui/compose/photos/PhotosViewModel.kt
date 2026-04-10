@@ -60,6 +60,13 @@ class PhotosViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    // Selection state - saved in ViewModel to survive config changes
+    private val _isSelectionMode = MutableStateFlow(false)
+    val isSelectionMode: StateFlow<Boolean> = _isSelectionMode.asStateFlow()
+
+    private val _selectedIds = MutableStateFlow<Set<Long>>(emptySet())
+    val selectedIds: StateFlow<Set<Long>> = _selectedIds.asStateFlow()
+
     init {
         loadCounts()
     }
@@ -148,6 +155,45 @@ class PhotosViewModel @Inject constructor(
 
     fun refresh() {
         loadCounts()
+    }
+
+    // Selection management
+    fun enterSelectionMode(initialId: Long) {
+        _isSelectionMode.value = true
+        _selectedIds.value = setOf(initialId)
+    }
+
+    fun exitSelectionMode() {
+        _isSelectionMode.value = false
+        _selectedIds.value = emptySet()
+    }
+
+    fun toggleSelection(id: Long) {
+        val current = _selectedIds.value
+        _selectedIds.value = if (current.contains(id)) {
+            current - id
+        } else {
+            current + id
+        }
+        // Exit selection mode if no items selected
+        if (_selectedIds.value.isEmpty()) {
+            _isSelectionMode.value = false
+        }
+    }
+
+    fun selectRange(ids: List<Long>) {
+        _selectedIds.value = _selectedIds.value + ids.toSet()
+    }
+
+    fun deselectRange(ids: List<Long>) {
+        _selectedIds.value = _selectedIds.value - ids.toSet()
+    }
+
+    fun getSelectedPhotos(photos: List<PhotoModel>): List<Photo> {
+        return photos
+            .filterIsInstance<PhotoModel.PhotoItem>()
+            .filter { _selectedIds.value.contains(it.photo.id) }
+            .map { it.photo }
     }
 
     fun getCurrentPhotoCount(): Int {

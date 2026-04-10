@@ -61,6 +61,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -83,6 +84,7 @@ fun PhotosScreen(
     onNavigateToTrash: () -> Unit = {}
 ) {
     val context = LocalContext.current
+    val view = LocalView.current
     val photos = viewModel.photoPagingFlow.collectAsLazyPagingItems()
 
     val currentSortType by viewModel.currentSortType.collectAsState()
@@ -91,6 +93,10 @@ fun PhotosScreen(
     val photoCount by viewModel.photoCount.collectAsState()
     val favoriteCount by viewModel.favoriteCount.collectAsState()
 
+    // Selection state from ViewModel (survives config changes)
+    val isSelectionMode by viewModel.isSelectionMode.collectAsState()
+    val selectedIds by viewModel.selectedIds.collectAsState()
+
     var showSortDialog by remember { mutableStateOf(false) }
     var showGroupDialog by remember { mutableStateOf(false) }
     var showColumnsDialog by remember { mutableStateOf(false) }
@@ -98,18 +104,13 @@ fun PhotosScreen(
     // Grid columns state (3-8 columns)
     var gridColumns by remember { mutableIntStateOf(4) }
 
-    // Selection state
-    var isSelectionMode by remember { mutableStateOf(false) }
-    var selectedIds by remember { mutableStateOf(setOf<Long>()) }
-
     // IntentSender launchers
     val favoriteLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartIntentSenderForResult()
     ) { result ->
         if (result.resultCode == android.app.Activity.RESULT_OK) {
             viewModel.refresh()
-            selectedIds = emptySet()
-            isSelectionMode = false
+            viewModel.exitSelectionMode()
         }
     }
 
@@ -119,8 +120,7 @@ fun PhotosScreen(
         if (result.resultCode == android.app.Activity.RESULT_OK) {
             Toast.makeText(context, R.string.moved_to_trash, Toast.LENGTH_SHORT).show()
             viewModel.refresh()
-            selectedIds = emptySet()
-            isSelectionMode = false
+            viewModel.exitSelectionMode()
         }
     }
 
@@ -155,15 +155,11 @@ fun PhotosScreen(
                 if (isSelectionMode) {
                     SelectionTopBar(
                         selectedCount = selectedIds.size,
-                        onBack = {
-                            selectedIds = emptySet()
-                            isSelectionMode = false
-                        },
+                        onBack = { viewModel.exitSelectionMode() },
                         onShare = {
                             val selectedPhotos = getSelectedPhotos(photos, selectedIds)
                             sharePhotos(context, selectedPhotos)
-                            selectedIds = emptySet()
-                            isSelectionMode = false
+                            viewModel.exitSelectionMode()
                         },
                         onFavorite = {
                             val selectedPhotos = getSelectedPhotos(photos, selectedIds)
@@ -181,8 +177,7 @@ fun PhotosScreen(
                                 favoriteLauncher.launch(IntentSenderRequest.Builder(it).build())
                             } ?: run {
                                 viewModel.refresh()
-                                selectedIds = emptySet()
-                                isSelectionMode = false
+                                viewModel.exitSelectionMode()
                             }
                         },
                         onDelete = {
@@ -191,8 +186,7 @@ fun PhotosScreen(
                                 trashLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
                             } ?: run {
                                 viewModel.refresh()
-                                selectedIds = emptySet()
-                                isSelectionMode = false
+                                viewModel.exitSelectionMode()
                             }
                         }
                     )
@@ -227,14 +221,7 @@ fun PhotosScreen(
                         selectedIds = selectedIds,
                         onPhotoClick = { photo ->
                             if (isSelectionMode) {
-                                selectedIds = if (selectedIds.contains(photo.id)) {
-                                    selectedIds - photo.id
-                                } else {
-                                    selectedIds + photo.id
-                                }
-                                if (selectedIds.isEmpty()) {
-                                    isSelectionMode = false
-                                }
+                                viewModel.toggleSelection(photo.id)
                             } else {
                                 val sortTypeValue = if (currentSortType == MediaRepository.SortType.DATE_TAKEN) 0 else 1
                                 onNavigateToDetail(photo.id, sortTypeValue)
@@ -242,8 +229,9 @@ fun PhotosScreen(
                         },
                         onPhotoLongClick = { photo ->
                             if (!isSelectionMode) {
-                                isSelectionMode = true
-                                selectedIds = setOf(photo.id)
+                                // Haptic feedback on long press
+                                view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+                                viewModel.enterSelectionMode(photo.id)
                             }
                         }
                     )
@@ -411,17 +399,22 @@ private fun PhotoGrid(
                     null -> "placeholder_$index"
                 }
             },
+            contentType = { index ->
+                when (photos.peek(index)) {
+                    is PhotoModel.SeparatorItem -> "separator"
+                    is PhotoModel.PhotoItem -> "photo"
+                    null -> "placeholder"
+                }
+            },
             span = { index ->
                 val item = photos.peek(index)
                 if (item is PhotoModel.SeparatorItem) {
-                    // Separator spans full width (4 columns)
                     androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan)
                 } else {
                     androidx.compose.foundation.lazy.grid.GridItemSpan(1)
                 }
             }
         ) { index ->
-            // Use photos[index] instead of peek() to trigger pagination loading
             val item = photos[index]
             when (item) {
                 is PhotoModel.SeparatorItem -> {
@@ -487,11 +480,7 @@ private fun PhotoGridItem(
                     .background(Color.Black.copy(alpha = 0.6f), CircleShape)
                     .padding(2.dp)
             ) {
-                Text(
-                    "▶",
-                    color = Color.White,
-                    fontSize = 8.sp
-                )
+                Text("▶", color = Color.White, fontSize = 8.sp)
             }
         }
 
@@ -511,9 +500,7 @@ private fun PhotoGridItem(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(
-                        if (isSelected) Color.Blue.copy(alpha = 0.3f) else Color.Transparent
-                    )
+                    .background(if (isSelected) Color.Blue.copy(alpha = 0.3f) else Color.Transparent)
             )
 
             Box(
@@ -522,17 +509,11 @@ private fun PhotoGridItem(
                     .padding(4.dp)
                     .size(24.dp)
                     .clip(CircleShape)
-                    .background(
-                        if (isSelected) Color.Blue else Color.White.copy(alpha = 0.7f)
-                    ),
+                    .background(if (isSelected) Color.Blue else Color.White.copy(alpha = 0.7f)),
                 contentAlignment = Alignment.Center
             ) {
                 if (isSelected) {
-                    Text(
-                        "✓",
-                        color = Color.White,
-                        fontSize = 14.sp
-                    )
+                    Text("✓", color = Color.White, fontSize = 14.sp)
                 }
             }
         }
@@ -545,9 +526,7 @@ private fun EmptyState() {
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(
                 Icons.Default.Image,
                 contentDescription = null,
@@ -576,9 +555,7 @@ private fun SortDialog(
         text = {
             Column {
                 MediaRepository.SortType.entries.forEach { sortType ->
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         RadioButton(
                             selected = sortType == currentSortType,
                             onClick = { onSelect(sortType) }
@@ -594,9 +571,7 @@ private fun SortDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("取消")
-            }
+            TextButton(onClick = onDismiss) { Text("取消") }
         }
     )
 }
@@ -613,9 +588,7 @@ private fun GroupDialog(
         text = {
             Column {
                 GroupType.entries.forEach { groupType ->
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         RadioButton(
                             selected = groupType == currentGroupType,
                             onClick = { onSelect(groupType) }
@@ -632,9 +605,7 @@ private fun GroupDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("取消")
-            }
+            TextButton(onClick = onDismiss) { Text("取消") }
         }
     )
 }
@@ -651,9 +622,7 @@ private fun ColumnsDialog(
         text = {
             Column {
                 (3..8).forEach { columns ->
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         RadioButton(
                             selected = columns == currentColumns,
                             onClick = { onSelect(columns) }
@@ -664,9 +633,7 @@ private fun ColumnsDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("取消")
-            }
+            TextButton(onClick = onDismiss) { Text("取消") }
         }
     )
 }
