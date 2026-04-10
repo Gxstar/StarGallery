@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.navigation.safeargs)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
+    alias(libs.plugins.compose)
 }
 
 android {
@@ -34,6 +35,7 @@ android {
     }
     buildFeatures {
         viewBinding = true
+        compose = true
     }
 }
 
@@ -47,36 +49,42 @@ dependencies {
     implementation(libs.androidx.fragment.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
-    
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.runtime.compose)
+
     // SplashScreen API
     implementation(libs.androidx.core.splashscreen)
 
-    // 图片加载 - Glide
-    implementation(libs.glide)
-    ksp(libs.glide.compiler)
-    implementation(libs.glide.recyclerview)
-
-    // 大图查看 - SubsamplingScaleImageView
-    implementation(libs.subsampling.scale.image.view)
-
-    // 手势视图 - GestureViews
-    implementation(libs.gesture.views)
+    // 图片加载 - Coil
+    implementation(libs.coil)
+    implementation(libs.coil.compose)
+    implementation(libs.coil.gif)
+    implementation(libs.coil.video)
 
     // 依赖注入 - Hilt
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
-    implementation(libs.hilt.navigation.fragment)
+    implementation(libs.hilt.navigation.compose)
 
     // 导航 - Navigation
     implementation(libs.androidx.navigation.fragment)
     implementation(libs.androidx.navigation.ui)
 
+    // Compose BOM
+    implementation(platform(libs.compose.bom))
+    implementation(libs.androidx.compose.ui)
+    implementation(libs.androidx.compose.ui.graphics)
+    implementation(libs.androidx.compose.ui.tooling.preview)
+    implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.material.icons.extended)
+    implementation(libs.androidx.compose.foundation)
+    implementation(libs.androidx.compose.foundation.layout)
+
+    // Compose Paging
+    implementation(libs.androidx.paging.runtime.compose)
+
     // 分页 - Paging 3
     implementation(libs.androidx.paging.runtime)
-
-    // 列表分组 - Groupie (未使用，已用 Paging 3 insertSeparators 替代)
-    // implementation(libs.groupie)
-    // implementation(libs.groupie.viewbinding)
 
     // 权限 - PermissionX
     implementation(libs.permissionx)
@@ -88,12 +96,6 @@ dependencies {
     // 视频播放 - Media3 (ExoPlayer)
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.ui)
-
-    // 快速滚动
-    implementation(libs.android.fastscroll)
-
-    // 拖动多选
-    implementation(libs.drag.select.recyclerview)
 
     // 协程
     implementation(libs.kotlinx.coroutines.android)

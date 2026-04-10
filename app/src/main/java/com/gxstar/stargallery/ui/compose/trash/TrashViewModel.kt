@@ -1,5 +1,6 @@
-package com.gxstar.stargallery.ui.trash
+package com.gxstar.stargallery.ui.compose.trash
 
+import android.content.IntentSender
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.gxstar.stargallery.data.model.Photo
@@ -31,6 +32,24 @@ class TrashViewModel @Inject constructor(
             _isLoading.value = true
             _photos.value = mediaRepository.getTrashedMedia()
             _isLoading.value = false
+        }
+    }
+
+    fun restorePhotos(photos: List<Photo>, onNeedsIntentSender: (IntentSender) -> Unit) {
+        val intentSender = mediaRepository.restorePhotos(photos)
+        if (intentSender != null) {
+            onNeedsIntentSender(intentSender)
+        } else {
+            loadTrashedPhotos()
+        }
+    }
+
+    fun deletePhotos(photos: List<Photo>, onNeedsIntentSender: (IntentSender) -> Unit) {
+        val intentSender = mediaRepository.deletePhotos(photos)
+        if (intentSender != null) {
+            onNeedsIntentSender(intentSender)
+        } else {
+            loadTrashedPhotos()
         }
     }
 

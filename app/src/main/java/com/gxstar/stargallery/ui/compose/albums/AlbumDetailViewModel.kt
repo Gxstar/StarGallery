@@ -1,4 +1,4 @@
-package com.gxstar.stargallery.ui.albums
+package com.gxstar.stargallery.ui.compose.albums
 
 import android.content.Context
 import androidx.lifecycle.ViewModel
@@ -93,17 +93,7 @@ class AlbumDetailViewModel @Inject constructor(
         }
     }
 
-    /**
-     * 基础照片数据流（排序后，但不包含分组逻辑）
-     * 只有当照片数据或排序方式变化时才会重新加载
-     */
-    private val basePhotoPagingFlow: Flow<PagingData<PhotoModel.PhotoItem>> = combine(
-        _photos,
-        _currentSortType
-    ) { photos, sortType ->
-        Pair(photos, sortType)
-    }.flatMapLatest { (photos, sortType) ->
-        // 排序
+    private fun createPagerFlow(photos: List<Photo>, sortType: MediaRepository.SortType): Flow<PagingData<PhotoModel.PhotoItem>> {
         val sortedPhotos = if (photos.isEmpty()) {
             emptyList()
         } else {
@@ -121,7 +111,7 @@ class AlbumDetailViewModel @Inject constructor(
 
         val totalSize = sortedPhotos.size
 
-        Pager(
+        return Pager(
             config = PagingConfig(
                 pageSize = PAGE_SIZE,
                 enablePlaceholders = false,
@@ -138,34 +128,35 @@ class AlbumDetailViewModel @Inject constructor(
             .cachedIn(viewModelScope)
     }
 
-    /**
-     * 带日期分组的照片数据流
-     * 分组模式切换时只重新计算分隔符，不重新加载照片数据
-     */
+    private val basePhotoPagingFlow: Flow<PagingData<PhotoModel.PhotoItem>> = combine(
+        _photos,
+        _currentSortType
+    ) { photos: List<Photo>, sortType: MediaRepository.SortType ->
+        Pair(photos, sortType)
+    }.flatMapLatest { (photos: List<Photo>, sortType: MediaRepository.SortType) ->
+        createPagerFlow(photos, sortType)
+    }
+
     val photoPagingFlow: Flow<PagingData<PhotoModel>> = combine(
         basePhotoPagingFlow,
         _currentSortType,
         _currentGroupType
     ) { pagingData, sortType, groupType ->
-        Triple(pagingData, sortType, groupType)
-    }.flatMapLatest { (pagingData, sortType, groupType) ->
-        kotlinx.coroutines.flow.flowOf(
-            pagingData.insertSeparators { before, after ->
-                if (after == null) {
-                    null
-                } else if (before == null) {
-                    PhotoModel.SeparatorItem(DateUtils.formatDateText(context, after.photo, sortType, groupType))
+        pagingData.insertSeparators { before, after ->
+            if (after == null) {
+                null
+            } else if (before == null) {
+                PhotoModel.SeparatorItem(DateUtils.formatDateText(context, after.photo, sortType, groupType))
+            } else {
+                val beforeDate = DateUtils.formatDateText(context, before.photo, sortType, groupType)
+                val afterDate = DateUtils.formatDateText(context, after.photo, sortType, groupType)
+                if (beforeDate != afterDate) {
+                    PhotoModel.SeparatorItem(afterDate)
                 } else {
-                    val beforeDate = DateUtils.formatDateText(context, before.photo, sortType, groupType)
-                    val afterDate = DateUtils.formatDateText(context, after.photo, sortType, groupType)
-                    if (beforeDate != afterDate) {
-                        PhotoModel.SeparatorItem(afterDate)
-                    } else {
-                        null
-                    }
+                    null
                 }
             }
-        )
+        }
     }.cachedIn(viewModelScope)
 
     fun refresh() {

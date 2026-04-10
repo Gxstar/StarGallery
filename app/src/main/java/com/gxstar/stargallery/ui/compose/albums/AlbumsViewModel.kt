@@ -1,4 +1,4 @@
-package com.gxstar.stargallery.ui.albums
+package com.gxstar.stargallery.ui.compose.albums
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -25,14 +25,8 @@ class AlbumsViewModel @Inject constructor(
     fun loadAlbums() {
         viewModelScope.launch {
             _isLoading.value = true
-            try {
-                val allAlbums = mediaRepository.getAlbums()
-                _albums.value = allAlbums
-            } catch (e: Exception) {
-                e.printStackTrace()
-            } finally {
-                _isLoading.value = false
-            }
+            _albums.value = mediaRepository.getAlbums()
+            _isLoading.value = false
         }
     }
 }
