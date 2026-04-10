@@ -12,7 +12,7 @@ import com.gxstar.stargallery.ui.compose.theme.StarGalleryTheme
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
-class MainActivity : androidx.activity.ComponentActivity() {
+class MainActivity : androidx.appcompat.app.AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // Install splash screen before super.onCreate

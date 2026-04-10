@@ -65,11 +65,14 @@ fun AlbumsScreen(
             arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
         }
 
-        PermissionX.init(context as androidx.fragment.app.FragmentActivity)
-            .permissions(*permissions)
-            .request { _, _, _ ->
-                viewModel.loadAlbums()
-            }
+        val activity = context.findActivity() as? androidx.fragment.app.FragmentActivity
+        if (activity != null) {
+            PermissionX.init(activity)
+                .permissions(*permissions)
+                .request { _, _, _ ->
+                    viewModel.loadAlbums()
+                }
+        }
     }
 
     StarGalleryTheme {
@@ -84,6 +87,7 @@ fun AlbumsScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
+                    .padding(bottom = 80.dp)
             ) {
                 if (isLoading) {
                     CircularProgressIndicator(
@@ -211,5 +215,13 @@ private fun EmptyAlbumsState() {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+    }
+}
+
+private tailrec fun android.content.Context.findActivity(): android.app.Activity? {
+    return when (this) {
+        is android.app.Activity -> this
+        is android.content.ContextWrapper -> baseContext.findActivity()
+        else -> null
     }
 }

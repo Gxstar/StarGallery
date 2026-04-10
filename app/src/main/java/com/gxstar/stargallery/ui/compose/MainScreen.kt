@@ -1,17 +1,34 @@
 package com.gxstar.stargallery.ui.compose
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.PhotoAlbum
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.gxstar.stargallery.ui.compose.albums.AlbumDetailScreen
@@ -35,14 +52,25 @@ object NavRoutes {
 @Composable
 fun MainScreen() {
     val navController = rememberNavController()
-    var currentTab by rememberSaveable { mutableIntStateOf(0) }
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+
+    // Determine if bottom bar should be shown (hide on detail screens and trash)
+    val showBottomBar = currentRoute in listOf(NavRoutes.PHOTOS, NavRoutes.ALBUMS)
+
+    // Determine current tab based on route
+    val currentTab = when (currentRoute) {
+        NavRoutes.PHOTOS -> 0
+        NavRoutes.ALBUMS -> 1
+        else -> 0
+    }
 
     StarGalleryTheme {
-        Scaffold { paddingValues ->
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Main content
             NavHost(
                 navController = navController,
-                startDestination = NavRoutes.PHOTOS,
-                modifier = Modifier.padding(paddingValues)
+                startDestination = NavRoutes.PHOTOS
             ) {
                 // Photos tab
                 composable(NavRoutes.PHOTOS) {
@@ -50,32 +78,8 @@ fun MainScreen() {
                         onNavigateToDetail = { photoId, sortType ->
                             navController.navigate(NavRoutes.photoDetail(photoId, sortType))
                         },
-                        onNavigateToAlbums = {
-                            currentTab = 1
-                            navController.navigate(NavRoutes.ALBUMS) {
-                                popUpTo(NavRoutes.PHOTOS) { inclusive = false }
-                            }
-                        },
                         onNavigateToTrash = {
-                            currentTab = 2
-                            navController.navigate(NavRoutes.TRASH) {
-                                popUpTo(NavRoutes.PHOTOS) { inclusive = false }
-                            }
-                        },
-                        currentTab = currentTab,
-                        onTabChange = { tab ->
-                            currentTab = tab
-                            when (tab) {
-                                0 -> navController.navigate(NavRoutes.PHOTOS) {
-                                    popUpTo(NavRoutes.PHOTOS) { inclusive = true }
-                                }
-                                1 -> navController.navigate(NavRoutes.ALBUMS) {
-                                    popUpTo(NavRoutes.PHOTOS) { inclusive = true }
-                                }
-                                2 -> navController.navigate(NavRoutes.TRASH) {
-                                    popUpTo(NavRoutes.PHOTOS) { inclusive = true }
-                                }
-                            }
+                            navController.navigate(NavRoutes.TRASH)
                         }
                     )
                 }
@@ -134,10 +138,69 @@ fun MainScreen() {
                 // Trash
                 composable(NavRoutes.TRASH) {
                     TrashScreen(
-                        onNavigateBack = { navController.popBackStack() }
+                        onNavigateBack = {
+                            navController.navigate(NavRoutes.PHOTOS) {
+                                popUpTo(NavRoutes.PHOTOS) { inclusive = true }
+                            }
+                        }
                     )
                 }
             }
+
+            // Floating bottom navigation bar
+            if (showBottomBar) {
+                FloatingBottomNavigationBar(
+                    currentTab = currentTab,
+                    onTabSelected = { tab ->
+                        val route = when (tab) {
+                            0 -> NavRoutes.PHOTOS
+                            1 -> NavRoutes.ALBUMS
+                            else -> NavRoutes.PHOTOS
+                        }
+                        navController.navigate(route) {
+                            popUpTo(NavRoutes.PHOTOS) { inclusive = true }
+                        }
+                    },
+                    modifier = Modifier.align(Alignment.BottomCenter)
+                )
+            }
         }
+    }
+}
+
+@Composable
+private fun FloatingBottomNavigationBar(
+    currentTab: Int,
+    onTabSelected: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp).copy(alpha = 0.9f)
+
+    NavigationBar(
+        modifier = modifier
+            .padding(bottom = 16.dp, start = 16.dp, end = 16.dp)
+            .clip(RoundedCornerShape(24.dp)),
+        containerColor = containerColor,
+        tonalElevation = 0.dp,
+        windowInsets = WindowInsets(0.dp)
+    ) {
+        NavigationBarItem(
+            icon = { Icon(Icons.Default.Image, contentDescription = "照片") },
+            label = { Text("照片") },
+            selected = currentTab == 0,
+            onClick = { onTabSelected(0) },
+            colors = NavigationBarItemDefaults.colors(
+                indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+            )
+        )
+        NavigationBarItem(
+            icon = { Icon(Icons.Default.PhotoAlbum, contentDescription = "相册") },
+            label = { Text("相册") },
+            selected = currentTab == 1,
+            onClick = { onTabSelected(1) },
+            colors = NavigationBarItemDefaults.colors(
+                indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+            )
+        )
     }
 }

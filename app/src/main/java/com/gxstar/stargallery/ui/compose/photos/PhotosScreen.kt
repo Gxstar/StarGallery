@@ -23,7 +23,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -43,8 +42,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -64,7 +61,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -83,10 +79,7 @@ import com.permissionx.guolindev.PermissionX
 fun PhotosScreen(
     viewModel: PhotosViewModel = hiltViewModel(),
     onNavigateToDetail: (Long, Int) -> Unit,
-    onNavigateToAlbums: () -> Unit,
-    onNavigateToTrash: () -> Unit,
-    currentTab: Int = 0,
-    onTabChange: (Int) -> Unit
+    onNavigateToTrash: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val photos = viewModel.photoPagingFlow.collectAsLazyPagingItems()
@@ -141,11 +134,14 @@ fun PhotosScreen(
             else -> arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
         }
 
-        PermissionX.init(context as androidx.fragment.app.FragmentActivity)
-            .permissions(*permissions)
-            .request { _, _, _ ->
-                viewModel.refresh()
-            }
+        val activity = context.findActivity() as? androidx.fragment.app.FragmentActivity
+        if (activity != null) {
+            PermissionX.init(activity)
+                .permissions(*permissions)
+                .request { _, _, _ ->
+                    viewModel.refresh()
+                }
+        }
     }
 
     StarGalleryTheme {
@@ -204,35 +200,8 @@ fun PhotosScreen(
                         },
                         showFavoritesOnly = showFavoritesOnly,
                         onFilterClick = { viewModel.toggleFavoritesOnly() },
-                        onMoreClick = { showSortDialog = true }
-                    )
-                }
-            },
-            bottomBar = {
-                NavigationBar {
-                    NavigationBarItem(
-                        icon = { Icon(Icons.Default.Image, contentDescription = "Photos") },
-                        label = { Text("照片") },
-                        selected = currentTab == 0,
-                        onClick = { onTabChange(0) }
-                    )
-                    NavigationBarItem(
-                        icon = { Icon(Icons.Default.Image, contentDescription = "Albums") },
-                        label = { Text("相册") },
-                        selected = currentTab == 1,
-                        onClick = {
-                            onTabChange(1)
-                            onNavigateToAlbums()
-                        }
-                    )
-                    NavigationBarItem(
-                        icon = { Icon(Icons.Default.Delete, contentDescription = "Trash") },
-                        label = { Text("回收站") },
-                        selected = currentTab == 2,
-                        onClick = {
-                            onTabChange(2)
-                            onNavigateToTrash()
-                        }
+                        onMoreClick = { showSortDialog = true },
+                        onNavigateToTrash = onNavigateToTrash
                     )
                 }
             }
@@ -241,6 +210,8 @@ fun PhotosScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
+                    // Add bottom padding for floating nav bar
+                    .padding(bottom = 80.dp)
             ) {
                 if (photos.itemCount == 0) {
                     EmptyState()
@@ -311,7 +282,8 @@ private fun PhotosTopBar(
     subtitle: String,
     showFavoritesOnly: Boolean,
     onFilterClick: () -> Unit,
-    onMoreClick: () -> Unit
+    onMoreClick: () -> Unit,
+    onNavigateToTrash: () -> Unit = {}
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
@@ -338,11 +310,16 @@ private fun PhotosTopBar(
             ) {
                 DropdownMenuItem(
                     text = { Text("排序") },
-                    onClick = { /* Show sort dialog */ }
+                    onClick = { showMenu = false; /* Show sort dialog */ }
                 )
                 DropdownMenuItem(
                     text = { Text("分组") },
-                    onClick = { /* Show group dialog */ }
+                    onClick = { showMenu = false; /* Show group dialog */ }
+                )
+                DropdownMenuItem(
+                    text = { Text("回收站") },
+                    onClick = { showMenu = false; onNavigateToTrash() },
+                    leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) }
                 )
             }
         },
@@ -394,7 +371,6 @@ private fun PhotoGrid(
     onPhotoClick: (Photo) -> Unit,
     onPhotoLongClick: (Photo) -> Unit
 ) {
-    val context = LocalContext.current
     val gridState = rememberLazyGridState()
 
     LazyVerticalGrid(
@@ -406,9 +382,17 @@ private fun PhotoGrid(
     ) {
         items(
             count = photos.itemCount,
-            key = { index -> photos.peek(index)?.hashCode() ?: index }
+            key = { index ->
+                val item = photos.peek(index)
+                when (item) {
+                    is PhotoModel.SeparatorItem -> "separator_${item.dateText}_$index"
+                    is PhotoModel.PhotoItem -> "photo_${item.photo.id}"
+                    null -> "placeholder_$index"
+                }
+            }
         ) { index ->
-            val item = photos.peek(index)
+            // Use photos[index] instead of peek() to trigger pagination loading
+            val item = photos[index]
             when (item) {
                 is PhotoModel.SeparatorItem -> {
                     Text(
@@ -449,8 +433,6 @@ private fun PhotoGridItem(
     onClick: () -> Unit,
     onLongClick: () -> Unit
 ) {
-    val context = LocalContext.current
-
     Box(
         modifier = Modifier
             .aspectRatio(1f)
@@ -652,4 +634,12 @@ private fun sharePhotos(context: android.content.Context, photos: List<Photo>) {
         addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
     context.startActivity(android.content.Intent.createChooser(shareIntent, "分享照片"))
+}
+
+private tailrec fun android.content.Context.findActivity(): android.app.Activity? {
+    return when (this) {
+        is android.app.Activity -> this
+        is android.content.ContextWrapper -> baseContext.findActivity()
+        else -> null
+    }
 }

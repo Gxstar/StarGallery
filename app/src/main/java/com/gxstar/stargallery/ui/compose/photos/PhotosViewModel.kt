@@ -38,8 +38,8 @@ class PhotosViewModel @Inject constructor(
 ) : ViewModel() {
 
     companion object {
-        private const val PAGE_SIZE = 20
-        private const val PREFETCH_DISTANCE = 10
+        private const val PAGE_SIZE = 60
+        private const val PREFETCH_DISTANCE = 30
     }
 
     private val _currentSortType = MutableStateFlow(MediaRepository.SortType.DATE_TAKEN)
@@ -98,7 +98,7 @@ class PhotosViewModel @Inject constructor(
                 config = PagingConfig(
                     pageSize = PAGE_SIZE,
                     enablePlaceholders = false,
-                    initialLoadSize = PAGE_SIZE,
+                    initialLoadSize = PAGE_SIZE * 3,
                     prefetchDistance = PREFETCH_DISTANCE
                 ),
                 pagingSourceFactory = {
