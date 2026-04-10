@@ -2,6 +2,7 @@ package com.gxstar.stargallery
 
 import android.os.Bundle
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -17,6 +18,9 @@ class MainActivity : androidx.appcompat.app.AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         // Install splash screen before super.onCreate
         installSplashScreen()
+
+        // Enable edge-to-edge for transparent system bars
+        enableEdgeToEdge()
 
         super.onCreate(savedInstanceState)
 

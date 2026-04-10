@@ -87,7 +87,6 @@ fun AlbumsScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
-                    .padding(bottom = 80.dp)
             ) {
                 if (isLoading) {
                     CircularProgressIndicator(
@@ -117,7 +116,7 @@ private fun AlbumsGrid(
 
     LazyVerticalGrid(
         columns = GridCells.Fixed(3),
-        contentPadding = PaddingValues(4.dp),
+        contentPadding = PaddingValues(top = 4.dp, bottom = 100.dp, start = 4.dp, end = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {

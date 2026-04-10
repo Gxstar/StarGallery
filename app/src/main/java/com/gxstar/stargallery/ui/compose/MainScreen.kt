@@ -1,14 +1,11 @@
 package com.gxstar.stargallery.ui.compose
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.PhotoAlbum
 import androidx.compose.material3.Icon
@@ -23,7 +20,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -174,13 +170,11 @@ private fun FloatingBottomNavigationBar(
     onTabSelected: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp).copy(alpha = 0.9f)
-
     NavigationBar(
         modifier = modifier
-            .padding(bottom = 16.dp, start = 16.dp, end = 16.dp)
-            .clip(RoundedCornerShape(24.dp)),
-        containerColor = containerColor,
+            .padding(bottom = 18.dp, start = 20.dp, end = 20.dp)
+            .clip(RoundedCornerShape(20.dp)),
+        containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp).copy(alpha = 0.9f),
         tonalElevation = 0.dp,
         windowInsets = WindowInsets(0.dp)
     ) {

@@ -143,7 +143,6 @@ fun TrashScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
-                    .padding(bottom = 80.dp)
             ) {
                 if (isLoading) {
                     CircularProgressIndicator(

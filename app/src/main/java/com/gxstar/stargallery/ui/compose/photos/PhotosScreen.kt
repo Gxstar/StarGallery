@@ -216,8 +216,6 @@ fun PhotosScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
-                    // Add bottom padding for floating nav bar
-                    .padding(bottom = 80.dp)
             ) {
                 if (photos.itemCount == 0) {
                     EmptyState()
@@ -399,7 +397,7 @@ private fun PhotoGrid(
     LazyVerticalGrid(
         columns = GridCells.Fixed(gridColumns),
         state = gridState,
-        contentPadding = PaddingValues(2.dp),
+        contentPadding = PaddingValues(top = 2.dp, bottom = 100.dp, start = 2.dp, end = 2.dp),
         horizontalArrangement = Arrangement.spacedBy(2.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
