@@ -8,6 +8,7 @@ import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -200,6 +201,7 @@ fun PhotosScreen(
                         showFavoritesOnly = showFavoritesOnly,
                         onFilterClick = { viewModel.toggleFavoritesOnly() },
                         onMoreClick = { showSortDialog = true },
+                        onGroupClick = { showGroupDialog = true },
                         onColumnsClick = { showColumnsDialog = true },
                         onNavigateToTrash = onNavigateToTrash
                     )
@@ -287,6 +289,7 @@ private fun PhotosTopBar(
     showFavoritesOnly: Boolean,
     onFilterClick: () -> Unit,
     onMoreClick: () -> Unit,
+    onGroupClick: () -> Unit = {},
     onColumnsClick: () -> Unit = {},
     onNavigateToTrash: () -> Unit = {}
 ) {
@@ -319,7 +322,7 @@ private fun PhotosTopBar(
                 )
                 DropdownMenuItem(
                     text = { Text("分组") },
-                    onClick = { showMenu = false; /* Show group dialog */ }
+                    onClick = { showMenu = false; onGroupClick() }
                 )
                 DropdownMenuItem(
                     text = { Text("网格列数") },
@@ -555,7 +558,12 @@ private fun SortDialog(
         text = {
             Column {
                 MediaRepository.SortType.entries.forEach { sortType ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onSelect(sortType) },
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         RadioButton(
                             selected = sortType == currentSortType,
                             onClick = { onSelect(sortType) }
@@ -588,7 +596,12 @@ private fun GroupDialog(
         text = {
             Column {
                 GroupType.entries.forEach { groupType ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onSelect(groupType) },
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         RadioButton(
                             selected = groupType == currentGroupType,
                             onClick = { onSelect(groupType) }
@@ -622,7 +635,12 @@ private fun ColumnsDialog(
         text = {
             Column {
                 (3..8).forEach { columns ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onSelect(columns) },
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         RadioButton(
                             selected = columns == currentColumns,
                             onClick = { onSelect(columns) }

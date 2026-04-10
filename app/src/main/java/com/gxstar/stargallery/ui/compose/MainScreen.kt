@@ -135,9 +135,7 @@ fun MainScreen() {
                 composable(NavRoutes.TRASH) {
                     TrashScreen(
                         onNavigateBack = {
-                            navController.navigate(NavRoutes.PHOTOS) {
-                                popUpTo(NavRoutes.PHOTOS) { inclusive = true }
-                            }
+                            navController.popBackStack()
                         }
                     )
                 }
