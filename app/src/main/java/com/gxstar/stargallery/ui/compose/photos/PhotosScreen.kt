@@ -52,6 +52,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -92,6 +93,10 @@ fun PhotosScreen(
 
     var showSortDialog by remember { mutableStateOf(false) }
     var showGroupDialog by remember { mutableStateOf(false) }
+    var showColumnsDialog by remember { mutableStateOf(false) }
+
+    // Grid columns state (3-8 columns)
+    var gridColumns by remember { mutableIntStateOf(4) }
 
     // Selection state
     var isSelectionMode by remember { mutableStateOf(false) }
@@ -201,6 +206,7 @@ fun PhotosScreen(
                         showFavoritesOnly = showFavoritesOnly,
                         onFilterClick = { viewModel.toggleFavoritesOnly() },
                         onMoreClick = { showSortDialog = true },
+                        onColumnsClick = { showColumnsDialog = true },
                         onNavigateToTrash = onNavigateToTrash
                     )
                 }
@@ -218,6 +224,7 @@ fun PhotosScreen(
                 } else {
                     PhotoGrid(
                         photos = photos,
+                        gridColumns = gridColumns,
                         isSelectionMode = isSelectionMode,
                         selectedIds = selectedIds,
                         onPhotoClick = { photo ->
@@ -273,6 +280,17 @@ fun PhotosScreen(
                 }
             )
         }
+
+        if (showColumnsDialog) {
+            ColumnsDialog(
+                currentColumns = gridColumns,
+                onDismiss = { showColumnsDialog = false },
+                onSelect = { columns ->
+                    gridColumns = columns
+                    showColumnsDialog = false
+                }
+            )
+        }
     }
 }
 
@@ -283,6 +301,7 @@ private fun PhotosTopBar(
     showFavoritesOnly: Boolean,
     onFilterClick: () -> Unit,
     onMoreClick: () -> Unit,
+    onColumnsClick: () -> Unit = {},
     onNavigateToTrash: () -> Unit = {}
 ) {
     var showMenu by remember { mutableStateOf(false) }
@@ -310,16 +329,19 @@ private fun PhotosTopBar(
             ) {
                 DropdownMenuItem(
                     text = { Text("排序") },
-                    onClick = { showMenu = false; /* Show sort dialog */ }
+                    onClick = { showMenu = false; onMoreClick() }
                 )
                 DropdownMenuItem(
                     text = { Text("分组") },
                     onClick = { showMenu = false; /* Show group dialog */ }
                 )
                 DropdownMenuItem(
+                    text = { Text("网格列数") },
+                    onClick = { showMenu = false; onColumnsClick() }
+                )
+                DropdownMenuItem(
                     text = { Text("回收站") },
-                    onClick = { showMenu = false; onNavigateToTrash() },
-                    leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) }
+                    onClick = { showMenu = false; onNavigateToTrash() }
                 )
             }
         },
@@ -366,6 +388,7 @@ private fun SelectionTopBar(
 @Composable
 private fun PhotoGrid(
     photos: androidx.paging.compose.LazyPagingItems<PhotoModel>,
+    gridColumns: Int,
     isSelectionMode: Boolean,
     selectedIds: Set<Long>,
     onPhotoClick: (Photo) -> Unit,
@@ -374,7 +397,7 @@ private fun PhotoGrid(
     val gridState = rememberLazyGridState()
 
     LazyVerticalGrid(
-        columns = GridCells.Fixed(4),
+        columns = GridCells.Fixed(gridColumns),
         state = gridState,
         contentPadding = PaddingValues(2.dp),
         horizontalArrangement = Arrangement.spacedBy(2.dp),
@@ -388,6 +411,15 @@ private fun PhotoGrid(
                     is PhotoModel.SeparatorItem -> "separator_${item.dateText}_$index"
                     is PhotoModel.PhotoItem -> "photo_${item.photo.id}"
                     null -> "placeholder_$index"
+                }
+            },
+            span = { index ->
+                val item = photos.peek(index)
+                if (item is PhotoModel.SeparatorItem) {
+                    // Separator spans full width (4 columns)
+                    androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan)
+                } else {
+                    androidx.compose.foundation.lazy.grid.GridItemSpan(1)
                 }
             }
         ) { index ->
@@ -597,6 +629,38 @@ private fun GroupDialog(
                                 GroupType.YEAR -> "按年"
                             }
                         )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("取消")
+            }
+        }
+    )
+}
+
+@Composable
+private fun ColumnsDialog(
+    currentColumns: Int,
+    onDismiss: () -> Unit,
+    onSelect: (Int) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("网格列数") },
+        text = {
+            Column {
+                (3..8).forEach { columns ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = columns == currentColumns,
+                            onClick = { onSelect(columns) }
+                        )
+                        Text("$columns 列")
                     }
                 }
             }
