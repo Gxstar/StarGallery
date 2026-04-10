@@ -425,7 +425,8 @@ private fun PhotoGrid(
                         text = item.dateText,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 8.dp, horizontal = 16.dp),
+                            .padding(vertical = 8.dp, horizontal = 16.dp)
+                            .animateItem(),
                         style = MaterialTheme.typography.titleSmall
                     )
                 }
@@ -435,7 +436,8 @@ private fun PhotoGrid(
                         isSelected = selectedIds.contains(item.photo.id),
                         isSelectionMode = isSelectionMode,
                         onClick = { onPhotoClick(item.photo) },
-                        onLongClick = { onPhotoLongClick(item.photo) }
+                        onLongClick = { onPhotoLongClick(item.photo) },
+                        modifier = Modifier.animateItem()
                     )
                 }
                 null -> {
@@ -457,10 +459,11 @@ private fun PhotoGridItem(
     isSelected: Boolean,
     isSelectionMode: Boolean,
     onClick: () -> Unit,
-    onLongClick: () -> Unit
+    onLongClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Box(
-        modifier = Modifier
+        modifier = modifier
             .aspectRatio(1f)
             .clip(RoundedCornerShape(4.dp))
             .combinedClickable(
