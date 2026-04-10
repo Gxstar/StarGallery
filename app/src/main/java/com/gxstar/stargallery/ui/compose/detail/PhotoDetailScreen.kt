@@ -41,6 +41,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -98,8 +99,16 @@ fun PhotoDetailScreen(
         viewModel.loadPhotos(initialPhotoId, sortType, bucketId)
     }
 
-    val initialIndex = photos.indexOfFirst { it.id == initialPhotoId }.coerceAtLeast(0)
-    val pagerState = rememberPagerState(initialPage = initialIndex) { photos.size }
+    val pagerState = rememberPagerState(initialPage = 0) { photos.size }
+
+    LaunchedEffect(photos, initialPhotoId) {
+        if (photos.isNotEmpty()) {
+            val initialIndex = photos.indexOfFirst { it.id == initialPhotoId }.coerceAtLeast(0)
+            if (pagerState.currentPage != initialIndex) {
+                pagerState.scrollToPage(initialIndex)
+            }
+        }
+    }
 
     StarGalleryTheme {
         Box(
