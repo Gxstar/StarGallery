@@ -56,6 +56,9 @@ leakcanary = "2.14"
 coroutines = "1.10.1"
 metadataExtractor = "2.19.0"
 
+# Telephoto - 图片缩放
+telephoto = "0.19.0"
+
 # 测试
 junit = "4.13.2"
 junitVersion = "1.1.5"
@@ -124,6 +127,9 @@ leakcanary = { group = "com.squareup.leakcanary", name = "leakcanary-android", v
 # 协程
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 metadata-extractor = { group = "com.drewnoakes", name = "metadata-extractor", version.ref = "metadataExtractor" }
+
+# Telephoto - 图片缩放
+telephoto-zoomable-image-coil = { group = "me.saket.telephoto", name = "zoomable-image-coil", version.ref = "telephoto" }
 
 # 测试
 junit = { group = "junit", name = "junit", version.ref = "junit" }

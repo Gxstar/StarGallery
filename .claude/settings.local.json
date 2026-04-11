@@ -9,7 +9,10 @@
       "Bash(git checkout:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(./gradlew.bat :app:dependencies --configuration debugRuntimeClasspath)",
+      "Bash(./gradlew.bat :app:assembleDebug)"
     ]
   }
 }

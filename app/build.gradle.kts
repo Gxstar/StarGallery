@@ -104,6 +104,9 @@ dependencies {
     // 协程
     implementation(libs.kotlinx.coroutines.android)
 
+    // Telephoto - 图片缩放手势
+    implementation(libs.telephoto.zoomable.image.coil)
+
     // 内存泄漏检测 (仅 debug)
     debugImplementation(libs.leakcanary)
 

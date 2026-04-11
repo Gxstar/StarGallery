@@ -1,5 +1,6 @@
 package com.gxstar.stargallery.ui.compose.detail
 
+import android.app.Activity
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
@@ -8,8 +9,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,7 +29,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -38,25 +36,22 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.gxstar.stargallery.R
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.ui.compose.theme.StarGalleryTheme
+import me.saket.telephoto.zoomable.coil.ZoomableAsyncImage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -78,7 +73,7 @@ fun PhotoDetailScreen(
     val trashLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartIntentSenderForResult()
     ) { result ->
-        if (result.resultCode == android.app.Activity.RESULT_OK) {
+        if (result.resultCode == Activity.RESULT_OK) {
             Toast.makeText(context, R.string.moved_to_trash, Toast.LENGTH_SHORT).show()
             viewModel.removeCurrentPhoto()
             if (photos.isEmpty()) {
@@ -90,7 +85,7 @@ fun PhotoDetailScreen(
     val favoriteLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartIntentSenderForResult()
     ) { result ->
-        if (result.resultCode == android.app.Activity.RESULT_OK) {
+        if (result.resultCode == Activity.RESULT_OK) {
             viewModel.refreshCurrentPhoto()
         }
     }
@@ -124,22 +119,15 @@ fun PhotoDetailScreen(
             } else if (photos.isNotEmpty()) {
                 HorizontalPager(
                     state = pagerState,
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxSize(),
+                    key = { photos.getOrNull(it)?.id ?: it }
                 ) { page ->
                     val photo = photos[page]
                     viewModel.setCurrentPhoto(photo)
 
-                    ZoomablePhoto(
+                    ZoomablePhotoImage(
                         photo = photo,
-                        isFullscreen = isFullscreen,
-                        onTap = {
-                            isFullscreen = !isFullscreen
-                        },
-                        onDoubleTap = {
-                            viewModel.toggleFavorite { intentSender ->
-                                favoriteLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
-                            }
-                        }
+                        onTap = { isFullscreen = !isFullscreen }
                     )
                 }
 
@@ -212,63 +200,34 @@ fun PhotoDetailScreen(
 }
 
 @Composable
-private fun ZoomablePhoto(
+private fun ZoomablePhotoImage(
     photo: Photo,
-    isFullscreen: Boolean,
-    onTap: () -> Unit,
-    onDoubleTap: () -> Unit
+    onTap: () -> Unit
 ) {
     val context = LocalContext.current
-    var scale by remember { mutableFloatStateOf(1f) }
-    var offset by remember { mutableStateOf(Offset.Zero) }
-
+    
+    // 构建 ImageRequest 确保加载完整大图
+    val imageRequest = remember(photo.uri) {
+        ImageRequest.Builder(context)
+            .data(photo.uri)
+            .build()
+    }
+    
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .pointerInput(Unit) {
-                detectTapGestures(
-                    onTap = { onTap() },
-                    onDoubleTap = { onDoubleTap() }
-                )
-            }
-            .pointerInput(Unit) {
-                detectTransformGestures { _, pan, zoom, _ ->
-                    scale = (scale * zoom).coerceIn(1f, 4f)
-                    if (scale > 1f) {
-                        offset = Offset(
-                            x = offset.x + pan.x,
-                            y = offset.y + pan.y
-                        )
-                    } else {
-                        offset = Offset.Zero
-                    }
-                }
-            },
+        modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
         if (photo.isVideo) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    "Video: ${photo.mimeType}",
-                    color = Color.White
-                )
-            }
+            Text(
+                "Video: ${photo.mimeType}",
+                color = Color.White
+            )
         } else {
-            AsyncImage(
-                model = photo.uri,
+            ZoomableAsyncImage(
+                model = imageRequest,
                 contentDescription = null,
-                contentScale = ContentScale.Fit,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        scaleX = scale
-                        scaleY = scale
-                        translationX = offset.x
-                        translationY = offset.y
-                    }
+                modifier = Modifier.fillMaxSize(),
+                onClick = { onTap() }
             )
         }
     }
