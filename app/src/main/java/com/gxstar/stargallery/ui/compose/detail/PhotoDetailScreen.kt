@@ -1,6 +1,7 @@
 package com.gxstar.stargallery.ui.compose.detail
 
 import android.app.Activity
+import android.content.Intent
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
@@ -13,8 +14,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -24,6 +27,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -42,11 +46,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.gxstar.stargallery.R
 import com.gxstar.stargallery.data.model.Photo
@@ -73,6 +75,14 @@ fun PhotoDetailScreen(
 
     var isFullscreen by remember { mutableStateOf(false) }
     var showInfo by remember { mutableStateOf(false) }
+
+    // 获取当前主题的背景色（全屏模式时使用黑色）
+    val themeBackgroundColor = MaterialTheme.colorScheme.background
+    val onBackgroundColor = MaterialTheme.colorScheme.onBackground
+    val isLightTheme = themeBackgroundColor.red + themeBackgroundColor.green + themeBackgroundColor.blue > 1.5f
+    
+    // 全屏模式时使用黑色背景，否则使用主题背景色
+    val backgroundColor = if (isFullscreen) Color.Black else themeBackgroundColor
 
     val trashLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartIntentSenderForResult()
@@ -113,12 +123,12 @@ fun PhotoDetailScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black)
+                .background(backgroundColor)
         ) {
             if (isLoading) {
                 CircularProgressIndicator(
                     modifier = Modifier.align(Alignment.Center),
-                    color = Color.White
+                    color = onBackgroundColor
                 )
             } else if (photos.isNotEmpty()) {
                 HorizontalPager(
@@ -146,6 +156,7 @@ fun PhotoDetailScreen(
                     )
                 }
 
+                // 顶部标题栏（只有返回按钮和页码）
                 AnimatedVisibility(
                     visible = !isFullscreen,
                     enter = fadeIn(),
@@ -159,42 +170,49 @@ fun PhotoDetailScreen(
                                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                             }
                         },
-                        actions = {
-                            currentPhoto?.let { photo ->
-                                IconButton(onClick = {
-                                    viewModel.toggleFavorite { intentSender ->
-                                        favoriteLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
-                                    }
-                                }) {
-                                    Icon(
-                                        if (photo.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                                        contentDescription = "Favorite",
-                                        tint = if (photo.isFavorite) Color.Red else Color.White
-                                    )
-                                }
-                                IconButton(onClick = {
-                                    showInfo = !showInfo
-                                }) {
-                                    Icon(Icons.Default.Info, contentDescription = "Info")
-                                }
-                                IconButton(onClick = {
-                                    viewModel.trashCurrentPhoto { intentSender ->
-                                        trashLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
-                                    }
-                                }) {
-                                    Icon(Icons.Default.Delete, contentDescription = "Delete")
-                                }
-                            }
-                        },
                         colors = TopAppBarDefaults.topAppBarColors(
-                            containerColor = Color.Black.copy(alpha = 0.7f),
-                            titleContentColor = Color.White,
-                            navigationIconContentColor = Color.White,
-                            actionIconContentColor = Color.White
+                            containerColor = backgroundColor.copy(alpha = 0.9f),
+                            titleContentColor = onBackgroundColor,
+                            navigationIconContentColor = onBackgroundColor
                         )
                     )
                 }
 
+                // 底部工具栏
+                AnimatedVisibility(
+                    visible = !isFullscreen,
+                    enter = fadeIn(),
+                    exit = fadeOut(),
+                    modifier = Modifier.align(Alignment.BottomCenter)
+                ) {
+                    BottomToolbar(
+                        photo = currentPhoto,
+                        isLightTheme = isLightTheme,
+                        onShare = {
+                            currentPhoto?.let { photo ->
+                                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                    type = photo.mimeType
+                                    putExtra(Intent.EXTRA_STREAM, photo.uri)
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                context.startActivity(Intent.createChooser(shareIntent, "分享图片"))
+                            }
+                        },
+                        onInfo = { showInfo = !showInfo },
+                        onDelete = {
+                            viewModel.trashCurrentPhoto { intentSender ->
+                                trashLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
+                            }
+                        },
+                        onFavorite = {
+                            viewModel.toggleFavorite { intentSender ->
+                                favoriteLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
+                            }
+                        }
+                    )
+                }
+
+                // 图片信息面板
                 AnimatedVisibility(
                     visible = showInfo && !isFullscreen && currentPhoto != null,
                     enter = fadeIn(),
@@ -203,13 +221,72 @@ fun PhotoDetailScreen(
                 ) {
                     PhotoInfoPanel(
                         photo = currentPhoto!!,
+                        backgroundColor = backgroundColor,
+                        textColor = onBackgroundColor,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(Color.Black.copy(alpha = 0.7f))
-                            .padding(16.dp)
+                            .padding(bottom = 72.dp)
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun BottomToolbar(
+    photo: Photo?,
+    isLightTheme: Boolean,
+    onShare: () -> Unit,
+    onInfo: () -> Unit,
+    onDelete: () -> Unit,
+    onFavorite: () -> Unit
+) {
+    // 图标颜色跟随主题
+    val iconColor = if (isLightTheme) Color.Black else Color.White
+    
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 8.dp)
+            .height(56.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // 分享
+        IconButton(onClick = onShare) {
+            Icon(
+                Icons.Default.Share,
+                contentDescription = "分享",
+                tint = iconColor
+            )
+        }
+        
+        // 信息
+        IconButton(onClick = onInfo) {
+            Icon(
+                Icons.Default.Info,
+                contentDescription = "信息",
+                tint = iconColor
+            )
+        }
+        
+        // 删除
+        IconButton(onClick = onDelete) {
+            Icon(
+                Icons.Default.Delete,
+                contentDescription = "删除",
+                tint = iconColor
+            )
+        }
+        
+        // 收藏
+        IconButton(onClick = onFavorite) {
+            Icon(
+                if (photo?.isFavorite == true) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                contentDescription = "收藏",
+                tint = if (photo?.isFavorite == true) Color.Red else iconColor
+            )
         }
     }
 }
@@ -239,7 +316,7 @@ private fun ZoomablePhotoImage(
         if (photo.isVideo) {
             Text(
                 "Video: ${photo.mimeType}",
-                color = Color.White
+                color = MaterialTheme.colorScheme.onBackground
             )
         } else {
             ZoomableAsyncImage(
@@ -256,27 +333,33 @@ private fun ZoomablePhotoImage(
 @Composable
 private fun PhotoInfoPanel(
     photo: Photo,
+    backgroundColor: Color,
+    textColor: Color,
     modifier: Modifier = Modifier
 ) {
-    Column(modifier = modifier) {
+    Column(
+        modifier = modifier
+            .background(backgroundColor.copy(alpha = 0.9f))
+            .padding(16.dp)
+    ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
                 text = "类型: ${photo.mimeType}",
-                color = Color.White,
+                color = textColor,
                 style = MaterialTheme.typography.bodySmall
             )
             Text(
                 text = "${photo.width} x ${photo.height}",
-                color = Color.White,
+                color = textColor,
                 style = MaterialTheme.typography.bodySmall
             )
         }
         Text(
             text = "大小: ${formatFileSize(photo.size)}",
-            color = Color.White,
+            color = textColor,
             style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.padding(top = 4.dp)
         )
