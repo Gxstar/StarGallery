@@ -51,7 +51,11 @@ import coil.request.ImageRequest
 import com.gxstar.stargallery.R
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.ui.compose.theme.StarGalleryTheme
+import me.saket.telephoto.zoomable.ZoomableState
+import me.saket.telephoto.zoomable.ZoomableImageState
 import me.saket.telephoto.zoomable.coil.ZoomableAsyncImage
+import me.saket.telephoto.zoomable.rememberZoomableState
+import me.saket.telephoto.zoomable.rememberZoomableImageState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -125,8 +129,19 @@ fun PhotoDetailScreen(
                     val photo = photos[page]
                     viewModel.setCurrentPhoto(photo)
 
+                    // 创建独立的缩放状态
+                    val zoomableState = rememberZoomableState()
+                    
+                    // 当页面不在当前显示时重置缩放
+                    if (pagerState.settledPage != page) {
+                        LaunchedEffect(Unit) {
+                            zoomableState.resetZoom()
+                        }
+                    }
+
                     ZoomablePhotoImage(
                         photo = photo,
+                        zoomableState = zoomableState,
                         onTap = { isFullscreen = !isFullscreen }
                     )
                 }
@@ -202,6 +217,7 @@ fun PhotoDetailScreen(
 @Composable
 private fun ZoomablePhotoImage(
     photo: Photo,
+    zoomableState: ZoomableState,
     onTap: () -> Unit
 ) {
     val context = LocalContext.current
@@ -212,6 +228,9 @@ private fun ZoomablePhotoImage(
             .data(photo.uri)
             .build()
     }
+    
+    // 创建 ZoomableImageState
+    val zoomableImageState = rememberZoomableImageState(zoomableState)
     
     Box(
         modifier = Modifier.fillMaxSize(),
@@ -227,6 +246,7 @@ private fun ZoomablePhotoImage(
                 model = imageRequest,
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
+                state = zoomableImageState,
                 onClick = { onTap() }
             )
         }
