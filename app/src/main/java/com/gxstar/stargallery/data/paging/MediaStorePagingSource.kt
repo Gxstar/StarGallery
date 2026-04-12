@@ -22,7 +22,7 @@ class MediaStorePagingSource(
 ) : PagingSource<Int, Photo>() {
 
     companion object {
-        const val PAGE_SIZE = 60
+        // 注意：实际每页数据量由 PagingConfig.pageSize 决定
     }
 
     /**
@@ -42,8 +42,8 @@ class MediaStorePagingSource(
     override suspend fun load(params: LoadParams<Int>): LoadResult<Int, Photo> = withContext(Dispatchers.IO) {
         try {
             val page = params.key ?: 0
-            val offset = page * PAGE_SIZE
             val pageSize = params.loadSize
+            val offset = page * pageSize
 
             // 使用 Bundle 进行分页查询（Android 10+ 支持）
             val photos = queryPhotosWithPagination(offset, pageSize)

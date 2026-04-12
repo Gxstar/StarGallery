@@ -125,7 +125,11 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
 
         // --- 2. 拍摄参数 (2x2 宫格填充) ---
         val aperture = exifSubIFD?.getDescription(ExifSubIFDDirectory.TAG_FNUMBER) ?: "---"
-        val shutter = exifSubIFD?.getDescription(ExifSubIFDDirectory.TAG_EXPOSURE_TIME) ?: "---"
+        
+        // 优先使用 ShutterSpeed，没有则使用 ExposureTime
+        val shutterSpeed = exifSubIFD?.getDescription(ExifSubIFDDirectory.TAG_SHUTTER_SPEED)
+        val exposureTime = exifSubIFD?.getDescription(ExifSubIFDDirectory.TAG_EXPOSURE_TIME)
+        val shutter = shutterSpeed ?: exposureTime ?: "---"
         val iso = exifSubIFD?.getDescription(ExifSubIFDDirectory.TAG_ISO_EQUIVALENT) ?: "---"
         
         val focalLength = exifSubIFD?.getDescription(ExifSubIFDDirectory.TAG_FOCAL_LENGTH) ?: "---"
@@ -135,14 +139,13 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
         var focalDisplay = focalLength.ifBlank { "---" }
         if (focalLength35mm != null && focalLength != "---" && focalLength != "Unknown") {
             val isEquivalent = focalLength == focalLength35mm
-            val equivalentText = if (isEquivalent) {
+            focalDisplay = if (isEquivalent) {
                 // 物理焦距等于等效焦距，不显示等效信息
                 focalLength
             } else {
-                // 物理焦距不等于等效焦距，显示"等效：xxx"
-                "等效 $focalLength35mm"
+                // 物理焦距不等于等效焦距，显示"24mm (等效 35mm)"
+                "$focalLength (等效 $focalLength35mm)"
             }
-            focalDisplay = "$focalLength ($equivalentText)"
         }
         
         binding.tvAperture.text = aperture
