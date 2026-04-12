@@ -71,7 +71,7 @@ class PhotosFragment : Fragment() {
     lateinit var mediaRepository: MediaRepository
 
     // 状态
-    private var currentSpanCount = DEFAULT_SPAN_COUNT
+    private var currentSpanCount = MIN_SPAN_COUNT  // 默认值，实际值在 setupSettings 中计算
     private var itemSize = 0
     private var isWarmedUp = false  // 是否已预热（首次加载完成后的优化）
 
@@ -172,7 +172,13 @@ class PhotosFragment : Fragment() {
      * 加载设置（列数、排序、分组）
      */
     private fun setupSettings() {
-        currentSpanCount = sharedPreferences.getInt(KEY_SPAN_COUNT, DEFAULT_SPAN_COUNT)
+        // 计算最优列数或读取用户保存的偏好
+        val savedSpanCount = sharedPreferences.getInt(KEY_SPAN_COUNT, -1)
+        currentSpanCount = if (savedSpanCount > 0) {
+            savedSpanCount
+        } else {
+            calculateOptimalSpanCount()
+        }
         calculateItemSize()
 
         val sortType = loadSortType()
@@ -180,6 +186,16 @@ class PhotosFragment : Fragment() {
 
         val groupType = loadGroupType()
         viewModel.setGroupType(groupType)
+    }
+    
+    /**
+     * 根据屏幕宽度计算最优列数（响应式设计）
+     */
+    private fun calculateOptimalSpanCount(): Int {
+        val displayMetrics = resources.displayMetrics
+        val screenWidthDp = displayMetrics.widthPixels / displayMetrics.density
+        val spanCount = (screenWidthDp / MIN_CELL_WIDTH_DP).toInt()
+        return spanCount.coerceIn(MIN_SPAN_COUNT, MAX_SPAN_COUNT)
     }
 
     /**
@@ -843,8 +859,17 @@ class PhotosFragment : Fragment() {
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
-        calculateItemSize()
-        photoAdapter.updateConfig(itemSize, currentSpanCount)
+        
+        // 屏幕旋转时重新计算最优列数
+        val optimalSpanCount = calculateOptimalSpanCount()
+        
+        // 如果当前列数与最优列数不同，更新配置
+        if (currentSpanCount != optimalSpanCount) {
+            updateSpanCount(optimalSpanCount)
+        } else {
+            calculateItemSize()
+            photoAdapter.updateConfig(itemSize, currentSpanCount)
+        }
     }
 
     private fun calculateItemSize() {
@@ -897,7 +922,11 @@ class PhotosFragment : Fragment() {
     }
 
     companion object {
-        private const val DEFAULT_SPAN_COUNT = 4
+        // 响应式列数配置：基于每个单元格的最小宽度
+        private const val MIN_CELL_WIDTH_DP = 100  // 每个单元格最小宽度（dp）
+        private const val MIN_SPAN_COUNT = 3       // 最小列数
+        private const val MAX_SPAN_COUNT = 10      // 最大列数
+        
         private const val ITEM_VIEW_CACHE_SIZE = 24
         private const val PRELOAD_ITEM_COUNT = 6
         // RecyclerView 预取数量（每行预取的数量 * 列数）
