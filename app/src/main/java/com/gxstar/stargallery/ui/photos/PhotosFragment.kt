@@ -85,6 +85,12 @@ class PhotosFragment : Fragment() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         intentSenderManager = IntentSenderManager(this)
+        
+        // 在 onCreate 中初始化一次适配器和管理器，避免视图重建时丢失状态
+        setupSettings()
+        initAdapter()
+        initManagers()
+        bindSelectionProviders()
     }
 
     override fun onCreateView(
@@ -99,10 +105,7 @@ class PhotosFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        setupSettings()
-        initAdapter()  // 先初始化 Adapter
-        initManagers()  // 再初始化依赖 Adapter 的管理器
-        bindSelectionProviders()  // 绑定 provider
+        initMediaChangeDetector() // 视图创建后初始化
         setupRecyclerView()
         setupClickListeners()
         setupFragmentResultListener()
@@ -122,7 +125,10 @@ class PhotosFragment : Fragment() {
             onPhotoLongClick = { photo -> handlePhotoLongClick(photo) },
             isSelectionModeProvider = { isSelectionModeProvider() },
             isSelectedProvider = { id -> isSelectedProvider(id) }
-        )
+        ).apply {
+            // 禁止在数据加载完成前恢复状态，防止跳动
+            stateRestorationPolicy = RecyclerView.Adapter.StateRestorationPolicy.PREVENT_WHEN_EMPTY
+        }
     }
 
     /**
@@ -146,8 +152,12 @@ class PhotosFragment : Fragment() {
             mediaRepository,
             childFragmentManager
         )
+    }
 
-        // 媒体变化检测器（自动刷新）- 使用 ContentObserver 实时监听
+    /**
+     * 初始化媒体变化检测器（单独处理，因为需要 viewLifecycleOwner）
+     */
+    private fun initMediaChangeDetector() {
         mediaChangeDetector = MediaChangeDetector(
             viewLifecycleOwner,
             requireContext()
@@ -475,9 +485,11 @@ class PhotosFragment : Fragment() {
                     binding.rvPhotos.visibility = if (isInitialLoading || hasError) View.GONE else View.VISIBLE
 
                     // 首次加载完成后预热，减少后续滑动卡顿
-                    if (!isInitialLoading && !isWarmedUp && photoAdapter.itemCount > 0) {
+                    if (isInitialLoading && !isWarmedUp) {
+                        // 正在刷新状态
+                    } else if (!isInitialLoading && !isWarmedUp && photoAdapter.itemCount > 0) {
                         isWarmedUp = true
-                        warmupSpanCache()
+                        // 移除这里的 warmupSpanCache() 调用，因为其后台线程操作存在竞争风险
                     }
                 }
             }
@@ -556,9 +568,12 @@ class PhotosFragment : Fragment() {
             .permissions(*permissions)
             .request { allGranted, _, _ ->
                 if (allGranted) {
-                    // 首次授权后需要刷新 Paging 数据
-                    refreshData(smooth = false)
-                    viewModel.refresh() // 同时刷新计数
+                    // 仅当适配器为空（首次启动或由于错误未加载）时才刷新
+                    // 避免每次从详情页返回时都触发刷新导致列表跳动
+                    if (photoAdapter.itemCount == 0) {
+                        refreshData(smooth = false)
+                        viewModel.refresh()
+                    }
                 }
             }
     }
@@ -840,27 +855,13 @@ class PhotosFragment : Fragment() {
     }
 
     /**
-     * 预热 span 缓存，避免首次滑动时卡顿
-     * 在数据加载完成后调用，提前计算前几项的 span 信息
-     * 在后台线程执行，避免阻塞主线程
+     * 预热 span 缓存
+     * 注意：原有逻辑在 Background 线程执行会导致并发修改 SpanSizeLookup 的缓存引起跳动
+     * 现在改为非阻塞方式在 UI 空闲时处理（可选操作，目前为了稳定性先禁用）
      */
     private fun warmupSpanCache() {
-        if (photoAdapter.itemCount == 0) return
-        val spanLookup = gridLayoutManager.spanSizeLookup ?: return
-
-        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.Default) {
-            // 预计算前 50 项的 span 信息（覆盖首屏和预加载区域）
-            val warmupCount = minOf(50, photoAdapter.itemCount)
-            for (i in 0 until warmupCount) {
-                try {
-                    spanLookup.getSpanSize(i)
-                    spanLookup.getSpanIndex(i, currentSpanCount)
-                } catch (e: Exception) {
-                    // 忽略计算错误
-                    break
-                }
-            }
-        }
+        // 为了解决详情页返回后的跳动问题，我们暂时禁用后台线程预热逻辑
+        // 因为 SpanSizeLookup 的缓存是非线程安全的
     }
 
     /**
