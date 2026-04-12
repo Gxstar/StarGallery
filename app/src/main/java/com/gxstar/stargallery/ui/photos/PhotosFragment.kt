@@ -212,6 +212,9 @@ class PhotosFragment : Fragment() {
 
         // 监听数据更新
         photoAdapter.addOnPagesUpdatedListener {
+            // 通知适配器数据已更新，触发缓存更新
+            photoAdapter.onPagesUpdated()
+            // 增量更新位置映射（优化后只处理新增项）
             selectionManager.updatePositionMap()
         }
     }
@@ -721,24 +724,29 @@ class PhotosFragment : Fragment() {
      * @param smooth 是否使用平滑刷新（带有动画过渡）
      */
     private fun refreshData(smooth: Boolean = true) {
+        // 清除适配器缓存
+        photoAdapter.clearCache()
         viewModel.refresh()
-        if (smooth) {
-            // 平滑刷新：使用 invalidate 触发重新绑定，配合 ItemAnimator 产生过渡效果
-            photoAdapter.refresh()
-        } else {
-            // 直接刷新：立即重新加载
-            photoAdapter.refresh()
-        }
+        photoAdapter.refresh()
         mediaChangeDetector.reset()
     }
 
     /**
      * 平滑刷新单个照片项（用于收藏状态变化等）
+     * 优化：只遍历可见项范围，避免遍历整个列表
      */
     private fun smoothRefreshItems(photoIds: Set<Long>) {
+        // 获取可见范围
+        val firstVisible = gridLayoutManager.findFirstVisibleItemPosition()
+        val lastVisible = gridLayoutManager.findLastVisibleItemPosition()
+        
+        if (firstVisible == RecyclerView.NO_POSITION) return
+        
         // 找到对应的位置并局部刷新
         val positions = mutableListOf<Int>()
-        for (i in 0 until photoAdapter.itemCount) {
+        val searchEnd = minOf(lastVisible + 10, photoAdapter.itemCount - 1)
+        
+        for (i in maxOf(0, firstVisible - 10)..searchEnd) {
             photoAdapter.getPhoto(i)?.let { photo ->
                 if (photo.id in photoIds) {
                     positions.add(i)

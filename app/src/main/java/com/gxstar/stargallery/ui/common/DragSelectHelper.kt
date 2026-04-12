@@ -8,6 +8,7 @@ import com.gxstar.stargallery.data.model.Photo
 /**
  * 拖动多选辅助类
  * 封装了照片列表的长按拖动批量选择功能
+ * 优化：增量更新位置映射，减少主线程阻塞
  */
 class DragSelectHelper(
     private val photoProvider: PhotoProvider,
@@ -29,6 +30,9 @@ class DragSelectHelper(
     private val selectedIds = mutableSetOf<Long>()
     private val idToPosition = mutableMapOf<Long, Int>()
     private var touchListener: DragSelectTouchListener? = null
+    
+    // 用于增量更新：记录上次已知的项目数量
+    private var lastKnownItemCount = 0
 
     val selectedPhotoIds: Set<Long> get() = selectedIds.toSet()
     val selectedCount: Int get() = selectedIds.size
@@ -87,12 +91,43 @@ class DragSelectHelper(
 
     /**
      * 更新照片ID到位置的映射
+     * 优化：增量更新，只处理新增项
      */
     fun updatePositionMap() {
+        val currentItemCount = photoProvider.getItemCount()
+        
+        // 如果项数相同，可能数据没变化，跳过更新
+        if (currentItemCount == lastKnownItemCount && idToPosition.isNotEmpty()) {
+            return
+        }
+        
+        // 如果之前没有映射（首次加载），或者项数减少（数据被清空），则完全重建
+        if (idToPosition.isEmpty() || currentItemCount < lastKnownItemCount) {
+            idToPosition.clear()
+            for (i in 0 until currentItemCount) {
+                photoProvider.getPhoto(i)?.let { idToPosition[it.id] = i }
+            }
+        } else {
+            // 增量更新：只处理新增的项
+            for (i in lastKnownItemCount until currentItemCount) {
+                photoProvider.getPhoto(i)?.let { idToPosition[it.id] = i }
+            }
+        }
+        
+        lastKnownItemCount = currentItemCount
+    }
+    
+    /**
+     * 强制完全重建位置映射
+     * 用于数据完全刷新时
+     */
+    fun rebuildPositionMap() {
         idToPosition.clear()
-        for (i in 0 until photoProvider.getItemCount()) {
+        val currentItemCount = photoProvider.getItemCount()
+        for (i in 0 until currentItemCount) {
             photoProvider.getPhoto(i)?.let { idToPosition[it.id] = i }
         }
+        lastKnownItemCount = currentItemCount
     }
 
     /**

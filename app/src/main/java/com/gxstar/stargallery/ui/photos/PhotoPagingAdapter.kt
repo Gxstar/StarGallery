@@ -34,6 +34,7 @@ sealed class PhotoModel {
  * Paging 3 照片适配器
  * 使用Paging 3官方推荐的insertSeparators方式
  * 支持日期header占据整行
+ * 优化：缓存照片数量和分隔符位置，减少遍历开销
  */
 class PhotoPagingAdapter(
     private var itemSize: Int,
@@ -44,6 +45,13 @@ class PhotoPagingAdapter(
     private val isSelectedProvider: (Long) -> Boolean = { false }
 ) : PagingDataAdapter<PhotoModel, RecyclerView.ViewHolder>(PHOTO_DIFF_CALLBACK), 
     DragSelectHelper.PhotoProvider, PopupTextProvider {
+
+    // 性能优化：缓存照片数量
+    private var cachedPhotoCount = -1
+    // 性能优化：缓存分隔符位置 -> 日期文本
+    private var separatorCache = mutableMapOf<Int, String>()
+    // 最后一次查找的分隔符位置，用于加速后续查找
+    private var lastSeparatorPosition = -1
 
     /**
      * 更新配置（列数和图片大小）
@@ -56,6 +64,23 @@ class PhotoPagingAdapter(
             // 通知所有照片项更新（不包含 header）
             notifyItemRangeChanged(0, itemCount)
         }
+    }
+    
+    /**
+     * 清除缓存（数据刷新时调用）
+     */
+    fun clearCache() {
+        cachedPhotoCount = -1
+        separatorCache.clear()
+        lastSeparatorPosition = -1
+    }
+    
+    /**
+     * 数据更新后调用，增量更新缓存
+     */
+    fun onPagesUpdated() {
+        // 不立即计算，延迟到需要时再计算
+        cachedPhotoCount = -1
     }
 
     companion object {
@@ -113,8 +138,11 @@ class PhotoPagingAdapter(
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
         val item = getItem(position) ?: return
         when {
-            holder is HeaderViewHolder && item is PhotoModel.SeparatorItem -> 
+            holder is HeaderViewHolder && item is PhotoModel.SeparatorItem -> {
                 holder.bind(item.dateText)
+                // 更新分隔符缓存
+                separatorCache[position] = item.dateText
+            }
             holder is PhotoViewHolder && item is PhotoModel.PhotoItem -> 
                 holder.bind(item.photo)
         }
@@ -138,13 +166,29 @@ class PhotoPagingAdapter(
         val item = getItem(position) ?: return ""
         
         // 如果当前是分隔符，直接返回日期文本
-        if (item is PhotoModel.SeparatorItem) return item.dateText
+        if (item is PhotoModel.SeparatorItem) {
+            separatorCache[position] = item.dateText
+            return item.dateText
+        }
         
         // 如果当前是照片，向前查找最近的分隔符
         if (item is PhotoModel.PhotoItem) {
-            for (i in position downTo 0) {
+            // 先检查缓存的分隔符位置是否有效
+            if (lastSeparatorPosition >= 0 && lastSeparatorPosition < position) {
+                separatorCache[lastSeparatorPosition]?.let { return it }
+            }
+            
+            // 向前查找最近的分隔符
+            for (i in position downTo maxOf(0, position - 100)) {
+                // 先检查缓存
+                separatorCache[i]?.let { 
+                    lastSeparatorPosition = i
+                    return it 
+                }
                 val prevItem = getItem(i) ?: continue
                 if (prevItem is PhotoModel.SeparatorItem) {
+                    separatorCache[i] = prevItem.dateText
+                    lastSeparatorPosition = i
                     return prevItem.dateText
                 }
             }
@@ -159,12 +203,18 @@ class PhotoPagingAdapter(
 
     /**
      * 获取实际照片数量（不含header）
+     * 使用缓存优化，避免每次遍历
      */
     fun getPhotoCount(): Int {
+        // 如果缓存有效，直接返回
+        if (cachedPhotoCount >= 0) return cachedPhotoCount
+        
+        // 计算并缓存
         var count = 0
         for (i in 0 until itemCount) {
             if (getItem(i) is PhotoModel.PhotoItem) count++
         }
+        cachedPhotoCount = count
         return count
     }
 }

@@ -17,23 +17,24 @@ class PhotoPagerAdapter(
     private val photos = mutableListOf<Photo>()
     private val viewHolders = mutableMapOf<Int, PhotoPageViewHolder>()
 
-    private val diffCallback = object : DiffUtil.Callback() {
-        override fun getOldListSize() = photos.size
-        override fun getNewListSize() = photos.size
-
-        override fun areItemsTheSame(oldPos: Int, newPos: Int): Boolean {
-            return photos[oldPos].id == photos[newPos].id
-        }
-
-        override fun areContentsTheSame(oldPos: Int, newPos: Int): Boolean {
-            return photos[oldPos] == photos[newPos]
-        }
-    }
-
     /**
      * 提交照片列表，使用 DiffUtil 智能更新
      */
     fun submitList(newPhotos: List<Photo>) {
+        // 保存旧列表副本，用于 DiffUtil 比较
+        val oldPhotos = photos.toList()
+        val diffCallback = object : DiffUtil.Callback() {
+            override fun getOldListSize() = oldPhotos.size
+            override fun getNewListSize() = newPhotos.size
+
+            override fun areItemsTheSame(oldPos: Int, newPos: Int): Boolean {
+                return oldPhotos[oldPos].id == newPhotos[newPos].id
+            }
+
+            override fun areContentsTheSame(oldPos: Int, newPos: Int): Boolean {
+                return oldPhotos[oldPos] == newPhotos[newPos]
+            }
+        }
         val diffResult = DiffUtil.calculateDiff(diffCallback)
         photos.clear()
         photos.addAll(newPhotos)
