@@ -130,14 +130,23 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
         
         val focalLength = exifSubIFD?.getDescription(ExifSubIFDDirectory.TAG_FOCAL_LENGTH) ?: "---"
         val focalLength35mm = exifSubIFD?.getDescription(ExifSubIFDDirectory.TAG_35MM_FILM_EQUIV_FOCAL_LENGTH)
-        val focalDisplay = if (focalLength35mm != null && focalLength != "---" && focalLength != "Unknown") {
-            "$focalLength ($focalLength35mm)"
-        } else {
-            focalLength
+        
+        // 处理焦距显示逻辑
+        var focalDisplay = focalLength.ifBlank { "---" }
+        if (focalLength35mm != null && focalLength != "---" && focalLength != "Unknown") {
+            val isEquivalent = focalLength == focalLength35mm
+            val equivalentText = if (isEquivalent) {
+                // 物理焦距等于等效焦距，不显示等效信息
+                focalLength
+            } else {
+                // 物理焦距不等于等效焦距，显示"等效：xxx"
+                "等效 $focalLength35mm"
+            }
+            focalDisplay = "$focalLength ($equivalentText)"
         }
         
         binding.tvAperture.text = aperture
-        binding.tvShutter.text = shutter
+        binding.tvShutter.text = formatShutterSpeed(shutter)
         binding.tvIso.text = if (iso != "---") (if (iso.startsWith("ISO", true)) iso else "ISO $iso") else "---"
         binding.tvFocalLength.text = focalDisplay
 
@@ -156,6 +165,110 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
         val units = arrayOf("B", "KB", "MB", "GB", "TB")
         val digitGroups = (Math.log10(size.toDouble()) / Math.log10(1024.0)).toInt()
         return DecimalFormat("#,##0.#").format(size / Math.pow(1024.0, digitGroups.toDouble())) + " " + units[digitGroups]
+    }
+
+    private fun formatShutterSpeed(rawShutter: String?): String {
+        if (rawShutter == null || rawShutter == "---") return "---"
+        
+        // 如果已经是分数形式（如 "1/100"），直接返回
+        if (rawShutter.contains("/")) {
+            val parts = rawShutter.split("/")
+            if (parts.size == 2) {
+                val numerator = parts[0].trim().toDoubleOrNull() ?: return rawShutter
+                val denominator = parts[1].trim().toDoubleOrNull() ?: return rawShutter
+                if (denominator == 0.0) return rawShutter
+                
+                val value = numerator / denominator
+                // 如果值 >= 1，直接显示小数
+                if (value >= 1) {
+                    return if (value == value.toLong().toDouble()) {
+                        value.toLong().toString()
+                    } else {
+                        DecimalFormat("0.#").format(value)
+                    }
+                }
+                
+                // 值 < 1，转换为分数形式
+                val gcd = gcd(numerator.toLong(), denominator.toLong())
+                val simplifiedNumerator = (numerator / gcd).toLong()
+                val simplifiedDenominator = (denominator / gcd).toLong()
+                
+                return if (simplifiedDenominator > 1000) {
+                    // 分母太大，尝试找最接近的标准快门速度
+                    findClosestStandardShutter(value) ?: rawShutter
+                } else {
+                    "${simplifiedNumerator}/${simplifiedDenominator}"
+                }
+            }
+            return rawShutter
+        }
+        
+        // 如果是小数形式（如 "0.01"），转换为分数
+        val value = rawShutter.toDoubleOrNull() ?: return rawShutter
+        if (value >= 1) {
+            return if (value == value.toLong().toDouble()) {
+                value.toLong().toString()
+            } else {
+                DecimalFormat("0.#").format(value)
+            }
+        }
+        
+        // 值 < 1，转换为分数
+        // 常见快门速度标准值（秒）
+        val standardShutters = listOf(
+            30.0, 15.0, 8.0, 4.0, 2.0, 1.0,
+            1.0/2, 1.0/4, 1.0/8, 1.0/15, 1.0/30, 1.0/60,
+            1.0/125, 1.0/250, 1.0/500, 1.0/1000, 1.0/2000,
+            1.0/4000, 1.0/8000, 1.0/16000, 1.0/32000
+        )
+        
+        for (standard in standardShutters) {
+            if (Math.abs(value - standard) < 0.0001) {
+                return formatAsFraction(standard)
+            }
+        }
+        
+        // 没找到标准值，转换为分数
+        return formatAsFraction(value)
+    }
+    
+    private fun formatAsFraction(value: Double): String {
+        if (value >= 1) return DecimalFormat("0.#").format(value)
+        
+        // 转换为分母在合理范围内的分数
+        val denominator = 10000L
+        val numerator = (value * denominator).toLong()
+        val gcd = gcd(numerator, denominator)
+        
+        val simplifiedNumerator = numerator / gcd
+        val simplifiedDenominator = denominator / gcd
+        
+        return "${simplifiedNumerator}/${simplifiedDenominator}"
+    }
+    
+    private fun findClosestStandardShutter(value: Double): String? {
+        val standardShutters = listOf(
+            30.0, 15.0, 8.0, 4.0, 2.0, 1.0,
+            1.0/2, 1.0/4, 1.0/8, 1.0/15, 1.0/30, 1.0/60,
+            1.0/125, 1.0/250, 1.0/500, 1.0/1000, 1.0/2000,
+            1.0/4000, 1.0/8000
+        )
+        
+        var closest: String? = null
+        var minDiff = Double.MAX_VALUE
+        
+        for (standard in standardShutters) {
+            val diff = Math.abs(value - standard)
+            if (diff < minDiff && diff < 0.001) {
+                minDiff = diff
+                closest = formatAsFraction(standard)
+            }
+        }
+        return closest
+    }
+    
+    private fun gcd(a: Long, b: Long): Long {
+        return if (b == 0L) a else gcd(b, a % b)
     }
 
     override fun onDestroyView() {
