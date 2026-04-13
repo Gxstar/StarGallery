@@ -344,18 +344,25 @@ class PhotoPageViewHolder(
             binding.root.context.contentResolver.openInputStream(photo.uri)?.use { inputStream ->
                 val metadata = ImageMetadataReader.readMetadata(inputStream)
                 val exifIFD0 = metadata.getFirstDirectoryOfType(ExifIFD0Directory::class.java)
-                val make = exifIFD0?.getString(ExifIFD0Directory.TAG_MAKE)
+                val make = exifIFD0?.getString(ExifIFD0Directory.TAG_MAKE)?.trim()
+
+                if (make.isNullOrBlank()) return@withContext null
 
                 // 清理品牌名称（移除常见后缀）
-                make?.trim()?.removePrefix("NIKON")?.trim()
-                    ?.removePrefix("Canon")?.trim()
-                    ?.removePrefix("SONY")?.trim()
-                    ?.removePrefix("FUJIFILM")?.trim()
-                    ?.removeSuffix("CORPORATION")?.trim()
-                    ?.removeSuffix("CORP.")?.trim()
-                    ?.removeSuffix("CO., LTD")?.trim()
-                    ?.removeSuffix("DIGITAL CAMERA")?.trim()
-                    ?.takeIf { it.isNotBlank() }
+                val cleaned = make
+                    .removeSuffix("CORPORATION").trim()
+                    .removeSuffix("CORP.").trim()
+                    .removeSuffix("CO., LTD").trim()
+                    .removeSuffix("CO.,LTD").trim()
+                    .removeSuffix("DIGITAL CAMERA").trim()
+                    .removeSuffix("ELECTRONICS").trim()
+                    .removePrefix("NIKON ").trim()
+                    .removePrefix("Canon ").trim()
+                    .removePrefix("SONY ").trim()
+                    .removePrefix("FUJIFILM ").trim()
+
+                // 如果清理后为空，返回原始值
+                cleaned.takeIf { it.isNotBlank() } ?: make
             }
         } catch (e: Exception) {
             null
