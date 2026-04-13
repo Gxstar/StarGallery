@@ -289,7 +289,13 @@ class PhotoViewHolder(
             binding.ivPhoto.alpha = 1.0f
             binding.ivFavorite.visibility = if (photo.isFavorite) View.VISIBLE else View.GONE
             binding.ivVideoIndicator.visibility = if (photo.isVideo) View.VISIBLE else View.GONE
-            binding.tvFormatTag.visibility = View.GONE
+            // RAW 格式标签
+            if (photo.isRaw) {
+                binding.tvFormatTag.visibility = View.VISIBLE
+                binding.tvFormatTag.text = "RAW"
+            } else {
+                binding.tvFormatTag.visibility = View.GONE
+            }
         }
     }
 }

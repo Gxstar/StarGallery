@@ -197,6 +197,19 @@ class PhotoDetailFragment : Fragment() {
                 PhotoInfoBottomSheet.newInstance(photo).show(childFragmentManager, PhotoInfoBottomSheet.TAG)
             }
         }
+
+        binding.btnMore.setOnClickListener {
+            showMoreOptionsDialog()
+        }
+    }
+
+    private fun showMoreOptionsDialog() {
+        val bottomSheet = TagsSettingsBottomSheet.newInstance()
+        bottomSheet.setOnTagsChangedListener { selectedTags ->
+            // 通知当前 ViewHolder 更新标签显示
+            pagerAdapter.getCurrentViewHolder()?.updateTagVisibility(selectedTags)
+        }
+        bottomSheet.show(childFragmentManager, TagsSettingsBottomSheet.TAG)
     }
     
     private fun showDeleteOptionsDialog() {

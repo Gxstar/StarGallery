@@ -13,6 +13,9 @@ import androidx.media3.exoplayer.ExoPlayer
 import com.bumptech.glide.Glide
 import com.davemorrissey.labs.subscaleview.ImageSource
 import com.davemorrissey.labs.subscaleview.SubsamplingScaleImageView
+import com.drew.imaging.ImageMetadataReader
+import com.drew.metadata.exif.ExifIFD0Directory
+import com.gxstar.stargallery.R
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.databinding.ItemPhotoPageBinding
 import kotlinx.coroutines.CoroutineScope
@@ -184,11 +187,20 @@ class PhotoPageViewHolder(
         binding.mediaContainer.setOnClickListener { onSingleTap?.invoke() }
     }
     
+    // 当前标签设置
+    private var currentSelectedTags: Set<TagType> = TagType.entries.toSet()
+
     @OptIn(UnstableApi::class)
     fun bind(photo: Photo) {
         currentPhoto = photo
         binding.progressBar.visibility = View.VISIBLE
         setupImageEventListener()
+
+        // 加载标签设置
+        currentSelectedTags = TagSettingsManager.getSelectedTags(binding.root.context)
+
+        // 显示/隐藏标签容器
+        setupTags(photo)
 
         if (photo.isVideo && ExoPlayerManager.getCurrentVideoId() == photo.id) {
             restoreVideoPlayback(photo)
@@ -197,6 +209,155 @@ class PhotoPageViewHolder(
                 photo.isVideo -> loadVideo(photo)
                 photo.isGif -> loadGif(photo)
                 else -> loadImage(photo)
+            }
+        }
+    }
+
+    /**
+     * 更新标签可见性（从设置对话框调用）
+     */
+    fun updateTagVisibility(selectedTags: Set<TagType>) {
+        currentSelectedTags = selectedTags
+        currentPhoto?.let { setupTags(it) }
+    }
+
+    /**
+     * 设置标签显示
+     * 根据照片属性和用户设置动态添加标签
+     */
+    private fun setupTags(photo: Photo) {
+        // 清除现有标签（保留 RAW 标签作为模板）
+        binding.tvRawTag.visibility = View.GONE
+        // 移除动态添加的标签
+        while (binding.tagsContainer.childCount > 1) {
+            binding.tagsContainer.removeViewAt(binding.tagsContainer.childCount - 1)
+        }
+
+        val tags = mutableListOf<String>()
+
+        // 根据照片属性和用户设置添加标签
+        if (photo.isRaw && currentSelectedTags.contains(TagType.RAW)) {
+            tags.add("RAW")
+        }
+
+        // 显示基础标签
+        displayTags(tags)
+
+        // 异步读取 EXIF 设备品牌信息
+        if (!photo.isVideo && !photo.isGif && currentSelectedTags.contains(TagType.CAMERA_MAKE)) {
+            CoroutineScope(Dispatchers.Main).launch {
+                val makeTag = readCameraMake(photo)
+                makeTag?.let {
+                    if (!tags.contains(it)) {
+                        tags.add(it)
+                        displayTags(tags)
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * 显示标签列表
+     */
+    private fun displayTags(tags: List<String>) {
+        if (tags.isEmpty()) {
+            binding.tagsContainer.visibility = View.GONE
+            return
+        }
+
+        binding.tagsContainer.visibility = View.VISIBLE
+        val density = binding.root.context.resources.displayMetrics.density
+        val marginStart = (6 * density).toInt()
+
+        // 动态添加标签
+        tags.forEachIndexed { index, tagText ->
+            val tagView = if (index == 0) {
+                // 复用第一个 TextView
+                binding.tvRawTag.apply {
+                    text = tagText
+                    visibility = View.VISIBLE
+                    // 第一个标签不需要左边距
+                    (layoutParams as? android.widget.LinearLayout.LayoutParams)?.marginStart = 0
+                }
+            } else {
+                // 获取或创建标签
+                if (index < binding.tagsContainer.childCount) {
+                    binding.tagsContainer.getChildAt(index).apply {
+                        // 后续标签添加左边距
+                        (layoutParams as? android.widget.LinearLayout.LayoutParams)?.marginStart = marginStart
+                    } as android.widget.TextView
+                } else {
+                    createTagView(tagText).also {
+                        binding.tagsContainer.addView(it)
+                    }
+                }
+            }
+            // 更新文本
+            if (tagView is android.widget.TextView) {
+                tagView.text = tagText
+                tagView.visibility = View.VISIBLE
+            }
+        }
+
+        // 隐藏多余的标签
+        for (i in tags.size until binding.tagsContainer.childCount) {
+            binding.tagsContainer.getChildAt(i).visibility = View.GONE
+        }
+    }
+
+    /**
+     * 异步读取 EXIF 中的相机品牌信息
+     */
+    private suspend fun readCameraMake(photo: Photo): String? = withContext(Dispatchers.IO) {
+        try {
+            binding.root.context.contentResolver.openInputStream(photo.uri)?.use { inputStream ->
+                val metadata = ImageMetadataReader.readMetadata(inputStream)
+                val exifIFD0 = metadata.getFirstDirectoryOfType(ExifIFD0Directory::class.java)
+                val make = exifIFD0?.getString(ExifIFD0Directory.TAG_MAKE)
+
+                // 清理品牌名称（移除常见后缀）
+                make?.trim()?.removePrefix("NIKON")?.trim()
+                    ?.removePrefix("Canon")?.trim()
+                    ?.removePrefix("SONY")?.trim()
+                    ?.removePrefix("FUJIFILM")?.trim()
+                    ?.removeSuffix("CORPORATION")?.trim()
+                    ?.removeSuffix("CORP.")?.trim()
+                    ?.removeSuffix("CO., LTD")?.trim()
+                    ?.removeSuffix("DIGITAL CAMERA")?.trim()
+                    ?.takeIf { it.isNotBlank() }
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /**
+     * 动态创建标签 View
+     */
+    private fun createTagView(text: String): android.widget.TextView {
+        val context = binding.root.context
+        return android.widget.TextView(context).apply {
+            this.text = text
+            textSize = 10f
+            setTextColor(android.graphics.Color.WHITE)
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            letterSpacing = 0.05f
+            background = context.getDrawable(R.drawable.bg_raw_tag)
+            setPadding(
+                (8 * context.resources.displayMetrics.density).toInt(),
+                (3 * context.resources.displayMetrics.density).toInt(),
+                (8 * context.resources.displayMetrics.density).toInt(),
+                (3 * context.resources.displayMetrics.density).toInt()
+            )
+            layoutParams = android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                // 水平排列，标签之间 6dp 间距
+                marginStart = if (binding.tagsContainer.childCount > 0) {
+                    (6 * context.resources.displayMetrics.density).toInt()
+                } else 0
             }
         }
     }
@@ -308,21 +469,29 @@ class PhotoPageViewHolder(
         exoPlayer = null
         tempFile?.delete()
         tempFile = null
-        
+
         // 重置图片缩放状态
         resetZoom()
-        
+
         // 清理图片资源
         binding.ivPhoto.recycle()
         binding.ivPhoto.setOnImageEventListener(null)
         binding.ivPhoto.setOnTouchListener(null)
-        
+
         Glide.with(binding.root.context).clear(binding.ivGif)
         Glide.with(binding.root.context).clear(binding.ivVideoCover)
-        
+
         // 重置视频相关视图
         binding.ivVideoCover.visibility = View.GONE
         binding.ivPlayButton.visibility = View.GONE
+
+        // 清理标签容器
+        binding.tagsContainer.visibility = View.GONE
+        // 移除动态添加的标签（保留第一个作为模板）
+        while (binding.tagsContainer.childCount > 1) {
+            binding.tagsContainer.removeViewAt(binding.tagsContainer.childCount - 1)
+        }
+        binding.tvRawTag.visibility = View.GONE
     }
     
     companion object {

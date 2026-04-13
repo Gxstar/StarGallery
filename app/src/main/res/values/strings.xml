@@ -121,4 +121,11 @@
     <string name="info_focal_length">焦距</string>
     <string name="info_path">路径</string>
     <string name="info_date">拍摄日期</string>
+
+    <!-- 更多选项 -->
+    <string name="more_options">更多选项</string>
+    <string name="tag_settings">标签设置</string>
+    <string name="select_tags_to_show">选择要显示的标签</string>
+    <string name="tag_raw">RAW</string>
+    <string name="tag_camera_make">相机品牌</string>
 </resources>
