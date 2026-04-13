@@ -215,10 +215,40 @@ class PhotoPageViewHolder(
 
     /**
      * 更新标签可见性（从设置对话框调用）
+     * 会重新根据设置加载标签，包括异步读取 EXIF 信息
      */
     fun updateTagVisibility(selectedTags: Set<TagType>) {
         currentSelectedTags = selectedTags
-        currentPhoto?.let { setupTags(it) }
+        currentPhoto?.let { photo ->
+            // 清除现有标签（保留 RAW 标签作为模板）
+            binding.tvRawTag.visibility = View.GONE
+            while (binding.tagsContainer.childCount > 1) {
+                binding.tagsContainer.removeViewAt(binding.tagsContainer.childCount - 1)
+            }
+
+            val tags = mutableListOf<String>()
+
+            // 根据照片属性和用户设置添加标签
+            if (photo.isRaw && currentSelectedTags.contains(TagType.RAW)) {
+                tags.add("RAW")
+            }
+
+            // 立即显示基础标签
+            displayTags(tags)
+
+            // 如果启用了相机品牌标签，异步读取
+            if (!photo.isVideo && !photo.isGif && currentSelectedTags.contains(TagType.CAMERA_MAKE)) {
+                CoroutineScope(Dispatchers.Main).launch {
+                    val makeTag = readCameraMake(photo)
+                    makeTag?.let {
+                        if (!tags.contains(it)) {
+                            tags.add(it)
+                            displayTags(tags)
+                        }
+                    }
+                }
+            }
+        }
     }
 
     /**

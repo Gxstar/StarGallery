@@ -206,8 +206,8 @@ class PhotoDetailFragment : Fragment() {
     private fun showMoreOptionsDialog() {
         val bottomSheet = TagsSettingsBottomSheet.newInstance()
         bottomSheet.setOnTagsChangedListener { selectedTags ->
-            // 通知当前 ViewHolder 更新标签显示
-            pagerAdapter.getCurrentViewHolder()?.updateTagVisibility(selectedTags)
+            // 更新所有可见的 ViewHolder 的标签显示
+            pagerAdapter.updateAllTagsVisibility(selectedTags)
         }
         bottomSheet.show(childFragmentManager, TagsSettingsBottomSheet.TAG)
     }
