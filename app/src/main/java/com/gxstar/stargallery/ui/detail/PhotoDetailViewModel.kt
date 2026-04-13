@@ -129,7 +129,13 @@ class PhotoDetailViewModel @Inject constructor(
     
     private fun loadMetadataForPhoto(photoId: Long) {
         viewModelScope.launch {
-            _currentMetadata.value = metadataRepository.getMetadataById(photoId)
+            val metadata = metadataRepository.getMetadataById(photoId)
+            _currentMetadata.value = metadata
+            
+            // 元数据加载完成后，更新日期显示（使用数据库中的准确时间）
+            metadata?.let {
+                updateDateInfoFromMetadata(it)
+            }
         }
     }
 
@@ -144,7 +150,7 @@ class PhotoDetailViewModel @Inject constructor(
             _currentPhoto.value = photo
             updateDateInfo(photo)
             
-            // 加载当前位置的元数据
+            // 加载当前位置的元数据（加载完成后会自动更新日期）
             loadMetadataForPhoto(photo.id)
         }
     }
@@ -152,6 +158,22 @@ class PhotoDetailViewModel @Inject constructor(
     private fun updateDateInfo(photo: Photo) {
         _dateText.value = DateUtils.formatDate(photo.dateTaken)
         _infoText.value = DateUtils.formatTime(photo.dateTaken)
+    }
+    
+    /**
+     * 使用数据库元数据更新日期信息
+     * 优先使用 EXIF 原始时间 (dateTakenOriginal)
+     */
+    private fun updateDateInfoFromMetadata(metadata: MediaMetadata) {
+        // 优先级：EXIF DateTimeOriginal > dateTaken > photo.dateTaken
+        val dateTaken = when {
+            metadata.dateTakenOriginal != null && metadata.dateTakenOriginal > 0 -> metadata.dateTakenOriginal
+            metadata.dateTaken > 0 -> metadata.dateTaken
+            else -> return // 没有有效时间，不更新
+        }
+        
+        _dateText.value = DateUtils.formatDate(dateTaken)
+        _infoText.value = DateUtils.formatTime(dateTaken)
     }
 
     fun prepareToggleFavorite(): IntentSender? {
