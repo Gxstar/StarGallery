@@ -4,8 +4,10 @@ import android.content.IntentSender
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.gxstar.stargallery.data.local.entity.MediaMetadata
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.data.repository.MediaRepository
+import com.gxstar.stargallery.data.repository.MetadataRepository
 import com.gxstar.stargallery.ui.util.DateUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,6 +19,7 @@ import javax.inject.Inject
 @HiltViewModel
 class PhotoDetailViewModel @Inject constructor(
     private val mediaRepository: MediaRepository,
+    private val metadataRepository: MetadataRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -26,18 +29,26 @@ class PhotoDetailViewModel @Inject constructor(
     private val bucketId: Long = savedStateHandle["bucketId"] ?: -1L
 
     private val sortType = when (sortTypeValue) {
-        0 -> MediaRepository.SortType.DATE_TAKEN
-        1 -> MediaRepository.SortType.DATE_ADDED
-        else -> MediaRepository.SortType.DATE_TAKEN
+        0 -> MetadataRepository.SortType.DATE_TAKEN
+        1 -> MetadataRepository.SortType.DATE_ADDED
+        else -> MetadataRepository.SortType.DATE_TAKEN
     }
 
-    // 照片列表
+    // 元数据列表
+    private val _metadataList = MutableStateFlow<List<MediaMetadata>>(emptyList())
+    val metadataList: StateFlow<List<MediaMetadata>> = _metadataList.asStateFlow()
+
+    // 照片列表（从元数据转换）
     private val _photos = MutableStateFlow<List<Photo>>(emptyList())
     val photos: StateFlow<List<Photo>> = _photos.asStateFlow()
 
     // 当前照片
     private val _currentPhoto = MutableStateFlow<Photo?>(null)
     val currentPhoto: StateFlow<Photo?> = _currentPhoto.asStateFlow()
+    
+    // 当前元数据
+    private val _currentMetadata = MutableStateFlow<MediaMetadata?>(null)
+    val currentMetadata: StateFlow<MediaMetadata?> = _currentMetadata.asStateFlow()
 
     // 当前位置
     private val _currentPosition = MutableStateFlow(0)
@@ -63,26 +74,62 @@ class PhotoDetailViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true
 
-            // 根据 bucketId 决定加载全部照片还是相册内照片
-            val allPhotos = if (bucketId > 0) {
-                // 加载指定相册的照片
-                mediaRepository.getPhotosByBucket(bucketId, sortType)
+            // 检查是否使用元数据库
+            val useMetadataDb = !metadataRepository.needsScan()
+            
+            if (useMetadataDb) {
+                // 从元数据库加载
+                loadFromMetadataDatabase()
             } else {
-                // 加载所有媒体
-                mediaRepository.getAllMedia(sortType)
+                // 从 MediaStore 加载（降级方案）
+                loadFromMediaStore()
             }
-            _photos.value = allPhotos
-
-            // 找到初始照片的位置
-            val initialPosition = allPhotos.indexOfFirst { it.id == initialPhotoId }
-            if (initialPosition >= 0) {
-                _currentPosition.value = initialPosition
-                val photo = allPhotos[initialPosition]
-                _currentPhoto.value = photo
-                updateDateInfo(photo)
-            }
-
+            
             _isLoading.value = false
+        }
+    }
+    
+    private suspend fun loadFromMetadataDatabase() {
+        // TODO: 实现从数据库按相册和排序查询
+        // 目前先用 MediaStore 获取 ID 列表，然后用数据库查询详情
+        loadFromMediaStore()
+        
+        // 更新当前元数据
+        _currentPhoto.value?.let { photo ->
+            _currentMetadata.value = metadataRepository.getMetadataById(photo.id)
+        }
+    }
+    
+    private suspend fun loadFromMediaStore() {
+        val mediaSortType = when (sortType) {
+            MetadataRepository.SortType.DATE_TAKEN -> MediaRepository.SortType.DATE_TAKEN
+            MetadataRepository.SortType.DATE_ADDED -> MediaRepository.SortType.DATE_ADDED
+        }
+        
+        // 根据 bucketId 决定加载全部照片还是相册内照片
+        val allPhotos = if (bucketId > 0) {
+            mediaRepository.getPhotosByBucket(bucketId, mediaSortType)
+        } else {
+            mediaRepository.getAllMedia(mediaSortType)
+        }
+        _photos.value = allPhotos
+
+        // 找到初始照片的位置
+        val initialPosition = allPhotos.indexOfFirst { it.id == initialPhotoId }
+        if (initialPosition >= 0) {
+            _currentPosition.value = initialPosition
+            val photo = allPhotos[initialPosition]
+            _currentPhoto.value = photo
+            updateDateInfo(photo)
+            
+            // 异步加载元数据
+            loadMetadataForPhoto(photo.id)
+        }
+    }
+    
+    private fun loadMetadataForPhoto(photoId: Long) {
+        viewModelScope.launch {
+            _currentMetadata.value = metadataRepository.getMetadataById(photoId)
         }
     }
 
@@ -96,6 +143,9 @@ class PhotoDetailViewModel @Inject constructor(
             val photo = photoList[position]
             _currentPhoto.value = photo
             updateDateInfo(photo)
+            
+            // 加载当前位置的元数据
+            loadMetadataForPhoto(photo.id)
         }
     }
 
@@ -124,6 +174,11 @@ class PhotoDetailViewModel @Inject constructor(
         _pendingFavoritePhoto?.let { photo ->
             val updatedPhoto = photo.copy(isFavorite = _pendingFavoriteState)
             _currentPhoto.value = updatedPhoto
+            
+            // 更新元数据库中的收藏状态（异步）
+            viewModelScope.launch {
+                metadataRepository.updateFavorite(photo.id, _pendingFavoriteState)
+            }
             
             val currentList = _photos.value.toMutableList()
             val index = currentList.indexOfFirst { it.id == photo.id }

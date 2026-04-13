@@ -27,6 +27,7 @@ import com.bumptech.glide.integration.recyclerview.RecyclerViewPreloader
 import com.bumptech.glide.util.ViewPreloadSizeProvider
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.gxstar.stargallery.R
+import com.gxstar.stargallery.data.local.scanner.MetadataScanner
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.data.repository.MediaRepository
 import com.gxstar.stargallery.databinding.FragmentPhotosBinding
@@ -35,6 +36,7 @@ import com.gxstar.stargallery.ui.photos.animation.PhotoItemAnimator
 import com.gxstar.stargallery.ui.photos.launcher.IntentSenderManager
 import com.gxstar.stargallery.ui.photos.refresh.MediaChangeDetector
 import com.gxstar.stargallery.ui.photos.selection.PhotoSelectionManager
+import com.gxstar.stargallery.ui.photos.scanner.ScanningProgressDialog
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
@@ -162,8 +164,32 @@ class PhotosFragment : Fragment() {
             viewLifecycleOwner,
             requireContext()
         ) {
-            // 检测到变化时自动刷新
-            refreshData()
+            // 检测到变化时，保存位置后刷新
+            val savedPosition = gridLayoutManager.findFirstVisibleItemPosition()
+            var savedOffset = 0
+            if (savedPosition != RecyclerView.NO_POSITION) {
+                val firstVisibleView = gridLayoutManager.findViewByPosition(savedPosition)
+                if (firstVisibleView != null) {
+                    savedOffset = firstVisibleView.top
+                }
+            }
+            
+            // 刷新数据
+            photoAdapter.clearCache()
+            viewModel.refresh()
+            photoAdapter.refresh()
+            
+            // 尝试恢复位置
+            if (savedPosition >= 0) {
+                binding.rvPhotos.post {
+                    try {
+                        gridLayoutManager.scrollToPositionWithOffset(savedPosition, savedOffset)
+                    } catch (e: Exception) {
+                        // 忽略位置恢复失败
+                    }
+                }
+            }
+            
             Toast.makeText(requireContext(), R.string.new_photos_detected, Toast.LENGTH_SHORT).show()
         }
     }
@@ -529,6 +555,65 @@ class PhotosFragment : Fragment() {
                 }
             }
         }
+        
+        // 观察是否需要首次扫描
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.needsScan.collect { needsScan ->
+                    if (needsScan) {
+                        showScanningDialog()
+                        viewModel.startScan()
+                        viewModel.observeScanState()
+                    }
+                }
+            }
+        }
+        
+        // 观察扫描状态
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.scanState.collect { state ->
+                    when (state) {
+                        is MetadataScanner.ScanState.Completed -> {
+                            // 扫描完成，保存位置后刷新数据
+                            val savedPosition = gridLayoutManager.findFirstVisibleItemPosition()
+                            var savedOffset = 0
+                            if (savedPosition != RecyclerView.NO_POSITION) {
+                                val firstVisibleView = gridLayoutManager.findViewByPosition(savedPosition)
+                                if (firstVisibleView != null) {
+                                    savedOffset = firstVisibleView.top
+                                }
+                            }
+                            
+                            refreshData(smooth = false)
+                            viewModel.refresh()
+                            
+                            // 恢复位置
+                            if (savedPosition >= 0) {
+                                binding.rvPhotos.post {
+                                    try {
+                                        gridLayoutManager.scrollToPositionWithOffset(savedPosition, savedOffset)
+                                    } catch (e: Exception) {
+                                        // 忽略
+                                    }
+                                }
+                            }
+                        }
+                        else -> {
+                            // 其他状态由对话框处理
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    /**
+     * 显示扫描进度对话框
+     */
+    private fun showScanningDialog() {
+        val dialog = ScanningProgressDialog.newInstance()
+        dialog.show(childFragmentManager, ScanningProgressDialog.TAG)
     }
 
     /**
@@ -753,13 +838,38 @@ class PhotosFragment : Fragment() {
     /**
      * 刷新数据
      * @param smooth 是否使用平滑刷新（带有动画过渡）
+     * @param preservePosition 是否保持滚动位置（从详情页返回时使用）
      */
-    private fun refreshData(smooth: Boolean = true) {
+    private fun refreshData(smooth: Boolean = true, preservePosition: Boolean = false) {
+        // 如果需要保持位置，保存当前滚动位置
+        var savedPosition = -1
+        var savedOffset = 0
+        if (preservePosition) {
+            savedPosition = gridLayoutManager.findFirstVisibleItemPosition()
+            if (savedPosition != RecyclerView.NO_POSITION) {
+                val firstVisibleView = gridLayoutManager.findViewByPosition(savedPosition)
+                if (firstVisibleView != null) {
+                    savedOffset = firstVisibleView.top
+                }
+            }
+        }
+        
         // 清除适配器缓存
         photoAdapter.clearCache()
         viewModel.refresh()
         photoAdapter.refresh()
         mediaChangeDetector.reset()
+        
+        // 恢复滚动位置
+        if (preservePosition && savedPosition >= 0) {
+            binding.rvPhotos.post {
+                try {
+                    gridLayoutManager.scrollToPositionWithOffset(savedPosition, savedOffset)
+                } catch (e: Exception) {
+                    // 忽略位置恢复失败
+                }
+            }
+        }
     }
 
     /**

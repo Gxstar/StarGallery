@@ -98,6 +98,12 @@ dependencies {
     // 协程
     implementation(libs.kotlinx.coroutines.android)
 
+    // Room 数据库
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    implementation(libs.androidx.room.paging)
+    ksp(libs.androidx.room.compiler)
+
     // 内存泄漏检测 (仅 debug)
     debugImplementation(libs.leakcanary)
 

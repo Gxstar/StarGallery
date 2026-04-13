@@ -128,4 +128,15 @@
     <string name="select_tags_to_show">选择要显示的标签</string>
     <string name="tag_raw">RAW</string>
     <string name="tag_camera_make">相机品牌</string>
+
+    <!-- 首次扫描 -->
+    <string name="scanning_title">正在建立索引</string>
+    <string name="scanning_description">首次启动需要扫描照片并读取元数据，以便提供更准确的排序和筛选功能。</string>
+    <string name="scanning_description_short">首次启动需要扫描照片以提供更准确的排序</string>
+    <string name="scanning_progress">正在扫描 %1$d / %2$d</string>
+    <string name="scanning_completed">扫描完成</string>
+    <string name="scanning_failed">扫描失败</string>
+    <string name="scanning_warning">请勿关闭应用，这可能需要几分钟</string>
+    <string name="scanning_total">共扫描 %d 张照片</string>
+    <string name="scanning_hide">后台运行</string>
 </resources>

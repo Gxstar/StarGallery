@@ -12,20 +12,20 @@ import com.drew.metadata.exif.ExifSubIFDDirectory
 import com.drew.metadata.jpeg.JpegDirectory
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.gxstar.stargallery.R
+import com.gxstar.stargallery.data.local.entity.MediaMetadata
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.databinding.LayoutPhotoInfoBottomSheetBinding
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.InputStream
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.Locale
 
 /**
  * 图片信息详情弹窗
- * 使用 Metadata-extractor 解析详细的 EXIF 数据
+ * 优先使用数据库中的元数据，降级时使用 Metadata-extractor 解析
  */
 class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
 
@@ -33,6 +33,7 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
     private val binding get() = _binding!!
 
     private var photo: Photo? = null
+    private var metadata: MediaMetadata? = null
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = LayoutPhotoInfoBottomSheetBinding.inflate(inflater, container, false)
@@ -41,21 +42,25 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        photo?.let { loadPhotoInfo(it) }
+        photo?.let { loadPhotoInfo(it, metadata) }
     }
 
-    private fun loadPhotoInfo(photo: Photo) {
+    private fun loadPhotoInfo(photo: Photo, metadata: MediaMetadata?) {
         // 1. 设置已知的基础信息
-        setupBaseInfo(photo)
+        setupBaseInfo(photo, metadata)
 
-        // 2. 异步解析 EXIF 信息
-        CoroutineScope(Dispatchers.Main).launch {
-            val metadata = extractMetadata(photo)
-            metadata?.let { updateExifInfo(it) }
+        // 2. 如果有数据库元数据，直接使用；否则异步解析 EXIF
+        if (metadata != null) {
+            updateFromDatabaseMetadata(metadata)
+        } else {
+            CoroutineScope(Dispatchers.Main).launch {
+                val exifMetadata = extractMetadata(photo)
+                exifMetadata?.let { updateExifInfo(it) }
+            }
         }
     }
 
-    private fun setupBaseInfo(photo: Photo) {
+    private fun setupBaseInfo(photo: Photo, metadata: MediaMetadata?) {
         // 1. 异步获取带扩展名的文件名 (第一行，主显示)
         CoroutineScope(Dispatchers.Main).launch {
             val fullName = withContext(Dispatchers.IO) { getFullFileName(photo.uri) }
@@ -66,14 +71,54 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
         val sizeStr = formatFileSize(photo.size)
         binding.tvCombinedFileInfo.text = sizeStr
 
-        // 3. 其他信息
+        // 3. 拍摄日期 - 优先使用数据库中的准确时间
         binding.rowDate.tvLabel.text = getString(R.string.info_date)
         val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-        val dateMs = if (photo.dateTaken > 0) photo.dateTaken else photo.dateModified * 1000
+        
+        // 优先级：数据库 dateTakenOriginal > 数据库 dateTaken > photo.dateTaken > photo.dateModified
+        val dateMs = when {
+            metadata?.dateTakenOriginal != null && metadata.dateTakenOriginal > 0 -> metadata.dateTakenOriginal
+            metadata?.dateTaken != null && metadata.dateTaken > 0 -> metadata.dateTaken
+            photo.dateTaken > 0 -> photo.dateTaken
+            else -> photo.dateModified * 1000
+        }
         binding.rowDate.tvValue.text = sdf.format(dateMs)
 
+        // 4. 相机信息 - 如果数据库中有，直接显示
         binding.rowCamera.tvLabel.text = getString(R.string.info_camera)
         binding.rowLens.tvLabel.text = getString(R.string.info_lens)
+        
+        if (metadata != null) {
+            // 相机型号
+            val make = metadata.cameraMake ?: ""
+            val model = metadata.cameraModel ?: ""
+            val cameraDisplay = when {
+                model.isNotBlank() && model.contains(make, true) -> model
+                model.isNotBlank() && make.isNotBlank() -> "$make $model"
+                model.isNotBlank() -> model
+                make.isNotBlank() -> make
+                else -> null
+            }
+            binding.rowCamera.tvValue.text = cameraDisplay ?: "Unknown"
+            
+            // 镜头型号
+            binding.rowLens.tvValue.text = metadata.lensModel ?: "Unknown"
+            
+            // 分辨率和像素量
+            val width = metadata.width
+            val height = metadata.height
+            if (width > 0 && height > 0) {
+                val megapixels = (width.toLong() * height.toLong()) / 1_000_000.0
+                val pixelsStr = DecimalFormat("0.0").format(megapixels) + " MP"
+                binding.tvCombinedFileInfo.text = "${width}×${height}  •  $pixelsStr  •  $sizeStr"
+            }
+            
+            // 拍摄参数
+            binding.tvAperture.text = metadata.aperture ?: "---"
+            binding.tvShutter.text = metadata.exposureTime ?: "---"
+            binding.tvIso.text = metadata.iso?.let { "ISO $it" } ?: "---"
+            binding.tvFocalLength.text = metadata.focalLength ?: "---"
+        }
     }
 
     private fun getFullFileName(uri: android.net.Uri): String? {
@@ -97,10 +142,14 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
         }
     }
 
-    private fun updateExifInfo(metadata: Metadata) {
-        val exifIFD0 = metadata.getFirstDirectoryOfType(ExifIFD0Directory::class.java)
-        val exifSubIFD = metadata.getFirstDirectoryOfType(ExifSubIFDDirectory::class.java)
-        val jpegDir = metadata.getFirstDirectoryOfType(JpegDirectory::class.java)
+    private fun updateFromDatabaseMetadata(metadata: MediaMetadata) {
+        // 数据已在 setupBaseInfo 中处理，这里只处理额外信息
+    }
+
+    private fun updateExifInfo(exifMetadata: Metadata) {
+        val exifIFD0 = exifMetadata.getFirstDirectoryOfType(ExifIFD0Directory::class.java)
+        val exifSubIFD = exifMetadata.getFirstDirectoryOfType(ExifSubIFDDirectory::class.java)
+        val jpegDir = exifMetadata.getFirstDirectoryOfType(JpegDirectory::class.java)
 
         // --- 1. 分辨率、像素量与文件大小合并 (第二行弱化显示) ---
         var width = 0
@@ -140,10 +189,8 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
         if (focalLength35mm != null && focalLength != "---" && focalLength != "Unknown") {
             val isEquivalent = focalLength == focalLength35mm
             focalDisplay = if (isEquivalent) {
-                // 物理焦距等于等效焦距，不显示等效信息
                 focalLength
             } else {
-                // 物理焦距不等于等效焦距，显示"24mm (等效 35mm)"
                 "$focalLength (等效 $focalLength35mm)"
             }
         }
@@ -182,7 +229,6 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
                 if (denominator == 0.0) return rawShutter
                 
                 val value = numerator / denominator
-                // 如果值 >= 1，直接显示小数
                 if (value >= 1) {
                     return if (value == value.toLong().toDouble()) {
                         value.toLong().toString()
@@ -191,13 +237,11 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
                     }
                 }
                 
-                // 值 < 1，转换为分数形式
                 val gcd = gcd(numerator.toLong(), denominator.toLong())
                 val simplifiedNumerator = (numerator / gcd).toLong()
                 val simplifiedDenominator = (denominator / gcd).toLong()
                 
                 return if (simplifiedDenominator > 1000) {
-                    // 分母太大，尝试找最接近的标准快门速度
                     findClosestStandardShutter(value) ?: rawShutter
                 } else {
                     "${simplifiedNumerator}/${simplifiedDenominator}"
@@ -206,7 +250,6 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
             return rawShutter
         }
         
-        // 如果是小数形式（如 "0.01"），转换为分数
         val value = rawShutter.toDoubleOrNull() ?: return rawShutter
         if (value >= 1) {
             return if (value == value.toLong().toDouble()) {
@@ -216,8 +259,6 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
             }
         }
         
-        // 值 < 1，转换为分数
-        // 常见快门速度标准值（秒）
         val standardShutters = listOf(
             30.0, 15.0, 8.0, 4.0, 2.0, 1.0,
             1.0/2, 1.0/4, 1.0/8, 1.0/15, 1.0/30, 1.0/60,
@@ -231,14 +272,12 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
             }
         }
         
-        // 没找到标准值，转换为分数
         return formatAsFraction(value)
     }
     
     private fun formatAsFraction(value: Double): String {
         if (value >= 1) return DecimalFormat("0.#").format(value)
         
-        // 转换为分母在合理范围内的分数
         val denominator = 10000L
         val numerator = (value * denominator).toLong()
         val gcd = gcd(numerator, denominator)
@@ -281,9 +320,11 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
 
     companion object {
         const val TAG = "PhotoInfoBottomSheet"
-        fun newInstance(photo: Photo): PhotoInfoBottomSheet {
+        
+        fun newInstance(photo: Photo, metadata: MediaMetadata? = null): PhotoInfoBottomSheet {
             return PhotoInfoBottomSheet().apply {
                 this.photo = photo
+                this.metadata = metadata
             }
         }
     }

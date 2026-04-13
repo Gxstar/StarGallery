@@ -194,7 +194,8 @@ class PhotoDetailFragment : Fragment() {
 
         binding.btnInfo.setOnClickListener {
             viewModel.currentPhoto.value?.let { photo ->
-                PhotoInfoBottomSheet.newInstance(photo).show(childFragmentManager, PhotoInfoBottomSheet.TAG)
+                val metadata = viewModel.currentMetadata.value
+                PhotoInfoBottomSheet.newInstance(photo, metadata).show(childFragmentManager, PhotoInfoBottomSheet.TAG)
             }
         }
 
