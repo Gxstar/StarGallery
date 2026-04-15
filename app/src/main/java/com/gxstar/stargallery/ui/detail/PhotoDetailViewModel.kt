@@ -107,7 +107,7 @@ class PhotoDetailViewModel @Inject constructor(
         }
         
         // 根据 bucketId 决定加载全部照片还是相册内照片
-        val allPhotos = if (bucketId > 0) {
+        val allPhotos = if (bucketId != -1L) {
             mediaRepository.getPhotosByBucket(bucketId, mediaSortType)
         } else {
             mediaRepository.getAllMedia(mediaSortType)
