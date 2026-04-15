@@ -512,12 +512,20 @@ class MediaRepository @Inject constructor(
         val orientationIndex = getColumnIndex(MediaStore.Files.FileColumns.ORIENTATION)
         val orientation = if (orientationIndex >= 0) getInt(orientationIndex) else 0
 
+        val dateTakenRaw = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_TAKEN))
+        val dateModified = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_MODIFIED))
+        val dateAdded = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_ADDED))
+        
+        // 彻底弃用 MediaStore 不可靠的 dateTaken (如果为 0)
+        // 逻辑与 ExifExtractor 对齐：优先 dateTaken, 次之 dateModified, 最后 dateAdded
+        val dateTaken = if (dateTakenRaw > 0) dateTakenRaw else (if (dateModified > 0) dateModified else dateAdded) * 1000L
+
         return Photo(
             id = id,
             uri = uri,
-            dateTaken = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_TAKEN)),
-            dateModified = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_MODIFIED)),
-            dateAdded = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_ADDED)),
+            dateTaken = dateTaken,
+            dateModified = dateModified,
+            dateAdded = dateAdded,
             mimeType = mimeType,
             width = getInt(getColumnIndexOrThrow(MediaStore.Files.FileColumns.WIDTH)),
             height = getInt(getColumnIndexOrThrow(MediaStore.Files.FileColumns.HEIGHT)),
@@ -544,12 +552,18 @@ class MediaRepository @Inject constructor(
         val orientationIndex = getColumnIndex(MediaStore.Files.FileColumns.ORIENTATION)
         val orientation = if (orientationIndex >= 0) getInt(orientationIndex) else 0
 
+        val dateTakenRaw = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_TAKEN))
+        val dateModified = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_MODIFIED))
+        val dateAdded = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_ADDED))
+        
+        val dateTaken = if (dateTakenRaw > 0) dateTakenRaw else (if (dateModified > 0) dateModified else dateAdded) * 1000L
+
         return Photo(
             id = id,
             uri = uri,
-            dateTaken = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_TAKEN)),
-            dateModified = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_MODIFIED)),
-            dateAdded = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_ADDED)),
+            dateTaken = dateTaken,
+            dateModified = dateModified,
+            dateAdded = dateAdded,
             mimeType = mimeType,
             width = getInt(getColumnIndexOrThrow(MediaStore.Files.FileColumns.WIDTH)),
             height = getInt(getColumnIndexOrThrow(MediaStore.Files.FileColumns.HEIGHT)),

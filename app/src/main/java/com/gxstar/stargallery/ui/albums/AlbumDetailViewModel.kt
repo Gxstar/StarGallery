@@ -15,6 +15,7 @@ import com.gxstar.stargallery.data.repository.MediaRepository
 import com.gxstar.stargallery.ui.photos.GroupType
 import com.gxstar.stargallery.ui.photos.PhotoModel
 import com.gxstar.stargallery.ui.util.DateUtils
+import com.gxstar.stargallery.ui.util.SortUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -107,16 +108,7 @@ class AlbumDetailViewModel @Inject constructor(
         val sortedPhotos = if (photos.isEmpty()) {
             emptyList()
         } else {
-            when (sortType) {
-                MediaRepository.SortType.DATE_TAKEN -> {
-                    photos.sortedByDescending { photo ->
-                        if (photo.dateTaken > 0) photo.dateTaken else (photo.dateAdded * 1000L)
-                    }
-                }
-                MediaRepository.SortType.DATE_ADDED -> {
-                    photos.sortedByDescending { it.dateAdded }
-                }
-            }
+            SortUtils.sortPhotos(photos, sortType)
         }
 
         val totalSize = sortedPhotos.size
