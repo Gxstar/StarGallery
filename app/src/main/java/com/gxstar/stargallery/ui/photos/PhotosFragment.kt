@@ -40,6 +40,7 @@ import com.gxstar.stargallery.ui.photos.scanner.ScanningProgressDialog
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
 import javax.inject.Inject
@@ -604,6 +605,19 @@ class PhotosFragment : Fragment() {
                         }
                     }
                 }
+            }
+        }
+
+        // 观察排序和分组状态并同步到适配器，用于快速滑动时的日期显示
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                combine(
+                    viewModel.currentSortType,
+                    viewModel.currentGroupType
+                ) { sortType, groupType -> Pair(sortType, groupType) }
+                    .collect { (sortType, groupType) ->
+                        photoAdapter.updateSortAndGroupType(sortType, groupType)
+                    }
             }
         }
     }

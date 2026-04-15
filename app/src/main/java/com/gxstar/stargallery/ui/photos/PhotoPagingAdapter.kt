@@ -14,6 +14,9 @@ import com.gxstar.stargallery.databinding.ItemDateHeaderBinding
 import com.gxstar.stargallery.databinding.ItemPhotoBinding
 import com.gxstar.stargallery.ui.common.DragSelectHelper
 import me.zhanghai.android.fastscroll.PopupTextProvider
+import android.content.Context
+import com.gxstar.stargallery.data.repository.MediaRepository
+import com.gxstar.stargallery.ui.util.DateUtils
 
 // ==================== UI 模型 ====================
 
@@ -50,8 +53,10 @@ class PhotoPagingAdapter(
     private var cachedPhotoCount = -1
     // 性能优化：缓存分隔符位置 -> 日期文本
     private var separatorCache = mutableMapOf<Int, String>()
-    // 最后一次查找的分隔符位置，用于加速后续查找
-    private var lastSeparatorPosition = -1
+    
+    // 排序和分组类型，用于格式化快速滑动时的日期弹出框
+    private var currentSortType = MediaRepository.SortType.DATE_TAKEN
+    private var currentGroupType = GroupType.DAY
 
     /**
      * 更新配置（列数和图片大小）
@@ -65,6 +70,14 @@ class PhotoPagingAdapter(
             notifyItemRangeChanged(0, itemCount)
         }
     }
+
+    /**
+     * 更新排序和分组设置，确保快速滑动时的日期显示准确
+     */
+    fun updateSortAndGroupType(sortType: MediaRepository.SortType, groupType: GroupType) {
+        currentSortType = sortType
+        currentGroupType = groupType
+    }
     
     /**
      * 清除缓存（数据刷新时调用）
@@ -72,7 +85,6 @@ class PhotoPagingAdapter(
     fun clearCache() {
         cachedPhotoCount = -1
         separatorCache.clear()
-        lastSeparatorPosition = -1
     }
     
     /**
@@ -161,44 +173,19 @@ class PhotoPagingAdapter(
         }
     }
 
-    fun getDateText(position: Int): String {
+    fun getDateText(context: Context, position: Int): String {
         if (position < 0 || position >= itemCount) return ""
         val item = getItem(position) ?: return ""
         
-        // 如果当前是分隔符，直接返回日期文本
-        if (item is PhotoModel.SeparatorItem) {
-            separatorCache[position] = item.dateText
-            return item.dateText
+        return when (item) {
+            is PhotoModel.SeparatorItem -> item.dateText
+            is PhotoModel.PhotoItem -> DateUtils.formatDateText(context, item.photo, currentSortType, currentGroupType)
         }
-        
-        // 如果当前是照片，向前查找最近的分隔符
-        if (item is PhotoModel.PhotoItem) {
-            // 先检查缓存的分隔符位置是否有效
-            if (lastSeparatorPosition >= 0 && lastSeparatorPosition < position) {
-                separatorCache[lastSeparatorPosition]?.let { return it }
-            }
-            
-            // 向前查找最近的分隔符
-            for (i in position downTo maxOf(0, position - 100)) {
-                // 先检查缓存
-                separatorCache[i]?.let { 
-                    lastSeparatorPosition = i
-                    return it 
-                }
-                val prevItem = getItem(i) ?: continue
-                if (prevItem is PhotoModel.SeparatorItem) {
-                    separatorCache[i] = prevItem.dateText
-                    lastSeparatorPosition = i
-                    return prevItem.dateText
-                }
-            }
-        }
-        return ""
     }
 
     // ========== PopupTextProvider ==========
     override fun getPopupText(view: View, position: Int): CharSequence {
-        return getDateText(position)
+        return getDateText(view.context, position)
     }
 
     /**
