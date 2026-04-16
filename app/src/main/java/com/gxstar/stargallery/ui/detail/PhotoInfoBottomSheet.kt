@@ -9,6 +9,7 @@ import com.drew.imaging.ImageMetadataReader
 import com.drew.metadata.Metadata
 import com.drew.metadata.exif.ExifIFD0Directory
 import com.drew.metadata.exif.ExifSubIFDDirectory
+import com.drew.metadata.exif.makernotes.PanasonicMakernoteDirectory
 import com.drew.metadata.jpeg.JpegDirectory
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.gxstar.stargallery.R
@@ -90,7 +91,7 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
         // 4. 相机信息 - 如果数据库中有，直接显示
         binding.rowCamera.tvLabel.text = getString(R.string.info_camera)
         binding.rowLens.tvLabel.text = getString(R.string.info_lens)
-        
+
         if (metadata != null) {
             // 相机型号
             val make = metadata.cameraMake ?: ""
@@ -153,6 +154,7 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
         val exifIFD0 = exifMetadata.getFirstDirectoryOfType(ExifIFD0Directory::class.java)
         val exifSubIFD = exifMetadata.getFirstDirectoryOfType(ExifSubIFDDirectory::class.java)
         val jpegDir = exifMetadata.getFirstDirectoryOfType(JpegDirectory::class.java)
+        val panasonicMakernote = exifMetadata.getFirstDirectoryOfType(PanasonicMakernoteDirectory::class.java)
 
         // --- 1. 分辨率、像素量与文件大小合并 (第二行弱化显示) ---
         var width = 0
@@ -236,6 +238,26 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
             ?: existingMetadata?.lensModel
             ?: "Unknown"
         binding.rowLens.tvValue.text = lensModel
+
+        // LUT1 和 LUT2：松下相机 Makernote (0x00F1, 0x00F4)
+        val lut1 = panasonicMakernote?.getString(0x00F1)
+        val lut2 = panasonicMakernote?.getString(0x00F4)
+
+        if (!lut1.isNullOrBlank()) {
+            binding.rowLut1.tvLabel.text = "LUT1"
+            binding.rowLut1.tvValue.text = lut1
+            binding.rowLut1.root.visibility = View.VISIBLE
+        } else {
+            binding.rowLut1.root.visibility = View.GONE
+        }
+
+        if (!lut2.isNullOrBlank()) {
+            binding.rowLut2.tvLabel.text = "LUT2"
+            binding.rowLut2.tvValue.text = lut2
+            binding.rowLut2.root.visibility = View.VISIBLE
+        } else {
+            binding.rowLut2.root.visibility = View.GONE
+        }
     }
 
     private fun formatFileSize(size: Long): String {
@@ -348,7 +370,7 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
 
     companion object {
         const val TAG = "PhotoInfoBottomSheet"
-        
+
         fun newInstance(photo: Photo, metadata: MediaMetadata? = null): PhotoInfoBottomSheet {
             return PhotoInfoBottomSheet().apply {
                 this.photo = photo

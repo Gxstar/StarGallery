@@ -133,7 +133,8 @@ class TagsSettingsBottomSheet : BottomSheetDialogFragment() {
  */
 enum class TagType(val displayName: String) {
     RAW("RAW 格式"),
-    CAMERA_MAKE("相机品牌")
+    CAMERA_MAKE("相机品牌"),
+    PHOTO_STYLE("照片风格")
 }
 
 /**

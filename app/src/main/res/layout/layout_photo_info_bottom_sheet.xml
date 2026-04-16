@@ -141,6 +141,8 @@
             
         <include layout="@layout/item_photo_info_row" android:id="@+id/rowCamera"/>
         <include layout="@layout/item_photo_info_row" android:id="@+id/rowLens"/>
+        <include layout="@layout/item_photo_info_row" android:id="@+id/rowLut1"/>
+        <include layout="@layout/item_photo_info_row" android:id="@+id/rowLut2"/>
         <include layout="@layout/item_photo_info_row" android:id="@+id/rowDate"/>
 
         <View

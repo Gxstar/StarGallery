@@ -6,7 +6,18 @@
       "WebFetch(domain:minimax-algeng-chat-tts.oss-cn-wulanchabu.aliyuncs.com)",
       "Bash(./gradlew.bat assembleDebug)",
       "Bash(git reset *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(curl -sL \"https://raw.githubusercontent.com/drewnoakes/metadata-extractor/master/Source/com/drew/metadata/exif/makernotes/PanasonicMakernoteDirectory.cs\")",
+      "Bash(curl -sL \"https://api.github.com/repos/drewnoakes/metadata-extractor/contents/Source/com/drew/metadata/exif/makernotes\")",
+      "Bash(curl -sL \"https://raw.githubusercontent.com/drewnoakes/metadata-extractor/main/Source/com/drew/metadata/exif/makernotes/PanasonicMakernoteDirectory.java\")",
+      "Bash(curl -sL \"https://raw.githubusercontent.com/drewnoakes/metadata-extractor/main/Source/com/drew/metadata/exif/makernotes/PanasonicMakernoteDescriptor.java\")",
+      "Bash(curl -sL \"https://api.github.com/search/code?q=repo:drewnoakes/metadata-extractor+lut+panasonic\")",
+      "Bash(./gradlew.bat :app:compileDebugKotlin --quiet)",
+      "WebSearch",
+      "Bash(unzip -l \"/c/Users/gengx/.gradle/caches/modules-2/files-2.1/com.drewnoakes/metadata-extractor/2.19.0/4d3ab42dd9965b8f2b8bd1b7572e028d6f90a34f/metadata-extractor-2.19.0.jar\")",
+      "Bash(./gradlew.bat :app:assembleDebug --quiet)",
+      "Bash(unzip -p \"/c/Users/gengx/.gradle/caches/modules-2/files-2.1/com.drewnoakes/metadata-extractor/2.19.0/4d3ab42dd9965b8f2b8bd1b7572e028d6f90a34f/metadata-extractor-2.19.0.jar\" com/drew/metadata/exif/makernotes/PanasonicMakernoteDirectory.class)"
     ]
   }
 }

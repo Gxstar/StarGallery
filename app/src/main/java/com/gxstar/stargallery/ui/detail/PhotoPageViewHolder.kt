@@ -15,6 +15,7 @@ import com.davemorrissey.labs.subscaleview.ImageSource
 import com.davemorrissey.labs.subscaleview.SubsamplingScaleImageView
 import com.drew.imaging.ImageMetadataReader
 import com.drew.metadata.exif.ExifIFD0Directory
+import com.drew.metadata.exif.makernotes.PanasonicMakernoteDirectory
 import com.gxstar.stargallery.R
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.databinding.ItemPhotoPageBinding
@@ -249,6 +250,19 @@ class PhotoPageViewHolder(
                     }
                 }
             }
+
+            // 如果启用了照片风格标签，异步读取
+            if (!photo.isVideo && !photo.isGif && currentSelectedTags.contains(TagType.PHOTO_STYLE)) {
+                CoroutineScope(Dispatchers.Main).launch {
+                    val photoStyleTag = readPhotoStyle(photo)
+                    photoStyleTag?.let {
+                        if (!tags.contains(it)) {
+                            tags.add(it)
+                            displayTags(tags)
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -279,6 +293,19 @@ class PhotoPageViewHolder(
             CoroutineScope(Dispatchers.Main).launch {
                 val makeTag = readCameraMake(photo)
                 makeTag?.let {
+                    if (!tags.contains(it)) {
+                        tags.add(it)
+                        displayTags(tags)
+                    }
+                }
+            }
+        }
+
+        // 异步读取松下相机 PhotoStyle
+        if (!photo.isVideo && !photo.isGif && currentSelectedTags.contains(TagType.PHOTO_STYLE)) {
+            CoroutineScope(Dispatchers.Main).launch {
+                val photoStyleTag = readPhotoStyle(photo)
+                photoStyleTag?.let {
                     if (!tags.contains(it)) {
                         tags.add(it)
                         displayTags(tags)
@@ -364,6 +391,40 @@ class PhotoPageViewHolder(
 
                 // 如果清理后为空，返回原始值
                 cleaned.takeIf { it.isNotBlank() } ?: make
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    // PhotoStyle value mapping for Panasonic cameras (tag 0x0089)
+    private val PHOTO_STYLE_MAP = mapOf(
+        0 to "Auto",
+        1 to "Standard",
+        2 to "Vivid",
+        3 to "Natural",
+        4 to "Monochrome",
+        5 to "Scenery",
+        6 to "Portrait",
+        8 to "Cinelike D",
+        9 to "Cinelike V",
+        11 to "L. Monochrome",
+        12 to "Like709",
+        15 to "L. Monochrome D",
+        17 to "V-Log",
+        18 to "Cinelike D2"
+    )
+
+    /**
+     * 异步读取 EXIF 中的 Panasonic PhotoStyle
+     */
+    private suspend fun readPhotoStyle(photo: Photo): String? = withContext(Dispatchers.IO) {
+        try {
+            binding.root.context.contentResolver.openInputStream(photo.uri)?.use { inputStream ->
+                val metadata = ImageMetadataReader.readMetadata(inputStream)
+                val panasonicMakernote = metadata.getFirstDirectoryOfType(PanasonicMakernoteDirectory::class.java)
+                val photoStyleValue = panasonicMakernote?.getInteger(PanasonicMakernoteDirectory.TAG_PHOTO_STYLE)
+                photoStyleValue?.let { PHOTO_STYLE_MAP[it] }
             }
         } catch (e: Exception) {
             null
