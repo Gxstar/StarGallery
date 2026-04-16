@@ -208,6 +208,7 @@ class PhotoPageViewHolder(
             when {
                 photo.isVideo -> loadVideo(photo)
                 photo.isGif -> loadGif(photo)
+                photo.needsGlideLoad -> loadModernImage(photo)  // AVIF/HEIC
                 else -> loadImage(photo)
             }
         }
@@ -444,6 +445,19 @@ class PhotoPageViewHolder(
         setMediaVisibility(gif = true)
         viewPagerSwipeController?.invoke(true)
         Glide.with(binding.root.context).asGif().load(photo.uri).into(binding.ivGif)
+        binding.progressBar.visibility = View.GONE
+    }
+
+    /**
+     * 使用 Glide 加载 AVIF/HEIC 等现代图片格式
+     * SubsamplingScaleImageView 无法对这些格式进行分块加载优化，因此使用 Glide + ImageView
+     */
+    private fun loadModernImage(photo: Photo) {
+        setMediaVisibility(gif = true)  // 复用 GIF 的 ImageView
+        viewPagerSwipeController?.invoke(true)
+        Glide.with(binding.root.context)
+            .load(photo.uri)
+            .into(binding.ivGif)
         binding.progressBar.visibility = View.GONE
     }
     

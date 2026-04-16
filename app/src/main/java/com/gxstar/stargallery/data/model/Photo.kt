@@ -29,6 +29,27 @@ data class Photo(
         get() = mimeType == "image/gif"
 
     /**
+     * 判断是否为 AVIF 格式
+     * Android 12+ (API 31) 原生支持 AVIF 解码
+     */
+    val isAvif: Boolean
+        get() = mimeType == "image/avif"
+
+    /**
+     * 判断是否为 HEIC/HEIF 格式
+     * Android 8+ (API 26) 原生支持 HEIC 解码
+     */
+    val isHeic: Boolean
+        get() = mimeType in setOf("image/heic", "image/heif")
+
+    /**
+     * 判断是否为需要使用 Glide 加载的图片格式（而非 SubsamplingScaleImageView）
+     * 只有 AVIF 格式 SubsamplingScaleImageView 无法加载，其他格式如 HEIC/HEIF 都支持
+     */
+    val needsGlideLoad: Boolean
+        get() = isAvif
+
+    /**
      * 判断是否为 RAW 格式图片
      * 常见 RAW 格式 MIME 类型：
      * - image/x-adobe-dng (DNG)
