@@ -406,6 +406,7 @@ class PhotoPageViewHolder(
         viewPagerSwipeController?.invoke(true)
         exoPlayer = ExoPlayerManager.getPlayer(binding.root.context)
         binding.videoView.player = exoPlayer
+        binding.videoView.showController()
         binding.progressBar.visibility = View.GONE
     }
 
@@ -434,7 +435,8 @@ class PhotoPageViewHolder(
         setMediaVisibility(video = true)
         exoPlayer = ExoPlayerManager.getPlayer(binding.root.context)
         binding.videoView.player = exoPlayer
-        
+        binding.videoView.showController()
+
         if (ExoPlayerManager.getCurrentVideoId() != photo.id) {
             ExoPlayerManager.clear()
             ExoPlayerManager.play(photo.id, photo.uri, autoPlay = true)

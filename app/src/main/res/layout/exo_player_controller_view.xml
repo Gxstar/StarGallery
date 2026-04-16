@@ -1,76 +1,84 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:background="#80000000"
-    android:padding="16dp">
+    android:layout_height="match_parent">
 
-    <!-- 播放/暂停按钮 -->
-    <ImageButton
-        android:id="@id/exo_play_pause"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:background="?attr/selectableItemBackgroundBorderless"
-        android:scaleType="center"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+    <!-- 底部渐变遮罩 -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="180dp"
+        android:layout_gravity="bottom"
+        android:background="@drawable/gradient_bottom_to_top" />
 
-    <!-- 上一首按钮 -->
-    <ImageButton
-        android:id="@id/exo_prev"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:background="?attr/selectableItemBackgroundBorderless"
-        android:scaleType="center"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toEndOf="@id/exo_play_pause"
-        app:layout_constraintTop_toTopOf="parent" />
-
-    <!-- 下一首按钮 -->
-    <ImageButton
-        android:id="@id/exo_next"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:background="?attr/selectableItemBackgroundBorderless"
-        android:scaleType="center"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toEndOf="@id/exo_prev"
-        app:layout_constraintTop_toTopOf="parent" />
-
-    <!-- 进度条 -->
-    <androidx.media3.ui.DefaultTimeBar
-        android:id="@id/exo_progress"
-        android:layout_width="0dp"
+    <!-- 底部控制栏 - 位于底栏上方，使用 margin 确保不被底栏遮挡 -->
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
-        android:layout_marginEnd="16dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toStartOf="@id/exo_duration"
-        app:layout_constraintStart_toEndOf="@id/exo_next"
-        app:layout_constraintTop_toTopOf="parent" />
+        android:layout_gravity="bottom"
+        android:orientation="vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="16dp"
+        android:layout_marginBottom="56dp">
 
-    <!-- 当前时间 -->
-    <TextView
-        android:id="@id/exo_position"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textColor="@android:color/white"
-        android:textSize="12sp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toStartOf="@id/exo_progress"
-        app:layout_constraintTop_toTopOf="parent" />
+        <!-- 时间和控制按钮 - 位于进度条上方 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="36dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:layout_marginBottom="4dp">
 
-    <!-- 总时长 -->
-    <TextView
-        android:id="@id/exo_duration"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textColor="@android:color/white"
-        android:textSize="12sp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+            <!-- 播放/暂停按钮 -->
+            <ImageButton
+                android:id="@id/exo_play_pause"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:padding="6dp"
+                android:scaleType="centerInside" />
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+            <!-- 当前时间 -->
+            <TextView
+                android:id="@id/exo_position"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/white"
+                android:textSize="12sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text=" / "
+                android:textColor="#B3FFFFFF"
+                android:textSize="12sp" />
+
+            <!-- 总时长 -->
+            <TextView
+                android:id="@id/exo_duration"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textColor="#B3FFFFFF"
+                android:textSize="12sp" />
+
+        </LinearLayout>
+
+        <!-- 进度条 - 位于最底部 -->
+        <androidx.media3.ui.DefaultTimeBar
+            android:id="@id/exo_progress"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:bar_height="3dp"
+            app:buffered_color="#B3FFFFFF"
+            app:played_color="@color/white"
+            app:scrubber_color="@color/white"
+            app:scrubber_dragged_size="16dp"
+            app:scrubber_enabled_size="12dp"
+            app:touch_target_height="48dp"
+            app:unplayed_color="#80FFFFFF" />
+
+    </LinearLayout>
+
+</FrameLayout>
