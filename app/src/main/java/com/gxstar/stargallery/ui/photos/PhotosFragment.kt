@@ -810,7 +810,7 @@ class PhotosFragment : Fragment() {
     }
 
     companion object {
-        private const val MIN_CELL_WIDTH_DP = 100
+        private const val MIN_CELL_WIDTH_DP = 80
         private const val MIN_SPAN_COUNT = 3
         private const val MAX_SPAN_COUNT = 10
 
