@@ -324,12 +324,15 @@ class PhotoPageViewHolder(
             return
         }
 
+        // 按固定优先级排序
+        val sortedTags = tags.sortedBy { getTagPriority(it) }
+
         binding.tagsContainer.visibility = View.VISIBLE
         val density = binding.root.context.resources.displayMetrics.density
         val marginStart = (6 * density).toInt()
 
         // 动态添加标签
-        tags.forEachIndexed { index, tagText ->
+        sortedTags.forEachIndexed { index, tagText ->
             val tagView = if (index == 0) {
                 // 复用第一个 TextView
                 binding.tvRawTag.apply {
@@ -414,6 +417,27 @@ class PhotoPageViewHolder(
         17 to "V-Log",
         18 to "Cinelike D2"
     )
+
+    // 标签固定优先级（越小越靠前）
+    private val TAG_PRIORITY = mapOf(
+        "RAW" to 0,
+        "Panasonic" to 1,
+        "Canon" to 2,
+        "NIKON" to 3,
+        "SONY" to 4,
+        "FUJIFILM" to 5
+    )
+
+    private fun getTagPriority(tag: String): Int {
+        // RAW 最高优先级
+        if (tag == "RAW") return 0
+        // 相机品牌
+        TAG_PRIORITY.entries.find { tag.startsWith(it.key) }?.let { return it.value }
+        // PhotoStyle 值统一放最后
+        if (PHOTO_STYLE_MAP.values.contains(tag)) return 100
+        // 其他未匹配标签
+        return 101
+    }
 
     /**
      * 异步读取 EXIF 中的 Panasonic PhotoStyle

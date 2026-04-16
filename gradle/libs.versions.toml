@@ -54,7 +54,7 @@ leakcanary = "2.14"
 
 # 协程
 coroutines = "1.10.1"
-metadataExtractor = "2.19.0"
+metadataExtractor = "2.20.0"
 
 # Room 数据库
 room = "2.7.2"
