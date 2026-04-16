@@ -18,7 +18,8 @@ import kotlinx.coroutines.withContext
  */
 class MediaStorePagingSource(
     private val contentResolver: ContentResolver,
-    private val sortType: MediaRepository.SortType
+    private val sortType: MediaRepository.SortType,
+    private val searchQuery: String? = null
 ) : PagingSource<Int, Photo>() {
 
     companion object {
@@ -69,6 +70,10 @@ class MediaStorePagingSource(
         val selection = buildString {
             append("(${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE}")
             append(" OR ${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO})")
+            // 添加搜索过滤
+            if (!searchQuery.isNullOrBlank()) {
+                append(" AND ${MediaStore.Files.FileColumns.DISPLAY_NAME} LIKE '%${searchQuery.replace("'", "''")}%'")
+            }
         }
 
         val projection = arrayOf(
@@ -128,13 +133,24 @@ class MediaStorePagingSource(
                     ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id)
                 }
 
+                // Fallback 逻辑：DATE_TAKEN = 0 时 fallback 到 DATE_MODIFIED 或 DATE_ADDED
+                val dateTaken = cursor.getLong(dateTakenIndex)
+                val dateModified = cursor.getLong(dateModifiedIndex)
+                val dateAdded = cursor.getLong(dateAddedIndex)
+                val finalDateTaken = when {
+                    dateTaken > 0 -> dateTaken
+                    dateModified > 0 -> dateModified * 1000L  // date_modified 是秒级，转毫秒
+                    dateAdded > 0 -> dateAdded * 1000L         // date_added 也是秒级，转毫秒
+                    else -> System.currentTimeMillis()         // 保底
+                }
+
                 photos.add(
                     Photo(
                         id = id,
                         uri = photoUri,
-                        dateTaken = cursor.getLong(dateTakenIndex),
-                        dateModified = cursor.getLong(dateModifiedIndex),
-                        dateAdded = cursor.getLong(dateAddedIndex),
+                        dateTaken = finalDateTaken,
+                        dateModified = dateModified,
+                        dateAdded = dateAdded,
                         mimeType = mimeType,
                         width = cursor.getInt(widthIndex),
                         height = cursor.getInt(heightIndex),

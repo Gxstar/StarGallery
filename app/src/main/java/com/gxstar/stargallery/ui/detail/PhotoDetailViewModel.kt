@@ -9,7 +9,6 @@ import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.data.repository.MediaRepository
 import com.gxstar.stargallery.data.repository.MetadataRepository
 import com.gxstar.stargallery.ui.util.DateUtils
-import com.gxstar.stargallery.ui.util.SortUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -91,69 +90,38 @@ class PhotoDetailViewModel @Inject constructor(
     }
     
     private suspend fun loadFromMetadataDatabase() {
+        // 与首页保持一致，直接使用 MediaStore 的数据，不做额外排序处理
         val mediaSortType = when (sortType) {
             MetadataRepository.SortType.DATE_TAKEN -> MediaRepository.SortType.DATE_TAKEN
             MetadataRepository.SortType.DATE_ADDED -> MediaRepository.SortType.DATE_ADDED
             else -> MediaRepository.SortType.DATE_TAKEN
         }
 
-        // 1. 首先从 MediaStore 获取基础列表（确保包含所有外部文件）
-        val basePhotos = if (bucketId != -1L) {
+        val photos = if (bucketId != -1L) {
             mediaRepository.getPhotosByBucket(bucketId, mediaSortType)
         } else {
             mediaRepository.getAllMedia(mediaSortType)
         }
 
-        if (basePhotos.isEmpty()) {
-            _photos.value = emptyList()
-            return
-        }
-
-        // 2. 批量从数据库获取元数据以增强日期信息（使用我们计算的可靠日期）
-        val photoIds = basePhotos.map { it.id }
-        val metadataMap = mutableMapOf<Long, MediaMetadata>()
-        photoIds.chunked(900).forEach { chunk ->
-            val metadataList = metadataRepository.getMetadataByIds(chunk)
-            metadataList.forEach { metadataMap[it.id] = it }
-        }
-
-        // 3. 将数据库中的更准确日期应用到 Photo 对象
-        val enhancedPhotos = basePhotos.map { photo ->
-            val metadata = metadataMap[photo.id]
-            if (metadata != null) {
-                photo.copy(dateTaken = metadata.dateTaken)
-            } else {
-                photo
-            }
-        }
-
-        // 4. 使用统一排序工具类进行内存排序
-        val sortedPhotos = SortUtils.sortPhotos(enhancedPhotos, mediaSortType)
-        _photos.value = sortedPhotos
-        
-        // 5. 初始化当前位置
-        updateInitialSelection(sortedPhotos)
+        _photos.value = photos
+        updateInitialSelection(photos)
     }
-    
+
     private suspend fun loadFromMediaStore() {
+        // 与首页保持一致，直接使用 MediaStore 的数据
         val mediaSortType = when (sortType) {
             MetadataRepository.SortType.DATE_TAKEN -> MediaRepository.SortType.DATE_TAKEN
             MetadataRepository.SortType.DATE_ADDED -> MediaRepository.SortType.DATE_ADDED
         }
-        
-        // 根据 bucketId 决定加载全部照片还是相册内照片
-        val allPhotos = if (bucketId != -1L) {
+
+        val photos = if (bucketId != -1L) {
             mediaRepository.getPhotosByBucket(bucketId, mediaSortType)
         } else {
             mediaRepository.getAllMedia(mediaSortType)
         }
-        
-        // 使用统一排序工具类，即使在 MediaStore 路径下也确保逻辑一致
-        val sortedPhotos = SortUtils.sortPhotos(allPhotos, mediaSortType)
-        _photos.value = sortedPhotos
 
-        // 初始化当前位置
-        updateInitialSelection(sortedPhotos)
+        _photos.value = photos
+        updateInitialSelection(photos)
     }
 
     private fun updateInitialSelection(sortedPhotos: List<Photo>) {

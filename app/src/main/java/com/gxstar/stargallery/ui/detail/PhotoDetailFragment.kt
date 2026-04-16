@@ -55,6 +55,9 @@ class PhotoDetailFragment : Fragment() {
     
     // 当前页面是否可以左右滑动切换
     private var canSwipeToSwitch = true
+
+    // 是否已设置过初始位置（用于避免删除后重置位置）
+    private var hasInitialPositionBeenSet = false
     
     private val deleteRequestLauncher = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
@@ -331,9 +334,13 @@ class PhotoDetailFragment : Fragment() {
                 viewModel.photos.collect { photos ->
                     if (photos.isNotEmpty()) {
                         pagerAdapter.submitList(photos)
-                        val initialPosition = viewModel.getInitialPosition()
-                        if (binding.viewPager.currentItem != initialPosition) {
-                            binding.viewPager.setCurrentItem(initialPosition, false)
+                        // 只在首次加载时设置位置，后续删除等操作不重置位置
+                        if (!hasInitialPositionBeenSet) {
+                            val initialPosition = viewModel.getInitialPosition()
+                            if (binding.viewPager.currentItem != initialPosition) {
+                                binding.viewPager.setCurrentItem(initialPosition, false)
+                            }
+                            hasInitialPositionBeenSet = true
                         }
                     }
                 }

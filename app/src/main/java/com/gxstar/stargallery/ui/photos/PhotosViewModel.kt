@@ -10,11 +10,9 @@ import androidx.paging.cachedIn
 import androidx.paging.filter
 import androidx.paging.insertSeparators
 import androidx.paging.map
-import com.gxstar.stargallery.data.local.scanner.MetadataScanner
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.data.paging.MediaStorePagingSource
 import com.gxstar.stargallery.data.repository.MediaRepository
-import com.gxstar.stargallery.data.repository.MetadataRepository
 import com.gxstar.stargallery.ui.util.DateUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -37,7 +35,6 @@ enum class GroupType {
 @HiltViewModel
 class PhotosViewModel @Inject constructor(
     private val mediaRepository: MediaRepository,
-    private val metadataRepository: MetadataRepository,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -61,57 +58,13 @@ class PhotosViewModel @Inject constructor(
     private val _favoriteCount = MutableStateFlow(0)
     val favoriteCount: StateFlow<Int> = _favoriteCount.asStateFlow()
 
-    private val _isLoading = MutableStateFlow(false)
-    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+    private val _searchQuery = MutableStateFlow<String?>(null)
+    val searchQuery: StateFlow<String?> = _searchQuery.asStateFlow()
 
-    private val _needsScan = MutableStateFlow(false)
-    val needsScan: StateFlow<Boolean> = _needsScan.asStateFlow()
-
-    private val _scanState = MutableStateFlow<MetadataScanner.ScanState>(MetadataScanner.ScanState.Idle)
-    val scanState: StateFlow<MetadataScanner.ScanState> = _scanState.asStateFlow()
-
-    private val _useMetadataDb = MutableStateFlow(false)
-    val useMetadataDb: StateFlow<Boolean> = _useMetadataDb.asStateFlow()
+    val isSearching: Flow<Boolean> = _searchQuery.map { !it.isNullOrBlank() }
 
     init {
-        checkNeedsScan()
         loadCounts()
-    }
-
-    /**
-     * 检查是否需要首次扫描
-     */
-    private fun checkNeedsScan() {
-        viewModelScope.launch {
-            val needs = metadataRepository.needsScan()
-            _needsScan.value = needs
-            _useMetadataDb.value = !needs
-        }
-    }
-
-    /**
-     * 开始扫描
-     */
-    fun startScan() {
-        viewModelScope.launch {
-            metadataRepository.performFullScan()
-        }
-    }
-
-    /**
-     * 观察扫描状态
-     */
-    fun observeScanState() {
-        viewModelScope.launch {
-            metadataRepository.getScanState().collect { state ->
-                _scanState.value = state
-                if (state is MetadataScanner.ScanState.Completed) {
-                    _needsScan.value = false
-                    _useMetadataDb.value = true
-                    loadCounts()
-                }
-            }
-        }
     }
 
     fun setSortType(sortType: MediaRepository.SortType) {
@@ -130,65 +83,49 @@ class PhotosViewModel @Inject constructor(
         _showFavoritesOnly.value = !_showFavoritesOnly.value
     }
 
+    fun setSearchQuery(query: String?) {
+        _searchQuery.value = query?.takeIf { it.isNotBlank() }
+    }
+
     fun loadCounts() {
         viewModelScope.launch {
-            if (_useMetadataDb.value) {
-                _photoCount.value = metadataRepository.getPhotoCount()
-                _favoriteCount.value = metadataRepository.getFavoriteCount()
-            } else {
-                _photoCount.value = mediaRepository.getPhotoCount()
-                _favoriteCount.value = mediaRepository.getFavoriteCount()
-            }
+            _photoCount.value = mediaRepository.getPhotoCount()
+            _favoriteCount.value = mediaRepository.getFavoriteCount()
         }
     }
 
     /**
-     * 基础照片数据流（不包含分组逻辑和收藏筛选）
-     * 根据是否使用元数据库选择不同的数据源
+     * 基础照片数据流（直接使用 MediaStore，实时反映媒体库变化）
      */
     private val basePhotoPagingFlow: Flow<PagingData<PhotoModel.PhotoItem>> = combine(
-        _useMetadataDb,
-        _currentSortType
-    ) { useDb, sortType ->
-        Pair(useDb, sortType)
-    }.flatMapLatest { (useDb, sortType) ->
-        if (useDb) {
-            // 从元数据库读取
-            metadataRepository.getPhotosPaging(
-                when (sortType) {
-                    MediaRepository.SortType.DATE_TAKEN -> MetadataRepository.SortType.DATE_TAKEN
-                    MediaRepository.SortType.DATE_ADDED -> MetadataRepository.SortType.DATE_ADDED
-                }
-            ).map { pagingData ->
-                pagingData.map { metadata ->
-                    PhotoModel.PhotoItem(metadataRepository.toPhoto(metadata))
-                }
+        _currentSortType,
+        _showFavoritesOnly,
+        _searchQuery
+    ) { sortType, _, searchQuery ->
+        Pair(sortType, searchQuery)
+    }.flatMapLatest { (sortType, searchQuery) ->
+        Pager(
+            config = PagingConfig(
+                pageSize = PAGE_SIZE,
+                enablePlaceholders = false,
+                initialLoadSize = PAGE_SIZE,
+                prefetchDistance = PREFETCH_DISTANCE
+            ),
+            pagingSourceFactory = {
+                MediaStorePagingSource(
+                    contentResolver = context.contentResolver,
+                    sortType = sortType,
+                    searchQuery = searchQuery
+                )
             }
-        } else {
-            // 从 MediaStore 读取
-            Pager(
-                config = PagingConfig(
-                    pageSize = PAGE_SIZE,
-                    enablePlaceholders = false,
-                    initialLoadSize = PAGE_SIZE,
-                    prefetchDistance = PREFETCH_DISTANCE
-                ),
-                pagingSourceFactory = {
-                    MediaStorePagingSource(
-                        contentResolver = context.contentResolver,
-                        sortType = sortType
-                    )
-                }
-            ).flow
-                .map { pagingData ->
-                    pagingData.map { photo -> PhotoModel.PhotoItem(photo) }
-                }
-        }
+        ).flow
+            .map { pagingData ->
+                pagingData.map { photo -> PhotoModel.PhotoItem(photo) }
+            }
     }.cachedIn(viewModelScope)
 
     /**
      * 带日期分组和收藏筛选的照片数据流
-     * 分组模式和收藏筛选切换时只重新计算，不重新查询数据库
      */
     val photoPagingFlow: Flow<PagingData<PhotoModel>> = combine(
         basePhotoPagingFlow,
@@ -196,15 +133,14 @@ class PhotosViewModel @Inject constructor(
         _currentGroupType,
         _showFavoritesOnly
     ) { pagingData, sortType, groupType, showFavoritesOnly ->
-        // 先进行内存筛选（收藏筛选）
+        // 收藏筛选（在内存中进行，Paging 3 自动处理）
         val filteredData = if (showFavoritesOnly) {
             pagingData.filter { it.photo.isFavorite }
         } else {
             pagingData
         }
 
-        // 再插入分隔符（分组）
-        // 注意：这里只是转换，不会触发重新加载
+        // 插入日期分隔符
         filteredData.insertSeparators { before, after ->
             if (after == null) {
                 null
@@ -231,24 +167,6 @@ class PhotosViewModel @Inject constructor(
             _favoriteCount.value
         } else {
             _photoCount.value
-        }
-    }
-    
-    /**
-     * 更新单个媒体的元数据
-     */
-    fun updateSingleMedia(id: Long) {
-        viewModelScope.launch {
-            metadataRepository.updateSingleMedia(id)
-        }
-    }
-    
-    /**
-     * 执行增量扫描
-     */
-    fun performIncrementalScan() {
-        viewModelScope.launch {
-            metadataRepository.performIncrementalScan()
         }
     }
 }

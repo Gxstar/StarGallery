@@ -49,13 +49,16 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
         // 1. 设置已知的基础信息
         setupBaseInfo(photo, metadata)
 
-        // 2. 如果有数据库元数据，直接使用；否则异步解析 EXIF
+        // 2. 如果有数据库元数据，先用它显示，然后补充缺失的 EXIF 字段
         if (metadata != null) {
-            updateFromDatabaseMetadata(metadata)
+            CoroutineScope(Dispatchers.Main).launch {
+                val exifMetadata = extractMetadata(photo)
+                exifMetadata?.let { updateExifInfo(it, metadata) }
+            }
         } else {
             CoroutineScope(Dispatchers.Main).launch {
                 val exifMetadata = extractMetadata(photo)
-                exifMetadata?.let { updateExifInfo(it) }
+                exifMetadata?.let { updateExifInfo(it, null) }
             }
         }
     }
@@ -146,7 +149,7 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
         // 数据已在 setupBaseInfo 中处理，这里只处理额外信息
     }
 
-    private fun updateExifInfo(exifMetadata: Metadata) {
+    private fun updateExifInfo(exifMetadata: Metadata, existingMetadata: MediaMetadata?) {
         val exifIFD0 = exifMetadata.getFirstDirectoryOfType(ExifIFD0Directory::class.java)
         val exifSubIFD = exifMetadata.getFirstDirectoryOfType(ExifSubIFDDirectory::class.java)
         val jpegDir = exifMetadata.getFirstDirectoryOfType(JpegDirectory::class.java)
@@ -154,7 +157,7 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
         // --- 1. 分辨率、像素量与文件大小合并 (第二行弱化显示) ---
         var width = 0
         var height = 0
-        
+
         if (jpegDir != null) {
             width = jpegDir.getInteger(JpegDirectory.TAG_IMAGE_WIDTH) ?: 0
             height = jpegDir.getInteger(JpegDirectory.TAG_IMAGE_HEIGHT) ?: 0
@@ -173,17 +176,29 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
         }
 
         // --- 2. 拍摄参数 (2x2 宫格填充) ---
-        val aperture = exifSubIFD?.getDescription(ExifSubIFDDirectory.TAG_FNUMBER) ?: "---"
-        
-        // 优先使用 ShutterSpeed，没有则使用 ExposureTime
+        // 光圈：EXIF > 数据库
+        val aperture = exifSubIFD?.getDescription(ExifSubIFDDirectory.TAG_FNUMBER)
+            ?: existingMetadata?.aperture
+            ?: "---"
+
+        // 快门速度：EXIF > 数据库
         val shutterSpeed = exifSubIFD?.getDescription(ExifSubIFDDirectory.TAG_SHUTTER_SPEED)
         val exposureTime = exifSubIFD?.getDescription(ExifSubIFDDirectory.TAG_EXPOSURE_TIME)
-        val shutter = shutterSpeed ?: exposureTime ?: "---"
-        val iso = exifSubIFD?.getDescription(ExifSubIFDDirectory.TAG_ISO_EQUIVALENT) ?: "---"
-        
-        val focalLength = exifSubIFD?.getDescription(ExifSubIFDDirectory.TAG_FOCAL_LENGTH) ?: "---"
+        val shutter = shutterSpeed ?: exposureTime
+            ?: existingMetadata?.exposureTime
+            ?: "---"
+
+        // ISO：EXIF > 数据库
+        val iso = exifSubIFD?.getDescription(ExifSubIFDDirectory.TAG_ISO_EQUIVALENT)
+            ?: existingMetadata?.iso?.toString()
+            ?: "---"
+
+        // 焦距：EXIF > 数据库
+        val focalLength = exifSubIFD?.getDescription(ExifSubIFDDirectory.TAG_FOCAL_LENGTH)
+            ?: existingMetadata?.focalLength
+            ?: "---"
         val focalLength35mm = exifSubIFD?.getDescription(ExifSubIFDDirectory.TAG_35MM_FILM_EQUIV_FOCAL_LENGTH)
-        
+
         // 处理焦距显示逻辑
         var focalDisplay = focalLength.ifBlank { "---" }
         if (focalLength35mm != null && focalLength != "---" && focalLength != "Unknown") {
@@ -193,20 +208,33 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
             } else {
                 "$focalLength (等效 $focalLength35mm)"
             }
+        } else if (focalDisplay == "---" && existingMetadata != null) {
+            // EXIF 没有 35mm 等效焦距，但数据库有焦距数据，显示数据库的值
+            focalDisplay = existingMetadata.focalLength ?: "---"
         }
-        
+
         binding.tvAperture.text = aperture
         binding.tvShutter.text = formatShutterSpeed(shutter)
         binding.tvIso.text = if (iso != "---") (if (iso.startsWith("ISO", true)) iso else "ISO $iso") else "---"
         binding.tvFocalLength.text = focalDisplay
 
         // --- 3. 设备信息 ---
-        val make = exifIFD0?.getString(ExifIFD0Directory.TAG_MAKE) ?: ""
-        val model = exifIFD0?.getString(ExifIFD0Directory.TAG_MODEL) ?: ""
-        val cameraDisplay = if (model.contains(make, true)) model else "$make $model"
-        binding.rowCamera.tvValue.text = cameraDisplay.ifBlank { "Unknown" }
+        // 相机品牌型号：EXIF > 数据库
+        val exifMake = exifIFD0?.getString(ExifIFD0Directory.TAG_MAKE) ?: ""
+        val exifModel = exifIFD0?.getString(ExifIFD0Directory.TAG_MODEL) ?: ""
+        val exifCameraDisplay = if (exifModel.contains(exifMake, true)) exifModel else "$exifMake $exifModel"
+        val cameraDisplay = exifCameraDisplay.ifBlank {
+            val dbMake = existingMetadata?.cameraMake ?: ""
+            val dbModel = existingMetadata?.cameraModel ?: ""
+            val dbCameraDisplay = if (dbModel.contains(dbMake, true)) dbModel else "$dbMake $dbModel"
+            dbCameraDisplay.ifBlank { "Unknown" }
+        }
+        binding.rowCamera.tvValue.text = cameraDisplay
 
-        val lensModel = exifSubIFD?.getString(ExifSubIFDDirectory.TAG_LENS_MODEL) ?: "Unknown"
+        // 镜头：EXIF > 数据库
+        val lensModel = exifSubIFD?.getString(ExifSubIFDDirectory.TAG_LENS_MODEL)
+            ?: existingMetadata?.lensModel
+            ?: "Unknown"
         binding.rowLens.tvValue.text = lensModel
     }
 
