@@ -19,7 +19,8 @@ import kotlinx.coroutines.withContext
 class MediaStorePagingSource(
     private val contentResolver: ContentResolver,
     private val sortType: MediaRepository.SortType,
-    private val searchQuery: String? = null
+    private val searchQuery: String? = null,
+    private val showFavoritesOnly: Boolean = false
 ) : PagingSource<Int, Photo>() {
 
     companion object {
@@ -70,9 +71,13 @@ class MediaStorePagingSource(
         val selection = buildString {
             append("(${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE}")
             append(" OR ${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO})")
-            // 添加搜索过滤
+            // 搜索过滤
             if (!searchQuery.isNullOrBlank()) {
                 append(" AND ${MediaStore.Files.FileColumns.DISPLAY_NAME} LIKE '%${searchQuery.replace("'", "''")}%'")
+            }
+            // 收藏过滤
+            if (showFavoritesOnly) {
+                append(" AND ${MediaStore.Files.FileColumns.IS_FAVORITE} = 1")
             }
         }
 

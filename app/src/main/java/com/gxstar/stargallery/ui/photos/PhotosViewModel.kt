@@ -7,7 +7,6 @@ import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
-import androidx.paging.filter
 import androidx.paging.insertSeparators
 import androidx.paging.map
 import com.gxstar.stargallery.data.model.Photo
@@ -101,9 +100,9 @@ class PhotosViewModel @Inject constructor(
         _currentSortType,
         _showFavoritesOnly,
         _searchQuery
-    ) { sortType, _, searchQuery ->
-        Pair(sortType, searchQuery)
-    }.flatMapLatest { (sortType, searchQuery) ->
+    ) { sortType, showFavoritesOnly, searchQuery ->
+        Triple(sortType, showFavoritesOnly, searchQuery)
+    }.flatMapLatest { (sortType, showFavoritesOnly, searchQuery) ->
         Pager(
             config = PagingConfig(
                 pageSize = PAGE_SIZE,
@@ -115,7 +114,8 @@ class PhotosViewModel @Inject constructor(
                 MediaStorePagingSource(
                     contentResolver = context.contentResolver,
                     sortType = sortType,
-                    searchQuery = searchQuery
+                    searchQuery = searchQuery,
+                    showFavoritesOnly = showFavoritesOnly
                 )
             }
         ).flow
@@ -125,23 +125,15 @@ class PhotosViewModel @Inject constructor(
     }.cachedIn(viewModelScope)
 
     /**
-     * 带日期分组和收藏筛选的照片数据流
+     * 带日期分组的照片数据流（收藏筛选已在数据库层处理）
      */
     val photoPagingFlow: Flow<PagingData<PhotoModel>> = combine(
         basePhotoPagingFlow,
         _currentSortType,
-        _currentGroupType,
-        _showFavoritesOnly
-    ) { pagingData, sortType, groupType, showFavoritesOnly ->
-        // 收藏筛选（在内存中进行，Paging 3 自动处理）
-        val filteredData = if (showFavoritesOnly) {
-            pagingData.filter { it.photo.isFavorite }
-        } else {
-            pagingData
-        }
-
+        _currentGroupType
+    ) { pagingData, sortType, groupType ->
         // 插入日期分隔符
-        filteredData.insertSeparators { before, after ->
+        pagingData.insertSeparators { before, after ->
             if (after == null) {
                 null
             } else if (before == null) {

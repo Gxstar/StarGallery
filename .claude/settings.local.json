@@ -4,7 +4,9 @@
       "mcp__MiniMax__understand_image",
       "mcp__MiniMax__web_search",
       "WebFetch(domain:minimax-algeng-chat-tts.oss-cn-wulanchabu.aliyuncs.com)",
-      "Bash(./gradlew.bat assembleDebug)"
+      "Bash(./gradlew.bat assembleDebug)",
+      "Bash(git reset *)",
+      "Bash(git push *)"
     ]
   }
 }
