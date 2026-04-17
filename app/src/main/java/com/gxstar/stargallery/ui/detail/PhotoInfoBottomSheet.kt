@@ -233,9 +233,10 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
         }
         binding.rowCamera.tvValue.text = cameraDisplay
 
-        // 镜头：EXIF > 数据库
+        // 镜头：EXIF > 数据库 > 松下相机 Makernote (0x0051)
         val lensModel = exifSubIFD?.getString(ExifSubIFDDirectory.TAG_LENS_MODEL)
             ?: existingMetadata?.lensModel
+            ?: panasonicMakernote?.getString(0x0051)
             ?: "Unknown"
         binding.rowLens.tvValue.text = lensModel
 
