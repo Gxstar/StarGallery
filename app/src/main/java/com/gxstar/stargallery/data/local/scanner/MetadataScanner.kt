@@ -164,41 +164,50 @@ class MetadataScanner @Inject constructor(
             Log.w(TAG, "Scan already in progress")
             return@withContext
         }
-        
+
         isScanning = true
         val startTime = System.currentTimeMillis()
-        
+
         try {
             // 获取数据库中最新的修改时间
-            val latestModified = dao.getAllIdsAndModifiedTimes()
-                .maxOfOrNull { it.dateModified } ?: 0L
-            
+            val existingMedia = dao.getAllIdsAndModifiedTimes()
+            val existingMap = existingMedia.associateBy { it.id }
+            val latestModified = existingMedia.maxOfOrNull { it.dateModified } ?: 0L
+
             // 查询在此时间之后修改的媒体
             val newOrUpdated = queryMediaModifiedAfter(latestModified)
-            
+
             if (newOrUpdated.isEmpty()) {
                 Log.d(TAG, "No new or updated media found")
                 return@withContext
             }
-            
-            Log.i(TAG, "Found ${newOrUpdated.size} new or updated media")
-            
-            // 提取并插入元数据
-            val metadata = newOrUpdated.mapNotNull { media ->
-                try {
-                    extractMetadata(media)
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to extract metadata for ${media.id}: ${e.message}")
-                    null
+
+            // 提取并插入/更新元数据
+            val toInsert = mutableListOf<MediaMetadata>()
+            for (media in newOrUpdated) {
+                val existing = existingMap[media.id]
+                // 需要更新条件：数据库没有 OR 文件修改时间变化
+                if (existing == null || existing.dateModified != media.dateModified) {
+                    try {
+                        val metadata = extractMetadata(media)
+                        toInsert.add(metadata)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to extract metadata for ${media.id}: ${e.message}")
+                    }
                 }
             }
-            
-            if (metadata.isNotEmpty()) {
-                dao.insertAll(metadata)
+
+            if (toInsert.isNotEmpty()) {
+                dao.insertAll(toInsert)
             }
-            
+
+            // 注意：删除清理由全量扫描处理
+            // 增量扫描只负责新增/更新，不处理删除
+            // 原因：准确判断删除需要查询所有当前媒体 ID，开销较大
+            // 已删除的媒体在详情页访问时会被发现并跳过，不影响正常功能
+
             val duration = System.currentTimeMillis() - startTime
-            Log.i(TAG, "Incremental scan completed: ${metadata.size} items in ${duration}ms")
+            Log.i(TAG, "Incremental scan completed: ${toInsert.size} items in ${duration}ms")
         } catch (e: Exception) {
             Log.e(TAG, "Incremental scan failed", e)
         } finally {
