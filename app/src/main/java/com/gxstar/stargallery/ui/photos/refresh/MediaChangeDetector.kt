@@ -20,7 +20,7 @@ import kotlinx.coroutines.withContext
 /**
  * 媒体库变化检测器
  * 使用 ContentObserver 实时监听 MediaStore 变化
- * 
+ *
  * 优势：
  * - 实时响应：系统级回调，无需轮询
  * - 低功耗：仅在媒体库变化时触发
@@ -29,7 +29,8 @@ import kotlinx.coroutines.withContext
 class MediaChangeDetector(
     private val lifecycleOwner: LifecycleOwner,
     private val context: Context,
-    private val onChangeDetected: () -> Unit
+    private val onChangeDetected: () -> Unit,
+    private val shouldSkipRefresh: () -> Boolean = { false }
 ) : LifecycleEventObserver {
 
     private var mediaObserver: MediaContentObserver? = null
@@ -112,7 +113,9 @@ class MediaChangeDetector(
         debounceJob = lifecycleOwner.lifecycleScope.launch {
             delay(DEBOUNCE_MS)
             withContext(Dispatchers.Main) {
-                onChangeDetected()
+                if (!shouldSkipRefresh()) {
+                    onChangeDetected()
+                }
             }
         }
     }

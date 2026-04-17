@@ -56,6 +56,7 @@ class PhotoItemAnimator : DefaultItemAnimator() {
     }
 
     companion object {
+        private const val TYPE_HEADER = 0
         private const val TYPE_PHOTO = 1
     }
 }

@@ -18,7 +18,8 @@
       "Bash(unzip -l \"/c/Users/gengx/.gradle/caches/modules-2/files-2.1/com.drewnoakes/metadata-extractor/2.19.0/4d3ab42dd9965b8f2b8bd1b7572e028d6f90a34f/metadata-extractor-2.19.0.jar\")",
       "Bash(./gradlew.bat :app:assembleDebug --quiet)",
       "Bash(unzip -p \"/c/Users/gengx/.gradle/caches/modules-2/files-2.1/com.drewnoakes/metadata-extractor/2.19.0/4d3ab42dd9965b8f2b8bd1b7572e028d6f90a34f/metadata-extractor-2.19.0.jar\" com/drew/metadata/exif/makernotes/PanasonicMakernoteDirectory.class)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(./gradlew.bat assembleDebug --no-daemon)"
     ]
   }
 }

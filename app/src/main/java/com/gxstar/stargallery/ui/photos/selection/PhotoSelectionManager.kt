@@ -33,6 +33,9 @@ class PhotoSelectionManager(
     val selectedPhotoIds: Set<Long> get() = dragSelectHelper.selectedPhotoIds
     val dragSelectTouchListener get() = dragSelectHelper.createTouchListener(fragment.requireContext())
 
+    // 防止长按后点击同一 item 重复 toggle
+    private var skipNextToggleForPhotoId: Long? = null
+
     /**
      * 进入选择模式
      */
@@ -48,6 +51,7 @@ class PhotoSelectionManager(
         _isSelectionMode.value = false
         dragSelectHelper.clearSelection()
         _selectedCount.value = 0
+        skipNextToggleForPhotoId = null
     }
 
     /**
@@ -65,6 +69,11 @@ class PhotoSelectionManager(
      * 切换单个照片的选中状态
      */
     fun toggleSelection(photo: Photo) {
+        // 如果是长按后首次点击，跳过 toggle（已由 startDragSelection 处理）
+        if (photo.id == skipNextToggleForPhotoId) {
+            skipNextToggleForPhotoId = null
+            return
+        }
         dragSelectHelper.toggleSelection(photo)
     }
 
@@ -79,6 +88,8 @@ class PhotoSelectionManager(
         val photo = dragSelectHelper.getPhotoAtPosition(position)
         if (photo != null) {
             val correctPosition = dragSelectHelper.findCorrectPosition(photo.id, position)
+            // 标记长按后首次点击时跳过 toggle，避免 onClick 重复触发
+            skipNextToggleForPhotoId = photo.id
             dragSelectHelper.startDragSelection(correctPosition)
         }
     }

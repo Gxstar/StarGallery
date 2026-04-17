@@ -148,14 +148,18 @@ class PhotosFragment : Fragment() {
      */
     private fun initMediaChangeDetector() {
         mediaChangeDetector = MediaChangeDetector(
-            viewLifecycleOwner,
-            requireContext()
-        ) {
-            // MediaStore 是实时数据源，直接刷新 PagingSource 即可
-            refreshData()
-            // 同时触发增量扫描，更新数据库中的 EXIF 元数据
-            triggerIncrementalScan()
-        }
+            lifecycleOwner = viewLifecycleOwner,
+            context = requireContext(),
+            onChangeDetected = {
+                // MediaStore 是实时数据源，直接刷新 PagingSource 即可
+                refreshData()
+                // 同时触发增量扫描，更新数据库中的 EXIF 元数据
+                triggerIncrementalScan()
+            },
+            shouldSkipRefresh = {
+                System.currentTimeMillis() - lastExplicitRefreshTime < 1000
+            }
+        )
     }
 
     /**
@@ -176,6 +180,7 @@ class PhotosFragment : Fragment() {
     }
 
     private var lastIncrementalScanTime = 0L
+    private var lastExplicitRefreshTime = 0L
 
     private fun setupSettings() {
         val savedSpanCount = sharedPreferences.getInt(KEY_SPAN_COUNT, -1)
@@ -343,6 +348,7 @@ class PhotosFragment : Fragment() {
                 }
                 message?.let { Toast.makeText(requireContext(), it, Toast.LENGTH_SHORT).show() }
 
+                lastExplicitRefreshTime = System.currentTimeMillis()
                 binding.rvPhotos.postDelayed({
                     refreshData()
                     selectionManager.exitSelectionMode()
@@ -378,6 +384,7 @@ class PhotosFragment : Fragment() {
         intentSenderManager.setTrashCallback { success ->
             if (success) {
                 Toast.makeText(requireContext(), R.string.moved_to_trash, Toast.LENGTH_SHORT).show()
+                lastExplicitRefreshTime = System.currentTimeMillis()
                 binding.rvPhotos.postDelayed({
                     refreshData()
                     selectionManager.exitSelectionMode()
@@ -388,6 +395,7 @@ class PhotosFragment : Fragment() {
         intentSenderManager.setDeleteCallback { success ->
             if (success) {
                 Toast.makeText(requireContext(), R.string.deleted, Toast.LENGTH_SHORT).show()
+                lastExplicitRefreshTime = System.currentTimeMillis()
                 binding.rvPhotos.postDelayed({
                     refreshData()
                     selectionManager.exitSelectionMode()
@@ -400,7 +408,7 @@ class PhotosFragment : Fragment() {
             intentSenderManager.trashLauncher,
             intentSenderManager.deleteLauncher
         ) {
-            smoothRefreshItems(selectedIds)
+            lastExplicitRefreshTime = System.currentTimeMillis()
             binding.rvPhotos.postDelayed({
                 refreshData()
                 selectionManager.exitSelectionMode()
@@ -683,8 +691,6 @@ class PhotosFragment : Fragment() {
      * 直接让 PagingSource 重新加载，数据源是 MediaStore，实时反映媒体库变化
      */
     private fun refreshData() {
-        photoAdapter.clearCache()
-        viewModel.refresh()
         photoAdapter.refresh()
     }
 
