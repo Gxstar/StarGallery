@@ -37,10 +37,6 @@ class DeleteOptionsBottomSheet : BottomSheetDialogFragment() {
             onDeletePermanently?.invoke()
             dismiss()
         }
-
-        binding.btnCancel.setOnClickListener {
-            dismiss()
-        }
     }
 
     override fun getTheme(): Int {
