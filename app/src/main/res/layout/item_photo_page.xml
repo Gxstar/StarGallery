@@ -18,6 +18,13 @@
             android:layout_height="match_parent"
             android:visibility="gone" />
 
+        <!-- ZoomableImageView - For AVIF/HEIC/HDR images (zoomable) -->
+        <com.gxstar.stargallery.ui.detail.ZoomableImageView
+            android:id="@+id/zoomableImageView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone" />
+
         <!-- GIF Viewer -->
         <ImageView
             android:id="@+id/ivGif"

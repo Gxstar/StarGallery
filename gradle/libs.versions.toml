@@ -20,6 +20,8 @@ glide = "4.16.0"
 glideRecyclerview = "4.16.0"
 subsamplingScaleImageView = "3.10.0"
 gestureViews = "2.8.3"
+coil = "2.7.0"
+photoview = "2.12.0"
 
 # 依赖注入
 hilt = "2.59.2"
@@ -82,6 +84,8 @@ glide-compiler = { group = "com.github.bumptech.glide", name = "compiler", versi
 glide-recyclerview = { group = "com.github.bumptech.glide", name = "recyclerview-integration", version.ref = "glideRecyclerview" }
 subsampling-scale-image-view = { group = "com.davemorrissey.labs", name = "subsampling-scale-image-view-androidx", version.ref = "subsamplingScaleImageView" }
 gesture-views = { group = "com.alexvasilkov", name = "gesture-views", version.ref = "gestureViews" }
+coil = { group = "io.coil-kt", name = "coil", version.ref = "coil" }
+photoview = { group = "com.github.chrisbanes", name = "photoview", version.ref = "photoview" }
 
 # 依赖注入
 hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }

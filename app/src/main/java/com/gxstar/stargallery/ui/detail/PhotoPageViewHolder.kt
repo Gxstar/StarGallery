@@ -10,6 +10,8 @@ import android.view.ViewGroup
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import coil.load
+import coil.size.Size
 import com.bumptech.glide.Glide
 import com.davemorrissey.labs.subscaleview.ImageSource
 import com.davemorrissey.labs.subscaleview.SubsamplingScaleImageView
@@ -54,7 +56,7 @@ class PhotoPageViewHolder(
     private var lastX = 0f
     private var isAtLeftEdge = false
     private var isAtRightEdge = false
-    
+
     init {
         setupEdgeSwipeDetection()
         setupTapDetection()
@@ -496,7 +498,15 @@ class PhotoPageViewHolder(
     }
 
     fun isImageZoomed(): Boolean {
-        return binding.ivPhoto.isReady && binding.ivPhoto.scale > binding.ivPhoto.minScale * 1.01f
+        // 检查 SubsamplingScaleImageView
+        if (binding.ivPhoto.visibility == View.VISIBLE && binding.ivPhoto.isReady) {
+            return binding.ivPhoto.scale > binding.ivPhoto.minScale * 1.01f
+        }
+        // 检查 ZoomableImageView
+        if (binding.zoomableImageView.visibility == View.VISIBLE) {
+            return !binding.zoomableImageView.isZoomedOut()
+        }
+        return false
     }
     
     @OptIn(UnstableApi::class)
@@ -536,18 +546,67 @@ class PhotoPageViewHolder(
     }
 
     /**
-     * 使用 Glide 加载 AVIF/HEIC 等现代图片格式
-     * SubsamplingScaleImageView 无法对这些格式进行分块加载优化，因此使用 Glide + ImageView
+     * 使用 Coil + ZoomableImageView 加载 AVIF/HEIC 等现代图片格式
+     * SubsamplingScaleImageView 无法对这些格式进行分块加载优化，
+     * 因此使用 Coil (支持 AVIF/HEIC/HDR) + ZoomableImageView (可缩放)
      */
     private fun loadModernImage(photo: Photo) {
-        setMediaVisibility(gif = true)  // 复用 GIF 的 ImageView
+        setMediaVisibility(zoomableImageView = true)
         viewPagerSwipeController?.invoke(true)
-        Glide.with(binding.root.context)
-            .load(photo.uri)
-            .into(binding.ivGif)
-        binding.progressBar.visibility = View.GONE
+
+        // 设置 ZoomableImageView 手势监听
+        setupZoomableImageViewGestures()
+
+        // Coil 2.x 内置支持 AVIF/HEIC/GIF，自动处理 HDR
+        // 使用 size(Size.ORIGINAL) 让 ZoomableImageView 自己处理缩放
+        binding.zoomableImageView.load(photo.uri) {
+            crossfade(true)
+            size(Size.ORIGINAL)
+            placeholder(android.R.color.black)
+            error(android.R.color.darker_gray)
+            listener(
+                onSuccess = { _, _ ->
+                    binding.progressBar.visibility = View.GONE
+                    updateZoomableImageViewEdgeState()
+                },
+                onError = { _, _ ->
+                    binding.progressBar.visibility = View.GONE
+                }
+            )
+        }
     }
-    
+
+    /**
+     * 设置 ZoomableImageView 的手势交互
+     * 支持双击缩放、边缘检测
+     */
+    private fun setupZoomableImageViewGestures() {
+        binding.zoomableImageView.onTapListener = object : ZoomableImageView.OnTapListener {
+            override fun onSingleTap() {
+                onSingleTap?.invoke()
+            }
+        }
+    }
+
+    /**
+     * 更新 ZoomableImageView 边缘状态
+     * 判断是否在图片边缘，用于控制 ViewPager 滑动
+     */
+    private fun updateZoomableImageViewEdgeState() {
+        val zoomableImageView = binding.zoomableImageView
+
+        if (zoomableImageView.drawable == null) {
+            viewPagerSwipeController?.invoke(true)
+            return
+        }
+
+        if (zoomableImageView.isZoomedOut()) {
+            viewPagerSwipeController?.invoke(true)
+        } else {
+            viewPagerSwipeController?.invoke(false)
+        }
+    }
+
     private fun loadImage(photo: Photo) {
         setMediaVisibility(photo = true)
         binding.ivPhoto.orientation = photo.orientation
@@ -568,11 +627,13 @@ class PhotoPageViewHolder(
 
     private fun setMediaVisibility(
         photo: Boolean = false,
+        zoomableImageView: Boolean = false,
         gif: Boolean = false,
         videoCover: Boolean = false,
         video: Boolean = false
     ) {
         binding.ivPhoto.visibility = if (photo) View.VISIBLE else View.GONE
+        binding.zoomableImageView.visibility = if (zoomableImageView) View.VISIBLE else View.GONE
         binding.ivGif.visibility = if (gif) View.VISIBLE else View.GONE
         binding.ivVideoCover.visibility = if (videoCover) View.VISIBLE else View.GONE
         binding.ivPlayButton.visibility = if (videoCover) View.VISIBLE else View.GONE
@@ -598,7 +659,14 @@ class PhotoPageViewHolder(
     }
     
     fun resetZoom() {
-        if (binding.ivPhoto.isReady) binding.ivPhoto.resetScaleAndCenter()
+        // 重置 SubsamplingScaleImageView
+        if (binding.ivPhoto.visibility == View.VISIBLE && binding.ivPhoto.isReady) {
+            binding.ivPhoto.resetScaleAndCenter()
+        }
+        // 重置 ZoomableImageView
+        if (binding.zoomableImageView.visibility == View.VISIBLE) {
+            binding.zoomableImageView.resetZoom()
+        }
     }
     
     fun recycle() {
@@ -616,10 +684,15 @@ class PhotoPageViewHolder(
         binding.ivPhoto.setOnImageEventListener(null)
         binding.ivPhoto.setOnTouchListener(null)
 
+        // 清理 ZoomableImageView
+        binding.zoomableImageView.onTapListener = null
+        binding.zoomableImageView.setImageDrawable(null)
+
         Glide.with(binding.root.context).clear(binding.ivGif)
         Glide.with(binding.root.context).clear(binding.ivVideoCover)
 
         // 重置视频相关视图
+        binding.zoomableImageView.visibility = View.GONE
         binding.ivVideoCover.visibility = View.GONE
         binding.ivPlayButton.visibility = View.GONE
 

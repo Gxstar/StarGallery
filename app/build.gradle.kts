@@ -62,6 +62,11 @@ dependencies {
     // 手势视图 - GestureViews
     implementation(libs.gesture.views)
 
+    // 可缩放图片查看 - 使用自定义 ZoomableImageView (避免 JitPack 认证问题)
+
+    // 现代图片加载 - Coil (支持 AVIF/HEIC/GIF/HDR)
+    implementation(libs.coil)
+
     // 依赖注入 - Hilt
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
