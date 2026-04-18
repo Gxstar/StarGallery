@@ -103,52 +103,47 @@
             android:layout_marginBottom="16dp"/>
 
         <!-- Camera & Lens Info -->
+        <TextView
+            android:id="@+id/tvCamera"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/text_primary"
+            android:textSize="14sp"
+            android:fontFamily="sans-serif-medium"
+            android:layout_marginBottom="8dp"
+            android:text="---" />
+
+        <TextView
+            android:id="@+id/tvLens"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/text_secondary"
+            android:textSize="14sp"
+            android:fontFamily="sans-serif-medium"
+            android:layout_marginBottom="8dp"
+            android:text="---" />
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginBottom="8dp">
-
-            <TextView
-                android:id="@+id/tvCamera"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:textColor="@color/text_primary"
-                android:textSize="14sp"
-                android:fontFamily="sans-serif-medium"
-                android:text="---" />
+            android:layout_marginBottom="16dp">
 
             <TextView
                 android:id="@+id/tvLut1"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_weight="1"
                 android:textColor="@color/text_secondary"
                 android:textSize="13sp"
                 android:visibility="gone"
                 android:text="---" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginBottom="8dp">
-
-            <TextView
-                android:id="@+id/tvLens"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:textColor="@color/text_primary"
-                android:textSize="14sp"
-                android:fontFamily="sans-serif-medium"
-                android:text="---" />
 
             <TextView
                 android:id="@+id/tvLut2"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_weight="1"
                 android:textColor="@color/text_secondary"
                 android:textSize="13sp"
                 android:visibility="gone"
@@ -157,7 +152,7 @@
 
         <View
             android:layout_width="match_parent"
-            android:layout_height="32dp"/>
+            android:layout_height="16dp"/>
 
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>

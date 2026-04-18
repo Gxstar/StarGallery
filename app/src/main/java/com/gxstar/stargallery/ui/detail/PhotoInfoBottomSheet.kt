@@ -79,7 +79,16 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
         }
 
         val sizeStr = formatFileSize(photo.size)
-        binding.tvCombinedFileInfo.text = sizeStr
+
+        val width = photo.width
+        val height = photo.height
+        if (width > 0 && height > 0) {
+            val megapixels = (width.toLong() * height.toLong()) / 1_000_000.0
+            val pixelsStr = DecimalFormat("0").format(megapixels) + "MP"
+            binding.tvCombinedFileInfo.text = "${width}*${height}•${pixelsStr}•$sizeStr"
+        } else {
+            binding.tvCombinedFileInfo.text = sizeStr
+        }
 
         val sdf = SimpleDateFormat("yyyy年MM月dd日 EEEE", Locale.CHINA)
         val dateMs = when {
@@ -103,14 +112,6 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
             binding.tvCamera.text = cameraDisplay ?: "Unknown"
             
             binding.tvLens.text = metadata.lensModel ?: "Unknown"
-            
-            val width = metadata.width
-            val height = metadata.height
-            if (width > 0 && height > 0) {
-                val megapixels = (width.toLong() * height.toLong()) / 1_000_000.0
-                val pixelsStr = DecimalFormat("0").format(megapixels) + "MP"
-                binding.tvCombinedFileInfo.text = "${width}*${height}•${pixelsStr}•$sizeStr"
-            }
             
             val aperture = metadata.aperture ?: "---"
             val shutter = metadata.exposureTime ?: "---"
