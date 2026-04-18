@@ -43,13 +43,6 @@ data class Photo(
         get() = mimeType in setOf("image/heic", "image/heif")
 
     /**
-     * 判断是否为需要使用 Glide 加载的图片格式（而非 SubsamplingScaleImageView）
-     * 只有 AVIF 格式 SubsamplingScaleImageView 无法加载，其他格式如 HEIC/HEIF 都支持
-     */
-    val needsGlideLoad: Boolean
-        get() = isAvif
-
-    /**
      * 判断是否为 RAW 格式图片
      * 常见 RAW 格式 MIME 类型：
      * - image/x-adobe-dng (DNG)
