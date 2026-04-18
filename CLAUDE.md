@@ -8,6 +8,7 @@
 gradlew.bat assembleDebug   # Debug 构建
 gradlew.bat installDebug   # 构建并安装
 gradlew.bat clean          # 清理
+gradlew.bat test           # 运行单元测试
 ```
 
 ## 项目概述
@@ -66,10 +67,18 @@ StarGallery 是一款 Android 本地图库应用，采用 Kotlin + XML 开发，
 | 库 | 版本 |
 |----|------|
 | Kotlin | 2.3.20 |
-| AGP | 9.1.0 |
-| Paging 3 | 3.4.0 |
+| AGP | 9.1.1 |
+| Paging 3 | 3.4.2 |
 | Glide | 4.16.0 |
 | Hilt | 2.59.2 |
-| Media3 (ExoPlayer) | 1.10.0 |
-| SubsamplingScaleImageView | 3.10.0 |
+| Media3 (ExoPlayer) | 1.9.1 |
+| ZoomImage | 1.4.0 |
+| Coil | 2.7.0 |
 | drag-select-recyclerview | 2.4.0 |
+
+## 现代图片格式支持
+
+应用使用双图片加载器架构：
+- **Glide** - 照片网格缩略图
+- **Coil** - 支持 AVIF、HEIC、GIF、HDR 等现代格式
+- **ZoomImage** - 大图查看和缩放（替代已废弃的 SubsamplingScaleImageView）
