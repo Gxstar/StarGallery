@@ -47,10 +47,8 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
     }
 
     private fun loadPhotoInfo(photo: Photo, metadata: MediaMetadata?) {
-        // 1. 设置已知的基础信息
         setupBaseInfo(photo, metadata)
 
-        // 2. 如果有数据库元数据，先用它显示，然后补充缺失的 EXIF 字段
         if (metadata != null) {
             CoroutineScope(Dispatchers.Main).launch {
                 val exifMetadata = extractMetadata(photo)
@@ -65,35 +63,34 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
     }
 
     private fun setupBaseInfo(photo: Photo, metadata: MediaMetadata?) {
-        // 1. 异步获取带扩展名的文件名 (第一行，主显示)
         CoroutineScope(Dispatchers.Main).launch {
             val fullName = withContext(Dispatchers.IO) { getFullFileName(photo.uri) }
             binding.tvFilename.text = fullName ?: ""
         }
 
-        // 2. 基础信息暂存 (第二行，弱化显示)
+        CoroutineScope(Dispatchers.Main).launch {
+            val brand = withContext(Dispatchers.IO) { readCameraMake(photo) }
+            if (!brand.isNullOrBlank()) {
+                binding.tvBrand.text = brand
+                binding.tvBrand.visibility = View.VISIBLE
+            } else {
+                binding.tvBrand.visibility = View.GONE
+            }
+        }
+
         val sizeStr = formatFileSize(photo.size)
         binding.tvCombinedFileInfo.text = sizeStr
 
-        // 3. 拍摄日期 - 优先使用数据库中的准确时间
-        binding.rowDate.tvLabel.text = getString(R.string.info_date)
-        val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-        
-        // 优先级：数据库 dateTakenOriginal > 数据库 dateTaken > photo.dateTaken > photo.dateModified
+        val sdf = SimpleDateFormat("yyyy年MM月dd日 EEEE", Locale.CHINA)
         val dateMs = when {
             metadata?.dateTakenOriginal != null && metadata.dateTakenOriginal > 0 -> metadata.dateTakenOriginal
             metadata?.dateTaken != null && metadata.dateTaken > 0 -> metadata.dateTaken
             photo.dateTaken > 0 -> photo.dateTaken
             else -> photo.dateModified * 1000
         }
-        binding.rowDate.tvValue.text = sdf.format(dateMs)
-
-        // 4. 相机信息 - 如果数据库中有，直接显示
-        binding.rowCamera.tvLabel.text = getString(R.string.info_camera)
-        binding.rowLens.tvLabel.text = getString(R.string.info_lens)
+        binding.tvDate.text = sdf.format(dateMs)
 
         if (metadata != null) {
-            // 相机型号
             val make = metadata.cameraMake ?: ""
             val model = metadata.cameraModel ?: ""
             val cameraDisplay = when {
@@ -103,25 +100,52 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
                 make.isNotBlank() -> make
                 else -> null
             }
-            binding.rowCamera.tvValue.text = cameraDisplay ?: "Unknown"
+            binding.tvCamera.text = cameraDisplay ?: "Unknown"
             
-            // 镜头型号
-            binding.rowLens.tvValue.text = metadata.lensModel ?: "Unknown"
+            binding.tvLens.text = metadata.lensModel ?: "Unknown"
             
-            // 分辨率和像素量
             val width = metadata.width
             val height = metadata.height
             if (width > 0 && height > 0) {
                 val megapixels = (width.toLong() * height.toLong()) / 1_000_000.0
-                val pixelsStr = DecimalFormat("0.0").format(megapixels) + " MP"
-                binding.tvCombinedFileInfo.text = "${width}×${height}  •  $pixelsStr  •  $sizeStr"
+                val pixelsStr = DecimalFormat("0").format(megapixels) + "MP"
+                binding.tvCombinedFileInfo.text = "${width}*${height}•${pixelsStr}•$sizeStr"
             }
             
-            // 拍摄参数
-            binding.tvAperture.text = metadata.aperture ?: "---"
-            binding.tvShutter.text = metadata.exposureTime ?: "---"
-            binding.tvIso.text = metadata.iso?.let { "ISO $it" } ?: "---"
-            binding.tvFocalLength.text = metadata.focalLength ?: "---"
+            val aperture = metadata.aperture ?: "---"
+            val shutter = metadata.exposureTime ?: "---"
+            val iso = metadata.iso?.toString() ?: "---"
+            
+            val exposureParams = buildString {
+                if (aperture != "---") {
+                    val fNumber = if (aperture.startsWith("f/")) {
+                        aperture.replace("f/", "f")
+                    } else if (aperture.startsWith("f")) {
+                        aperture
+                    } else {
+                        "f$aperture"
+                    }
+                    append(fNumber)
+                }
+                if (shutter != "---") {
+                    if (isNotEmpty()) append(" • ")
+                    val formattedShutter = formatShutterSpeed(shutter)
+                    if (formattedShutter.contains("/")) {
+                        append("${formattedShutter}s")
+                    } else {
+                        append(formattedShutter)
+                    }
+                }
+                if (iso != "---") {
+                    if (isNotEmpty()) append(" • ")
+                    append("ISO$iso")
+                }
+                if (isEmpty()) append("---")
+            }
+            binding.tvExposureParams.text = exposureParams
+            
+            val focalLength = metadata.focalLength ?: "---"
+            binding.tvFocalLength.text = focalLength
         }
     }
 
@@ -146,8 +170,32 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
         }
     }
 
-    private fun updateFromDatabaseMetadata(metadata: MediaMetadata) {
-        // 数据已在 setupBaseInfo 中处理，这里只处理额外信息
+    private suspend fun readCameraMake(photo: Photo): String? = withContext(Dispatchers.IO) {
+        try {
+            requireContext().contentResolver.openInputStream(photo.uri)?.use { inputStream ->
+                val metadata = ImageMetadataReader.readMetadata(inputStream)
+                val exifIFD0 = metadata.getFirstDirectoryOfType(ExifIFD0Directory::class.java)
+                val make = exifIFD0?.getString(ExifIFD0Directory.TAG_MAKE)?.trim()
+
+                if (make.isNullOrBlank()) return@withContext null
+
+                val cleaned = make
+                    .removeSuffix("CORPORATION").trim()
+                    .removeSuffix("CORP.").trim()
+                    .removeSuffix("CO., LTD").trim()
+                    .removeSuffix("CO.,LTD").trim()
+                    .removeSuffix("DIGITAL CAMERA").trim()
+                    .removeSuffix("ELECTRONICS").trim()
+                    .removePrefix("NIKON ").trim()
+                    .removePrefix("Canon ").trim()
+                    .removePrefix("SONY ").trim()
+                    .removePrefix("FUJIFILM ").trim()
+
+                cleaned.takeIf { it.isNotBlank() } ?: make
+            }
+        } catch (e: Exception) {
+            null
+        }
     }
 
     private fun updateExifInfo(exifMetadata: Metadata, existingMetadata: MediaMetadata?) {
@@ -156,7 +204,6 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
         val jpegDir = exifMetadata.getFirstDirectoryOfType(JpegDirectory::class.java)
         val panasonicMakernote = exifMetadata.getFirstDirectoryOfType(PanasonicMakernoteDirectory::class.java)
 
-        // --- 1. 分辨率、像素量与文件大小合并 (第二行弱化显示) ---
         var width = 0
         var height = 0
 
@@ -171,37 +218,31 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
         val sizeStr = formatFileSize(photo?.size ?: 0)
         if (width > 0 && height > 0) {
             val megapixels = (width.toLong() * height.toLong()) / 1_000_000.0
-            val pixelsStr = DecimalFormat("0.0").format(megapixels) + " MP"
-            binding.tvCombinedFileInfo.text = "${width}×${height}  •  $pixelsStr  •  $sizeStr"
+            val pixelsStr = DecimalFormat("0").format(megapixels) + "MP"
+            binding.tvCombinedFileInfo.text = "${width}*${height}•${pixelsStr}•$sizeStr"
         } else {
             binding.tvCombinedFileInfo.text = sizeStr
         }
 
-        // --- 2. 拍摄参数 (2x2 宫格填充) ---
-        // 光圈：EXIF > 数据库
         val aperture = exifSubIFD?.getDescription(ExifSubIFDDirectory.TAG_FNUMBER)
             ?: existingMetadata?.aperture
             ?: "---"
 
-        // 快门速度：EXIF > 数据库
         val shutterSpeed = exifSubIFD?.getDescription(ExifSubIFDDirectory.TAG_SHUTTER_SPEED)
         val exposureTime = exifSubIFD?.getDescription(ExifSubIFDDirectory.TAG_EXPOSURE_TIME)
         val shutter = shutterSpeed ?: exposureTime
             ?: existingMetadata?.exposureTime
             ?: "---"
 
-        // ISO：EXIF > 数据库
         val iso = exifSubIFD?.getDescription(ExifSubIFDDirectory.TAG_ISO_EQUIVALENT)
             ?: existingMetadata?.iso?.toString()
             ?: "---"
 
-        // 焦距：EXIF > 数据库
         val focalLength = exifSubIFD?.getDescription(ExifSubIFDDirectory.TAG_FOCAL_LENGTH)
             ?: existingMetadata?.focalLength
             ?: "---"
         val focalLength35mm = exifSubIFD?.getDescription(ExifSubIFDDirectory.TAG_35MM_FILM_EQUIV_FOCAL_LENGTH)
 
-        // 处理焦距显示逻辑
         var focalDisplay = focalLength.ifBlank { "---" }
         if (focalLength35mm != null && focalLength != "---" && focalLength != "Unknown") {
             val isEquivalent = focalLength == focalLength35mm
@@ -211,17 +252,39 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
                 "$focalLength (等效 $focalLength35mm)"
             }
         } else if (focalDisplay == "---" && existingMetadata != null) {
-            // EXIF 没有 35mm 等效焦距，但数据库有焦距数据，显示数据库的值
             focalDisplay = existingMetadata.focalLength ?: "---"
         }
 
-        binding.tvAperture.text = aperture
-        binding.tvShutter.text = formatShutterSpeed(shutter)
-        binding.tvIso.text = if (iso != "---") (if (iso.startsWith("ISO", true)) iso else "ISO $iso") else "---"
         binding.tvFocalLength.text = focalDisplay
 
-        // --- 3. 设备信息 ---
-        // 相机品牌型号：EXIF > 数据库
+        val exposureParams = buildString {
+            if (aperture != "---") {
+                val fNumber = if (aperture.startsWith("f/")) {
+                    aperture.replace("f/", "f")
+                } else if (aperture.startsWith("f")) {
+                    aperture
+                } else {
+                    "f$aperture"
+                }
+                append(fNumber)
+            }
+            if (shutter != "---") {
+                if (isNotEmpty()) append(" • ")
+                val formattedShutter = formatShutterSpeed(shutter)
+                if (formattedShutter.contains("/")) {
+                    append("${formattedShutter}s")
+                } else {
+                    append(formattedShutter)
+                }
+            }
+            if (iso != "---") {
+                if (isNotEmpty()) append(" • ")
+                append("ISO$iso")
+            }
+            if (isEmpty()) append("---")
+        }
+        binding.tvExposureParams.text = exposureParams
+
         val exifMake = exifIFD0?.getString(ExifIFD0Directory.TAG_MAKE) ?: ""
         val exifModel = exifIFD0?.getString(ExifIFD0Directory.TAG_MODEL) ?: ""
         val exifCameraDisplay = if (exifModel.contains(exifMake, true)) exifModel else "$exifMake $exifModel"
@@ -231,34 +294,39 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
             val dbCameraDisplay = if (dbModel.contains(dbMake, true)) dbModel else "$dbMake $dbModel"
             dbCameraDisplay.ifBlank { "Unknown" }
         }
-        binding.rowCamera.tvValue.text = cameraDisplay
+        binding.tvCamera.text = cameraDisplay
 
-        // 镜头：EXIF > 数据库 > 松下相机 Makernote (0x0051)
         val lensModel = exifSubIFD?.getString(ExifSubIFDDirectory.TAG_LENS_MODEL)
             ?: existingMetadata?.lensModel
             ?: panasonicMakernote?.getString(0x0051)
             ?: "Unknown"
-        binding.rowLens.tvValue.text = lensModel
+        binding.tvLens.text = lensModel
 
-        // LUT1 和 LUT2：松下相机 Makernote (0x00F1, 0x00F4)
         val lut1 = panasonicMakernote?.getString(0x00F1)
         val lut2 = panasonicMakernote?.getString(0x00F4)
 
         if (!lut1.isNullOrBlank()) {
-            binding.rowLut1.tvLabel.text = "LUT1"
-            binding.rowLut1.tvValue.text = lut1
-            binding.rowLut1.root.visibility = View.VISIBLE
+            binding.tvLut1.text = "LUT1:$lut1"
+            binding.tvLut1.visibility = View.VISIBLE
         } else {
-            binding.rowLut1.root.visibility = View.GONE
+            binding.tvLut1.visibility = View.GONE
         }
 
         if (!lut2.isNullOrBlank()) {
-            binding.rowLut2.tvLabel.text = "LUT2"
-            binding.rowLut2.tvValue.text = lut2
-            binding.rowLut2.root.visibility = View.VISIBLE
+            binding.tvLut2.text = "LUT2:$lut2"
+            binding.tvLut2.visibility = View.VISIBLE
         } else {
-            binding.rowLut2.root.visibility = View.GONE
+            binding.tvLut2.visibility = View.GONE
         }
+
+        val sdf = SimpleDateFormat("yyyy年MM月dd日 EEEE", Locale.CHINA)
+        val dateMs = when {
+            existingMetadata?.dateTakenOriginal != null && existingMetadata.dateTakenOriginal > 0 -> existingMetadata.dateTakenOriginal
+            existingMetadata?.dateTaken != null && existingMetadata.dateTaken > 0 -> existingMetadata.dateTaken
+            photo?.dateTaken ?: 0L > 0 -> photo?.dateTaken ?: 0L
+            else -> (photo?.dateModified ?: 0) * 1000
+        }
+        binding.tvDate.text = sdf.format(dateMs)
     }
 
     private fun formatFileSize(size: Long): String {
@@ -271,7 +339,6 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
     private fun formatShutterSpeed(rawShutter: String?): String {
         if (rawShutter == null || rawShutter == "---") return "---"
         
-        // 如果已经是分数形式（如 "1/100"），直接返回
         if (rawShutter.contains("/")) {
             val parts = rawShutter.split("/")
             if (parts.size == 2) {
