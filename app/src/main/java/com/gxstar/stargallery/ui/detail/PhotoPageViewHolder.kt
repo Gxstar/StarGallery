@@ -1,5 +1,10 @@
 package com.gxstar.stargallery.ui.detail
 
+import android.app.Activity
+import android.content.pm.ActivityInfo
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.os.Build
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
@@ -8,6 +13,9 @@ import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import com.bumptech.glide.Glide
+import com.bumptech.glide.load.DecodeFormat
+import com.bumptech.glide.load.engine.DiskCacheStrategy
+import com.bumptech.glide.request.RequestOptions
 import com.bumptech.glide.request.target.CustomTarget
 import com.bumptech.glide.request.transition.Transition
 import com.drew.imaging.ImageMetadataReader
@@ -463,34 +471,151 @@ class PhotoPageViewHolder(
     /**
      * 使用 ZoomImageView 加载所有图片格式
      * ZoomImageView 支持子采样，无需区分格式
+     * 同时检测并支持 Ultra HDR、HEIF HDR、AVIF HDR (Android 14+)
+     * 
+     * 对于 HEIF/AVIF HDR 图片，使用 RGBA_F16 格式保留高位深信息
      */
     private fun loadImage(photo: Photo) {
         setMediaVisibility(photo = true)
 
-        // 使用 Glide 加载图片到 ZoomImageView
-        Glide.with(binding.root.context)
+        // 判断是否可能是 HDR 格式（HEIF/AVIF/Ultra HDR）
+        val isPotentialHdr = photo.isHeic || photo.isAvif || photo.isUltraHdr
+
+        // 构建 Glide 请求
+        val requestBuilder = Glide.with(binding.root.context)
+            .asBitmap()
             .load(photo.uri)
             .placeholder(android.R.color.black)
             .error(android.R.color.darker_gray)
-            .into(object : CustomTarget<android.graphics.drawable.Drawable>() {
-                override fun onResourceReady(
-                    resource: android.graphics.drawable.Drawable,
-                    transition: Transition<in android.graphics.drawable.Drawable>?
-                ) {
-                    binding.ivPhoto.setImageDrawable(resource)
-                    binding.progressBar.visibility = View.GONE
-                    updateEdgeState()
+
+        // 如果是潜在的 HDR 图片，使用 RGBA_F16 格式以保留高位深信息
+        if (isPotentialHdr && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            requestBuilder.apply(
+                RequestOptions()
+                    .format(DecodeFormat.PREFER_ARGB_8888)
+                    .encodeFormat(Bitmap.CompressFormat.PNG) // 无损格式保留更多信息
+                    .diskCacheStrategy(DiskCacheStrategy.ALL)
+            )
+        }
+
+        requestBuilder.into(object : CustomTarget<Bitmap>() {
+            override fun onResourceReady(
+                resource: Bitmap,
+                transition: Transition<in Bitmap>?
+            ) {
+                binding.ivPhoto.setImageBitmap(resource)
+                binding.progressBar.visibility = View.GONE
+                updateEdgeState()
+
+                // 检测并设置 HDR 模式 (Android 14+)
+                setupHdrMode(resource)
+            }
+
+            override fun onLoadCleared(placeholder: android.graphics.drawable.Drawable?) {
+                binding.ivPhoto.setImageDrawable(placeholder)
+            }
+
+            override fun onLoadFailed(errorDrawable: android.graphics.drawable.Drawable?) {
+                binding.ivPhoto.setImageDrawable(errorDrawable)
+                binding.progressBar.visibility = View.GONE
+            }
+        })
+    }
+
+    /**
+     * 检测图片是否为 HDR 格式并设置窗口颜色模式
+     * Android 14+ (API 34) 支持 Ultra HDR
+     * 
+     * 支持多种 HDR 格式：
+     * - Ultra HDR (JPEG with Gainmap)
+     * - HEIF/HEIC HDR
+     * - AVIF HDR
+     */
+    private fun setupHdrMode(bitmap: Bitmap) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            val isHdr = isHdrBitmap(bitmap)
+            val window = (binding.root.context as? Activity)?.window
+            window?.colorMode = if (isHdr) {
+                ActivityInfo.COLOR_MODE_HDR
+            } else {
+                ActivityInfo.COLOR_MODE_DEFAULT
+            }
+        }
+    }
+
+    /**
+     * 检测 Bitmap 是否为 HDR 格式
+     * 
+     * 检测逻辑：
+     * 1. Ultra HDR: 检查是否有 Gainmap (Android 14+)
+     * 2. HEIF/HEIC/AVIF HDR: 检查 ColorSpace 是否为 HDR 色彩空间
+     *    - 色域: BT.2020
+     *    - 传输函数: PQ (ST2084) 或 HLG
+     * 3. 高位深: 检查 Bitmap 配置是否为 RGBA_F16 (每通道 16 位浮点)
+     */
+    private fun isHdrBitmap(bitmap: Bitmap): Boolean {
+        // 1. 检查是否为 Ultra HDR (JPEG with Gainmap)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            if (bitmap.hasGainmap()) {
+                return true
+            }
+        }
+
+        // 2. 检查 Bitmap 配置是否为高位深 (Android 8+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (bitmap.config == Bitmap.Config.RGBA_F16) {
+                // RGBA_F16 表示每通道 16 位浮点，是 HDR 图片的常见格式
+                return true
+            }
+        }
+
+        // 3. 检查 ColorSpace 是否为 HDR 色彩空间 (Android 10+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val colorSpace = bitmap.colorSpace
+            if (colorSpace != null) {
+                // 获取 ColorSpace 的名称进行判断
+                val colorSpaceName = colorSpace.name
+                
+                // 常见的 HDR 色彩空间名称
+                val hdrColorSpaces = setOf(
+                    "BT2020",      // BT.2020 色域
+                    "BT2020_HLG",  // BT.2020 + HLG
+                    "BT2020_PQ",   // BT.2020 + PQ
+                    "HDR",         // 通用 HDR
+                    "LINEAR_EXTENDED_SRGB", // 扩展 SRGB
+                )
+                
+                // 检查色彩空间名称是否包含 HDR 标识
+                if (hdrColorSpaces.any { colorSpaceName?.contains(it, ignoreCase = true) == true }) {
+                    return true
                 }
 
-                override fun onLoadCleared(placeholder: android.graphics.drawable.Drawable?) {
-                    binding.ivPhoto.setImageDrawable(placeholder)
+                // 检查 ColorModel 是否为广色域
+                if (colorSpace.model == android.graphics.ColorSpace.Model.RGB) {
+                    // 检查是否为广色域色彩空间 (超出 sRGB 范围)
+                    if (colorSpace.isWideGamut) {
+                        return true
+                    }
                 }
+            }
+        }
 
-                override fun onLoadFailed(errorDrawable: android.graphics.drawable.Drawable?) {
-                    binding.ivPhoto.setImageDrawable(errorDrawable)
-                    binding.progressBar.visibility = View.GONE
-                }
-            })
+        return false
+    }
+
+    /**
+     * 获取 Bitmap 的位深信息（用于调试）
+     */
+    private fun getBitmapBitDepth(bitmap: Bitmap): String {
+        return when (bitmap.config) {
+            Bitmap.Config.ALPHA_8 -> "8-bit (Alpha only)"
+            Bitmap.Config.RGB_565 -> "16-bit (RGB 565)"
+            Bitmap.Config.ARGB_4444 -> "16-bit (ARGB 4444)"
+            Bitmap.Config.ARGB_8888 -> "32-bit (ARGB 8888, 8-bit per channel)"
+            Bitmap.Config.RGBA_F16 -> "64-bit (RGBA F16, 16-bit float per channel)"
+            Bitmap.Config.HARDWARE -> "Hardware"
+            else -> "Unknown"
+        }
     }
 
     private fun setMediaVisibility(

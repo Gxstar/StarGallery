@@ -71,4 +71,12 @@ data class Photo(
             "image/x-xbitmap",   // XBM
             "image/x-xpixmap"    // XPM
         )
+
+    /**
+     * 判断是否为 Ultra HDR 格式图片
+     * Ultra HDR 使用 JPEG 容器，需要通过 Bitmap.hasGainmap() 实际检测
+     * Android 14+ (API 34) 原生支持 Ultra HDR
+     */
+    val isUltraHdr: Boolean
+        get() = mimeType == "image/jpeg" || mimeType == "image/jpg"
 }
