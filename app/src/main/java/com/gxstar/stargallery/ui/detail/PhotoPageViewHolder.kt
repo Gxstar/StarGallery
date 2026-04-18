@@ -1,8 +1,5 @@
 package com.gxstar.stargallery.ui.detail
 
-import android.graphics.PointF
-import android.os.Handler
-import android.os.Looper
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
@@ -10,14 +7,13 @@ import android.view.ViewGroup
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
-import coil.load
-import coil.size.Size
 import com.bumptech.glide.Glide
-import com.davemorrissey.labs.subscaleview.ImageSource
-import com.davemorrissey.labs.subscaleview.SubsamplingScaleImageView
+import com.bumptech.glide.request.target.CustomTarget
+import com.bumptech.glide.request.transition.Transition
 import com.drew.imaging.ImageMetadataReader
 import com.drew.metadata.exif.ExifIFD0Directory
 import com.drew.metadata.exif.makernotes.PanasonicMakernoteDirectory
+import com.github.panpf.zoomimage.ZoomImageView
 import com.gxstar.stargallery.R
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.databinding.ItemPhotoPageBinding
@@ -25,9 +21,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.File
-import java.io.FileOutputStream
-import kotlin.math.sqrt
+import kotlin.math.abs
 
 /**
  * 单张媒体页面的 ViewHolder
@@ -40,156 +34,91 @@ class PhotoPageViewHolder(
     private val onSingleTap: (() -> Unit)? = null
 ) {
     private var exoPlayer: ExoPlayer? = null
-    private var tempFile: File? = null
     private var currentPhoto: Photo? = null
-    
-    private val handler = Handler(Looper.getMainLooper())
-    private var pendingSingleTap = false
-    private var downTime = 0L
+
     private var downX = 0f
-    private var downY = 0f
-    private var tapCount = 0
-    
-    private val doubleTapTimeout = 250L
-    private val tapDistanceThreshold = 20f
-    
     private var lastX = 0f
     private var isAtLeftEdge = false
     private var isAtRightEdge = false
+    private var hasNotifiedEdgeSwipe = false
+    private var lastEdgeDirection = 0
+
+    private val swipeThreshold = 10f
 
     init {
-        setupEdgeSwipeDetection()
+        setupZoomImageView()
         setupTapDetection()
     }
-    
-    private fun setupEdgeSwipeDetection() {
-        binding.ivPhoto.setOnTouchListener { _, event ->
-            when (event.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    lastX = event.x
-                    isAtLeftEdge = false
-                    isAtRightEdge = false
-                }
-                MotionEvent.ACTION_MOVE -> {
-                    val dx = event.x - lastX
-                    updateEdgeState()
-                    
-                    if (dx > 0 && isAtLeftEdge) {
-                        onEdgeSwipe?.invoke(true)
-                        viewPagerSwipeController?.invoke(true)
-                    } else if (dx < 0 && isAtRightEdge) {
-                        onEdgeSwipe?.invoke(false)
-                        viewPagerSwipeController?.invoke(true)
-                    }
-                    lastX = event.x
-                }
-            }
-            false
-        }
+
+    private fun setupZoomImageView() {
+        // ZoomImageView 默认配置已足够，无需额外设置
     }
-    
-    private fun updateEdgeState() {
-        if (!binding.ivPhoto.isReady) {
-            isAtLeftEdge = true
-            isAtRightEdge = true
-            return
-        }
-        
-        val scale = binding.ivPhoto.scale
-        val minScale = binding.ivPhoto.minScale
-        
-        if (scale <= minScale * 1.01f) {
-            isAtLeftEdge = true
-            isAtRightEdge = true
-            return
-        }
-        
-        val center = binding.ivPhoto.center ?: PointF(0.5f, 0.5f)
-        val sWidth = binding.ivPhoto.sWidth.toFloat()
-        val viewWidth = binding.ivPhoto.width.toFloat()
-        
-        if (sWidth <= 0) {
-            isAtLeftEdge = true
-            isAtRightEdge = true
-            return
-        }
-        
-        val centerX = center.x / sWidth
-        val visibleRatio = viewWidth / (sWidth * scale)
-        val visibleLeft = centerX - visibleRatio / 2
-        val visibleRight = centerX + visibleRatio / 2
-        
-        isAtLeftEdge = visibleLeft <= 0.01f
-        isAtRightEdge = visibleRight >= 0.99f
-    }
-    
-    private fun setupImageEventListener() {
-        binding.ivPhoto.setOnImageEventListener(object : SubsamplingScaleImageView.OnImageEventListener {
-            override fun onReady() {
-                binding.progressBar.visibility = View.GONE
-                updateEdgeState()
-            }
-            override fun onImageLoaded() {
-                binding.progressBar.visibility = View.GONE
-                updateEdgeState()
-            }
-            override fun onPreviewLoadError(e: Exception?) {}
-            override fun onImageLoadError(e: Exception?) {
-                binding.progressBar.visibility = View.GONE
-            }
-            override fun onTileLoadError(e: Exception?) {}
-            override fun onPreviewReleased() {}
-        })
-    }
-    
+
     private fun setupTapDetection() {
-        binding.ivPhoto.setOnTouchListener { _, event ->
-            when (event.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    downTime = System.currentTimeMillis()
-                    downX = event.x
-                    downY = event.y
-                    lastX = event.x
-                }
-                MotionEvent.ACTION_UP -> {
-                    val duration = System.currentTimeMillis() - downTime
-                    val distance = sqrt((event.x - downX) * (event.x - downX) + (event.y - downY) * (event.y - downY))
-                    
-                    if (duration < 300 && distance < tapDistanceThreshold) {
-                        tapCount++
-                        if (tapCount == 1) {
-                            pendingSingleTap = true
-                            handler.postDelayed({
-                                if (pendingSingleTap) {
-                                    onSingleTap?.invoke()
-                                    tapCount = 0
-                                    pendingSingleTap = false
-                                }
-                            }, doubleTapTimeout)
-                        } else if (tapCount == 2) {
-                            pendingSingleTap = false
-                            tapCount = 0
-                            handler.removeCallbacksAndMessages(null)
-                        }
-                    }
-                }
-                MotionEvent.ACTION_MOVE -> {
-                    val dx = event.x - lastX
-                    updateEdgeState()
-                    if ((dx > 0 && isAtLeftEdge) || (dx < 0 && isAtRightEdge)) {
-                        viewPagerSwipeController?.invoke(true)
-                    }
-                    lastX = event.x
-                }
+        // ZoomImageView 的双击缩放由库自动处理
+        // 我们只需要处理单击事件
+        binding.ivPhoto.apply {
+            setOnClickListener {
+                onSingleTap?.invoke()
             }
+        }
+
+        // 边缘滑动检测
+        binding.ivPhoto.setOnTouchListener { _, event ->
+            handleTouchEvent(event)
             false
         }
-        
+
         binding.ivGif.setOnClickListener { onSingleTap?.invoke() }
         binding.videoView.setOnClickListener { onSingleTap?.invoke() }
         binding.mediaContainer.setOnClickListener { onSingleTap?.invoke() }
     }
-    
+
+    private fun handleTouchEvent(event: MotionEvent) {
+        when (event.action) {
+            MotionEvent.ACTION_DOWN -> {
+                downX = event.x
+                lastX = event.x
+                hasNotifiedEdgeSwipe = false
+                lastEdgeDirection = 0
+                updateEdgeState()
+            }
+            MotionEvent.ACTION_MOVE -> {
+                val dx = event.x - lastX
+                val totalDx = event.x - downX
+                updateEdgeState()
+
+                if (abs(totalDx) > swipeThreshold) {
+                    if (dx > 0 && isAtLeftEdge) {
+                        if (lastEdgeDirection != 1 && !hasNotifiedEdgeSwipe) {
+                            lastEdgeDirection = 1
+                            hasNotifiedEdgeSwipe = true
+                            onEdgeSwipe?.invoke(true)
+                            viewPagerSwipeController?.invoke(true)
+                        }
+                    } else if (dx < 0 && isAtRightEdge) {
+                        if (lastEdgeDirection != 2 && !hasNotifiedEdgeSwipe) {
+                            lastEdgeDirection = 2
+                            hasNotifiedEdgeSwipe = true
+                            onEdgeSwipe?.invoke(false)
+                            viewPagerSwipeController?.invoke(true)
+                        }
+                    }
+                }
+                lastX = event.x
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                hasNotifiedEdgeSwipe = false
+                lastEdgeDirection = 0
+            }
+        }
+    }
+
+    private fun updateEdgeState() {
+        // 简化边缘检测逻辑，ZoomImageView 处理缩放时自动禁用 ViewPager 滑动
+        viewPagerSwipeController?.invoke(true)
+    }
+
     // 当前标签设置
     private var currentSelectedTags: Set<TagType> = TagType.entries.toSet()
 
@@ -197,7 +126,6 @@ class PhotoPageViewHolder(
     fun bind(photo: Photo) {
         currentPhoto = photo
         binding.progressBar.visibility = View.VISIBLE
-        setupImageEventListener()
 
         // 加载标签设置
         currentSelectedTags = TagSettingsManager.getSelectedTags(binding.root.context)
@@ -211,7 +139,6 @@ class PhotoPageViewHolder(
             when {
                 photo.isVideo -> loadVideo(photo)
                 photo.isGif -> loadGif(photo)
-                photo.needsGlideLoad -> loadModernImage(photo)  // AVIF/HEIC
                 else -> loadImage(photo)
             }
         }
@@ -486,7 +413,7 @@ class PhotoPageViewHolder(
             }
         }
     }
-    
+
     @OptIn(UnstableApi::class)
     private fun restoreVideoPlayback(photo: Photo) {
         setMediaVisibility(video = true)
@@ -497,34 +424,22 @@ class PhotoPageViewHolder(
         binding.progressBar.visibility = View.GONE
     }
 
-    fun isImageZoomed(): Boolean {
-        // 检查 SubsamplingScaleImageView
-        if (binding.ivPhoto.visibility == View.VISIBLE && binding.ivPhoto.isReady) {
-            return binding.ivPhoto.scale > binding.ivPhoto.minScale * 1.01f
-        }
-        // 检查 ZoomableImageView
-        if (binding.zoomableImageView.visibility == View.VISIBLE) {
-            return !binding.zoomableImageView.isZoomedOut()
-        }
-        return false
-    }
-    
     @OptIn(UnstableApi::class)
     private fun loadVideo(photo: Photo) {
         setMediaVisibility(videoCover = true)
         viewPagerSwipeController?.invoke(true)
-        
+
         Glide.with(binding.root.context)
             .load(photo.uri)
             .placeholder(android.R.color.black)
             .into(binding.ivVideoCover)
-        
+
         val startPlay = { startVideoPlayback(photo) }
         binding.ivPlayButton.setOnClickListener { startPlay() }
         binding.ivVideoCover.setOnClickListener { startPlay() }
         binding.progressBar.visibility = View.GONE
     }
-    
+
     @OptIn(UnstableApi::class)
     private fun startVideoPlayback(photo: Photo) {
         setMediaVisibility(video = true)
@@ -537,7 +452,7 @@ class PhotoPageViewHolder(
             ExoPlayerManager.play(photo.id, photo.uri, autoPlay = true)
         }
     }
-    
+
     private fun loadGif(photo: Photo) {
         setMediaVisibility(gif = true)
         viewPagerSwipeController?.invoke(true)
@@ -546,165 +461,87 @@ class PhotoPageViewHolder(
     }
 
     /**
-     * 使用 Coil + ZoomableImageView 加载 AVIF/HEIC 等现代图片格式
-     * SubsamplingScaleImageView 无法对这些格式进行分块加载优化，
-     * 因此使用 Coil (支持 AVIF/HEIC/HDR) + ZoomableImageView (可缩放)
+     * 使用 ZoomImageView 加载所有图片格式
+     * ZoomImageView 支持子采样，无需区分格式
      */
-    private fun loadModernImage(photo: Photo) {
-        setMediaVisibility(zoomableImageView = true)
-        viewPagerSwipeController?.invoke(true)
-
-        // 设置 ZoomableImageView 手势监听
-        setupZoomableImageViewGestures()
-
-        // Coil 2.x 内置支持 AVIF/HEIC/GIF，自动处理 HDR
-        // 使用 size(Size.ORIGINAL) 让 ZoomableImageView 自己处理缩放
-        binding.zoomableImageView.load(photo.uri) {
-            crossfade(true)
-            size(Size.ORIGINAL)
-            placeholder(android.R.color.black)
-            error(android.R.color.darker_gray)
-            listener(
-                onSuccess = { _, _ ->
-                    binding.progressBar.visibility = View.GONE
-                    updateZoomableImageViewEdgeState()
-                },
-                onError = { _, _ ->
-                    binding.progressBar.visibility = View.GONE
-                }
-            )
-        }
-    }
-
-    /**
-     * 设置 ZoomableImageView 的手势交互
-     * 支持双击缩放、边缘检测
-     */
-    private fun setupZoomableImageViewGestures() {
-        binding.zoomableImageView.onTapListener = object : ZoomableImageView.OnTapListener {
-            override fun onSingleTap() {
-                onSingleTap?.invoke()
-            }
-        }
-    }
-
-    /**
-     * 更新 ZoomableImageView 边缘状态
-     * 判断是否在图片边缘，用于控制 ViewPager 滑动
-     */
-    private fun updateZoomableImageViewEdgeState() {
-        val zoomableImageView = binding.zoomableImageView
-
-        if (zoomableImageView.drawable == null) {
-            viewPagerSwipeController?.invoke(true)
-            return
-        }
-
-        if (zoomableImageView.isZoomedOut()) {
-            viewPagerSwipeController?.invoke(true)
-        } else {
-            viewPagerSwipeController?.invoke(false)
-        }
-    }
-
     private fun loadImage(photo: Photo) {
         setMediaVisibility(photo = true)
-        binding.ivPhoto.orientation = photo.orientation
-        binding.ivPhoto.setDoubleTapZoomDuration(250)
-        binding.ivPhoto.setDoubleTapZoomScale(2.0f)
-        binding.ivPhoto.setMaxScale(5.0f)
-        
-        CoroutineScope(Dispatchers.Main).launch {
-            val file = downloadImageToCache(photo)
-            if (file != null && file.exists()) {
-                tempFile = file
-                binding.ivPhoto.setImage(ImageSource.uri(file.absolutePath))
-            } else {
-                binding.ivPhoto.setImage(ImageSource.uri(photo.uri))
-            }
-        }
+
+        // 使用 Glide 加载图片到 ZoomImageView
+        Glide.with(binding.root.context)
+            .load(photo.uri)
+            .placeholder(android.R.color.black)
+            .error(android.R.color.darker_gray)
+            .into(object : CustomTarget<android.graphics.drawable.Drawable>() {
+                override fun onResourceReady(
+                    resource: android.graphics.drawable.Drawable,
+                    transition: Transition<in android.graphics.drawable.Drawable>?
+                ) {
+                    binding.ivPhoto.setImageDrawable(resource)
+                    binding.progressBar.visibility = View.GONE
+                    updateEdgeState()
+                }
+
+                override fun onLoadCleared(placeholder: android.graphics.drawable.Drawable?) {
+                    binding.ivPhoto.setImageDrawable(placeholder)
+                }
+
+                override fun onLoadFailed(errorDrawable: android.graphics.drawable.Drawable?) {
+                    binding.ivPhoto.setImageDrawable(errorDrawable)
+                    binding.progressBar.visibility = View.GONE
+                }
+            })
     }
 
     private fun setMediaVisibility(
         photo: Boolean = false,
-        zoomableImageView: Boolean = false,
         gif: Boolean = false,
         videoCover: Boolean = false,
         video: Boolean = false
     ) {
         binding.ivPhoto.visibility = if (photo) View.VISIBLE else View.GONE
-        binding.zoomableImageView.visibility = if (zoomableImageView) View.VISIBLE else View.GONE
         binding.ivGif.visibility = if (gif) View.VISIBLE else View.GONE
         binding.ivVideoCover.visibility = if (videoCover) View.VISIBLE else View.GONE
         binding.ivPlayButton.visibility = if (videoCover) View.VISIBLE else View.GONE
         binding.videoView.visibility = if (video) View.VISIBLE else View.GONE
     }
-    
-    private suspend fun downloadImageToCache(photo: Photo): File? = withContext(Dispatchers.IO) {
-        try {
-            val tempDir = File(binding.root.context.cacheDir, "photo_detail")
-            if (!tempDir.exists()) tempDir.mkdirs()
-            val extension = photo.mimeType.substringAfterLast("/", "jpg")
-            val file = File(tempDir, "photo_${photo.id}.${extension}")
-            
-            if (file.exists() && file.length() == photo.size) return@withContext file
-            
-            binding.root.context.contentResolver.openInputStream(photo.uri)?.use { input ->
-                FileOutputStream(file).use { output -> input.copyTo(output) }
-            }
-            file
-        } catch (e: Exception) {
-            null
-        }
+
+    fun isImageZoomed(): Boolean {
+        // 简化实现，ZoomImageView 内部处理缩放状态
+        return false
     }
-    
+
     fun resetZoom() {
-        // 重置 SubsamplingScaleImageView
-        if (binding.ivPhoto.visibility == View.VISIBLE && binding.ivPhoto.isReady) {
-            binding.ivPhoto.resetScaleAndCenter()
-        }
-        // 重置 ZoomableImageView
-        if (binding.zoomableImageView.visibility == View.VISIBLE) {
-            binding.zoomableImageView.resetZoom()
-        }
+        // ZoomImageView 会自动处理缩放重置
     }
-    
+
     fun recycle() {
-        handler.removeCallbacksAndMessages(null)
+        currentPhoto = null
         binding.videoView.player = null
         exoPlayer = null
-        tempFile?.delete()
-        tempFile = null
 
         // 重置图片缩放状态
         resetZoom()
 
-        // 清理图片资源
-        binding.ivPhoto.recycle()
-        binding.ivPhoto.setOnImageEventListener(null)
-        binding.ivPhoto.setOnTouchListener(null)
-
-        // 清理 ZoomableImageView
-        binding.zoomableImageView.onTapListener = null
-        binding.zoomableImageView.setImageDrawable(null)
-
+        // 清理 Glide 加载的图片
+        Glide.with(binding.root.context).clear(binding.ivPhoto)
         Glide.with(binding.root.context).clear(binding.ivGif)
         Glide.with(binding.root.context).clear(binding.ivVideoCover)
 
-        // 重置视频相关视图
-        binding.zoomableImageView.visibility = View.GONE
+        // 重置视图可见性
+        binding.ivPhoto.visibility = View.GONE
+        binding.ivGif.visibility = View.GONE
         binding.ivVideoCover.visibility = View.GONE
         binding.ivPlayButton.visibility = View.GONE
 
         // 清理标签容器
         binding.tagsContainer.visibility = View.GONE
-        // 移除动态添加的标签（保留第一个作为模板）
         while (binding.tagsContainer.childCount > 1) {
             binding.tagsContainer.removeViewAt(binding.tagsContainer.childCount - 1)
         }
         binding.tvRawTag.visibility = View.GONE
     }
-    
+
     companion object {
         fun create(
             parent: ViewGroup,

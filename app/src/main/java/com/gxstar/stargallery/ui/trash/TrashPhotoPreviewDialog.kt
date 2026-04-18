@@ -11,8 +11,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.DialogFragment
 import androidx.fragment.app.setFragmentResult
-import com.davemorrissey.labs.subscaleview.ImageSource
-import com.davemorrissey.labs.subscaleview.SubsamplingScaleImageView
+import com.bumptech.glide.Glide
+import com.bumptech.glide.request.target.CustomTarget
+import com.bumptech.glide.request.transition.Transition
+import com.github.panpf.zoomimage.ZoomImageView
 import com.gxstar.stargallery.R
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.data.repository.MediaRepository
@@ -86,66 +88,81 @@ class TrashPhotoPreviewDialog : DialogFragment() {
     }
 
     private fun loadImage(photo: Photo) {
-        // 直接使用 SubsamplingScaleImageView 加载大图
-        try {
-            binding.ivPhoto.setImage(ImageSource.uri(photo.uri))
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        // 使用 ZoomImageView 加载图片，默认配置已足够
 
-        // 设置双击缩放和手势缩放
-        binding.ivPhoto.maxScale = 5f
-        binding.ivPhoto.setMinimumScaleType(SubsamplingScaleImageView.SCALE_TYPE_CENTER_INSIDE)
+        // 使用 Glide 加载图片到 ZoomImageView
+        Glide.with(requireContext())
+            .load(photo.uri)
+            .placeholder(android.R.color.black)
+            .error(android.R.color.darker_gray)
+            .into(object : CustomTarget<android.graphics.drawable.Drawable>() {
+                override fun onResourceReady(
+                    resource: android.graphics.drawable.Drawable,
+                    transition: Transition<in android.graphics.drawable.Drawable>?
+                ) {
+                    binding.ivPhoto.setImageDrawable(resource)
+                }
+
+                override fun onLoadCleared(placeholder: android.graphics.drawable.Drawable?) {
+                    binding.ivPhoto.setImageDrawable(placeholder)
+                }
+
+                override fun onLoadFailed(errorDrawable: android.graphics.drawable.Drawable?) {
+                    binding.ivPhoto.setImageDrawable(errorDrawable)
+                }
+            })
     }
 
     private fun restorePhoto() {
-        val currentPhoto = photo ?: return
-        mediaRepository.restorePhotos(listOf(currentPhoto))?.let { intentSender ->
+        photo?.let { p ->
             try {
-                restoreRequestLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
+                val intentSender = mediaRepository.restorePhotos(listOf(p))
+                intentSender?.let {
+                    restoreRequestLauncher.launch(IntentSenderRequest.Builder(it).build())
+                } ?: run {
+                    Toast.makeText(requireContext(), R.string.restored, Toast.LENGTH_SHORT).show()
+                    setFragmentResult(PhotosFragment.REQUEST_KEY_PHOTO_DELETED, Bundle.EMPTY)
+                    onActionComplete?.invoke()
+                    dismiss()
+                }
             } catch (e: Exception) {
-                e.printStackTrace()
                 Toast.makeText(requireContext(), R.string.restore_failed, Toast.LENGTH_SHORT).show()
             }
-        } ?: run {
-            Toast.makeText(requireContext(), R.string.restore_failed, Toast.LENGTH_SHORT).show()
         }
     }
 
     private fun deletePhoto() {
-        val currentPhoto = photo ?: return
-        mediaRepository.deletePhotos(listOf(currentPhoto))?.let { intentSender ->
+        photo?.let { p ->
             try {
-                deleteRequestLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
+                val intentSender = mediaRepository.deletePhotos(listOf(p))
+                intentSender?.let {
+                    deleteRequestLauncher.launch(IntentSenderRequest.Builder(it).build())
+                } ?: run {
+                    Toast.makeText(requireContext(), R.string.deleted, Toast.LENGTH_SHORT).show()
+                    setFragmentResult(PhotosFragment.REQUEST_KEY_PHOTO_DELETED, Bundle.EMPTY)
+                    onActionComplete?.invoke()
+                    dismiss()
+                }
             } catch (e: Exception) {
-                e.printStackTrace()
                 Toast.makeText(requireContext(), R.string.delete_failed, Toast.LENGTH_SHORT).show()
             }
-        } ?: run {
-            Toast.makeText(requireContext(), R.string.delete_failed, Toast.LENGTH_SHORT).show()
         }
     }
 
     override fun onDestroyView() {
+        // 清理 Glide 加载的图片
+        Glide.with(requireContext()).clear(binding.ivPhoto)
         super.onDestroyView()
         _binding = null
-    }
-
-    fun setPhoto(photo: Photo) {
-        this.photo = photo
-    }
-
-    fun setOnActionComplete(listener: () -> Unit) {
-        onActionComplete = listener
     }
 
     companion object {
         const val TAG = "TrashPhotoPreviewDialog"
 
-        fun newInstance(photo: Photo, onActionComplete: () -> Unit): TrashPhotoPreviewDialog {
+        fun newInstance(photo: Photo, onActionComplete: (() -> Unit)? = null): TrashPhotoPreviewDialog {
             return TrashPhotoPreviewDialog().apply {
-                setPhoto(photo)
-                setOnActionComplete(onActionComplete)
+                this.photo = photo
+                this.onActionComplete = onActionComplete
             }
         }
     }

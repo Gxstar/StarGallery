@@ -22,6 +22,7 @@ subsamplingScaleImageView = "3.10.0"
 gestureViews = "2.8.3"
 coil = "2.7.0"
 photoview = "2.12.0"
+zoomimage = "1.4.0"
 
 # 依赖注入
 hilt = "2.59.2"
@@ -86,6 +87,8 @@ subsampling-scale-image-view = { group = "com.davemorrissey.labs", name = "subsa
 gesture-views = { group = "com.alexvasilkov", name = "gesture-views", version.ref = "gestureViews" }
 coil = { group = "io.coil-kt", name = "coil", version.ref = "coil" }
 photoview = { group = "com.github.chrisbanes", name = "photoview", version.ref = "photoview" }
+zoomimage-view = { group = "io.github.panpf.zoomimage", name = "zoomimage-view", version.ref = "zoomimage" }
+zoomimage-view-glide = { group = "io.github.panpf.zoomimage", name = "zoomimage-view-glide", version.ref = "zoomimage" }
 
 # 依赖注入
 hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }

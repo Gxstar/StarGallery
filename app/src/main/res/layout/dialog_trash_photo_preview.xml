@@ -5,7 +5,7 @@
     android:layout_height="match_parent"
     android:background="@color/black">
 
-    <com.davemorrissey.labs.subscaleview.SubsamplingScaleImageView
+    <com.github.panpf.zoomimage.ZoomImageView
         android:id="@+id/ivPhoto"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />

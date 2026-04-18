@@ -56,13 +56,9 @@ dependencies {
     ksp(libs.glide.compiler)
     implementation(libs.glide.recyclerview)
 
-    // 大图查看 - SubsamplingScaleImageView
-    implementation(libs.subsampling.scale.image.view)
-
-    // 手势视图 - GestureViews
-    implementation(libs.gesture.views)
-
-    // 可缩放图片查看 - 使用自定义 ZoomableImageView (避免 JitPack 认证问题)
+    // 大图查看 - ZoomImage (替代 SubsamplingScaleImageView)
+    implementation(libs.zoomimage.view)
+    implementation(libs.zoomimage.view.glide)
 
     // 现代图片加载 - Coil (支持 AVIF/HEIC/GIF/HDR)
     implementation(libs.coil)

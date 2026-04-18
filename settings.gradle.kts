@@ -20,12 +20,13 @@ plugins {
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
+        // Maven Central 优先
+        mavenCentral()
         // 腾讯云镜像 - 主仓库
         maven { url = uri("https://mirrors.cloud.tencent.com/nexus/repository/maven-public/") }
         // JitPack (用于部分开源库)
         maven { url = uri("https://jitpack.io") }
         google()
-        mavenCentral()
     }
 }
 

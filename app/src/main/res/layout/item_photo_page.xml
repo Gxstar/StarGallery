@@ -11,16 +11,9 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
-        <!-- Image Viewer - Main display for photos -->
-        <com.gxstar.stargallery.ui.detail.EdgeSubsamplingScaleImageView
+        <!-- Image Viewer - ZoomImageView for all image formats -->
+        <com.github.panpf.zoomimage.ZoomImageView
             android:id="@+id/ivPhoto"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:visibility="gone" />
-
-        <!-- ZoomableImageView - For AVIF/HEIC/HDR images (zoomable) -->
-        <com.gxstar.stargallery.ui.detail.ZoomableImageView
-            android:id="@+id/zoomableImageView"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:visibility="gone" />
