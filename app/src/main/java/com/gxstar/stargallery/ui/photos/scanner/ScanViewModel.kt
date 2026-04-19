@@ -39,17 +39,23 @@ class ScanViewModel @Inject constructor(
     private fun checkInitialization() {
         viewModelScope.launch {
             val needsScan = metadataRepository.needsScan()
-            if (needsScan && !scanPreferences.isScanCompleted) {
-                // 数据库为空且未完成首次扫描 → 全量扫描
-                _isInitialized.value = false
-                startScan()
-            } else if (!needsScan && scanPreferences.isScanCompleted) {
-                // 数据库已有数据且已完成首次扫描 → 执行增量扫描更新新增/修改的媒体
-                _isInitialized.value = true
-                performIncrementalScan()
-            } else {
-                // 首次扫描进行中或已完成
-                _isInitialized.value = true
+            when {
+                // 数据库为空 → 全量扫描（首次）
+                needsScan -> {
+                    _isInitialized.value = false
+                    startScan()
+                }
+                // 数据库有数据且已完成首次扫描 → 增量更新
+                scanPreferences.isScanCompleted -> {
+                    _isInitialized.value = true
+                    performIncrementalScan()
+                }
+                // 数据库有数据但未标记完成（首次扫描中断）→ 标记完成并增量更新
+                else -> {
+                    scanPreferences.isScanCompleted = true
+                    _isInitialized.value = true
+                    performIncrementalScan()
+                }
             }
         }
     }

@@ -73,55 +73,22 @@ class PhotoDetailViewModel @Inject constructor(
     private fun loadPhotos() {
         viewModelScope.launch {
             _isLoading.value = true
-
-            // 检查是否使用元数据库
-            val useMetadataDb = !metadataRepository.needsScan()
-            
-            if (useMetadataDb) {
-                // 从元数据库加载
-                loadFromMetadataDatabase()
-            } else {
-                // 从 MediaStore 加载（降级方案）
-                loadFromMediaStore()
+            val mediaSortType = when (sortType) {
+                MetadataRepository.SortType.DATE_TAKEN -> MediaRepository.SortType.DATE_TAKEN
+                MetadataRepository.SortType.DATE_ADDED -> MediaRepository.SortType.DATE_ADDED
+                else -> MediaRepository.SortType.DATE_TAKEN
             }
-            
+
+            val photos = if (bucketId != -1L) {
+                mediaRepository.getPhotosByBucket(bucketId, mediaSortType)
+            } else {
+                mediaRepository.getAllMedia(mediaSortType)
+            }
+
+            _photos.value = photos
+            updateInitialSelection(photos)
             _isLoading.value = false
         }
-    }
-    
-    private suspend fun loadFromMetadataDatabase() {
-        // 与首页保持一致，直接使用 MediaStore 的数据，不做额外排序处理
-        val mediaSortType = when (sortType) {
-            MetadataRepository.SortType.DATE_TAKEN -> MediaRepository.SortType.DATE_TAKEN
-            MetadataRepository.SortType.DATE_ADDED -> MediaRepository.SortType.DATE_ADDED
-            else -> MediaRepository.SortType.DATE_TAKEN
-        }
-
-        val photos = if (bucketId != -1L) {
-            mediaRepository.getPhotosByBucket(bucketId, mediaSortType)
-        } else {
-            mediaRepository.getAllMedia(mediaSortType)
-        }
-
-        _photos.value = photos
-        updateInitialSelection(photos)
-    }
-
-    private suspend fun loadFromMediaStore() {
-        // 与首页保持一致，直接使用 MediaStore 的数据
-        val mediaSortType = when (sortType) {
-            MetadataRepository.SortType.DATE_TAKEN -> MediaRepository.SortType.DATE_TAKEN
-            MetadataRepository.SortType.DATE_ADDED -> MediaRepository.SortType.DATE_ADDED
-        }
-
-        val photos = if (bucketId != -1L) {
-            mediaRepository.getPhotosByBucket(bucketId, mediaSortType)
-        } else {
-            mediaRepository.getAllMedia(mediaSortType)
-        }
-
-        _photos.value = photos
-        updateInitialSelection(photos)
     }
 
     private fun updateInitialSelection(sortedPhotos: List<Photo>) {

@@ -10,6 +10,7 @@ import android.util.Log
 import com.gxstar.stargallery.data.local.dao.MediaIdAndModifiedTime
 import com.gxstar.stargallery.data.local.dao.MediaMetadataDao
 import com.gxstar.stargallery.data.local.entity.MediaMetadata
+import com.gxstar.stargallery.data.local.preferences.ScanPreferences
 import com.gxstar.stargallery.data.local.util.ExifExtractor
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -27,7 +28,8 @@ import javax.inject.Singleton
 @Singleton
 class MetadataScanner @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val dao: MediaMetadataDao
+    private val dao: MediaMetadataDao,
+    private val scanPreferences: ScanPreferences
 ) {
     companion object {
         private const val TAG = "MetadataScanner"
@@ -177,7 +179,7 @@ class MetadataScanner @Inject constructor(
             // 查询在此时间之后修改的媒体
             val newOrUpdated = queryMediaModifiedAfter(latestModified)
 
-            if (newOrUpdated.isEmpty()) {
+            if (newOrUpdated.isEmpty() && existingMedia.isNotEmpty()) {
                 Log.d(TAG, "No new or updated media found")
                 return@withContext
             }
@@ -201,18 +203,47 @@ class MetadataScanner @Inject constructor(
                 dao.insertAll(toInsert)
             }
 
-            // 注意：删除清理由全量扫描处理
-            // 增量扫描只负责新增/更新，不处理删除
-            // 原因：准确判断删除需要查询所有当前媒体 ID，开销较大
-            // 已删除的媒体在详情页访问时会被发现并跳过，不影响正常功能
+            // 清理已删除的媒体（每 N 次增量扫描检查一次）
+            val deletedCount: Int
+            if (scanPreferences.needsDeletionCheck()) {
+                val currentIds = queryAllMediaIds()
+                val deletedIds = existingMap.keys.filter { it !in currentIds }
+                deletedCount = deletedIds.size
+                if (deletedIds.isNotEmpty()) {
+                    Log.i(TAG, "Deleting ${deletedIds.size} removed media")
+                    dao.deleteByIds(deletedIds)
+                }
+                scanPreferences.resetIncrementalCounter()
+            } else {
+                scanPreferences.incrementalSinceDeletionCheck++
+                deletedCount = 0
+            }
 
             val duration = System.currentTimeMillis() - startTime
-            Log.i(TAG, "Incremental scan completed: ${toInsert.size} items in ${duration}ms")
+            Log.i(TAG, "Incremental scan completed: ${toInsert.size} new/updated, $deletedCount deleted in ${duration}ms")
         } catch (e: Exception) {
             Log.e(TAG, "Incremental scan failed", e)
         } finally {
             isScanning = false
         }
+    }
+
+    /**
+     * 查询所有媒体 ID（用于删除检测）
+     */
+    private fun queryAllMediaIds(): Set<Long> {
+        val ids = mutableSetOf<Long>()
+        val uri = MediaStore.Files.getContentUri("external")
+        val projection = arrayOf(MediaStore.Files.FileColumns._ID)
+        val selection = "(${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE} " +
+                "OR ${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO})"
+
+        context.contentResolver.query(uri, projection, selection, null, null)?.use { cursor ->
+            while (cursor.moveToNext()) {
+                ids.add(cursor.getLong(0))
+            }
+        }
+        return ids
     }
     
     /**

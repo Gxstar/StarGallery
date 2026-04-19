@@ -40,9 +40,10 @@ object AppModule {
     @Singleton
     fun provideMetadataScanner(
         @ApplicationContext context: Context,
-        database: AppDatabase
+        database: AppDatabase,
+        scanPreferences: ScanPreferences
     ): MetadataScanner {
-        return MetadataScanner(context, database.mediaMetadataDao())
+        return MetadataScanner(context, database.mediaMetadataDao(), scanPreferences)
     }
     
     @Provides
