@@ -27,6 +27,7 @@ import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.databinding.ItemPhotoPageBinding
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
@@ -43,6 +44,7 @@ class PhotoPageViewHolder(
 ) {
     private var exoPlayer: ExoPlayer? = null
     private var currentPhoto: Photo? = null
+    private var tagLoadingJob: Job? = null
 
     private var downX = 0f
     private var lastX = 0f
@@ -159,47 +161,7 @@ class PhotoPageViewHolder(
     fun updateTagVisibility(selectedTags: Set<TagType>) {
         currentSelectedTags = selectedTags
         currentPhoto?.let { photo ->
-            // 清除现有标签（保留 RAW 标签作为模板）
-            binding.tvRawTag.visibility = View.GONE
-            while (binding.tagsContainer.childCount > 1) {
-                binding.tagsContainer.removeViewAt(binding.tagsContainer.childCount - 1)
-            }
-
-            val tags = mutableListOf<String>()
-
-            // 根据照片属性和用户设置添加标签
-            if (photo.isRaw && currentSelectedTags.contains(TagType.RAW)) {
-                tags.add("RAW")
-            }
-
-            // 立即显示基础标签
-            displayTags(tags)
-
-            // 如果启用了相机品牌标签，异步读取
-            if (!photo.isVideo && !photo.isGif && currentSelectedTags.contains(TagType.CAMERA_MAKE)) {
-                CoroutineScope(Dispatchers.Main).launch {
-                    val makeTag = readCameraMake(photo)
-                    makeTag?.let {
-                        if (!tags.contains(it)) {
-                            tags.add(it)
-                            displayTags(tags)
-                        }
-                    }
-                }
-            }
-
-            // 如果启用了照片风格标签，异步读取
-            if (!photo.isVideo && !photo.isGif && currentSelectedTags.contains(TagType.PHOTO_STYLE)) {
-                CoroutineScope(Dispatchers.Main).launch {
-                    val photoStyleTag = readPhotoStyle(photo)
-                    photoStyleTag?.let {
-                        if (!tags.contains(it)) {
-                            tags.add(it)
-                            displayTags(tags)
-                        }
-                    }
-                }
-            }
+            loadTagsAsync(photo)
         }
     }
 
@@ -208,44 +170,52 @@ class PhotoPageViewHolder(
      * 根据照片属性和用户设置动态添加标签
      */
     private fun setupTags(photo: Photo) {
+        loadTagsAsync(photo)
+    }
+
+    /**
+     * 异步加载标签（相机品牌、照片风格）
+     * 使用 tagLoadingJob 管理生命周期，回收时自动取消
+     */
+    private fun loadTagsAsync(photo: Photo) {
+        // 取消之前的异步加载
+        tagLoadingJob?.cancel()
+
         // 清除现有标签（保留 RAW 标签作为模板）
         binding.tvRawTag.visibility = View.GONE
-        // 移除动态添加的标签
         while (binding.tagsContainer.childCount > 1) {
             binding.tagsContainer.removeViewAt(binding.tagsContainer.childCount - 1)
         }
 
         val tags = mutableListOf<String>()
 
-        // 根据照片属性和用户设置添加标签
         if (photo.isRaw && currentSelectedTags.contains(TagType.RAW)) {
             tags.add("RAW")
         }
 
-        // 显示基础标签
         displayTags(tags)
 
-        // 异步读取 EXIF 设备品牌信息
-        if (!photo.isVideo && !photo.isGif && currentSelectedTags.contains(TagType.CAMERA_MAKE)) {
-            CoroutineScope(Dispatchers.Main).launch {
+        if (photo.isVideo || photo.isGif) return
+
+        tagLoadingJob = CoroutineScope(Dispatchers.Main).launch {
+            val newTags = tags.toMutableList()
+
+            if (currentSelectedTags.contains(TagType.CAMERA_MAKE)) {
                 val makeTag = readCameraMake(photo)
                 makeTag?.let {
-                    if (!tags.contains(it)) {
-                        tags.add(it)
-                        displayTags(tags)
+                    if (!newTags.contains(it)) {
+                        newTags.add(it)
+                        displayTags(newTags)
                     }
                 }
             }
-        }
 
-        // 异步读取松下相机 PhotoStyle
-        if (!photo.isVideo && !photo.isGif && currentSelectedTags.contains(TagType.PHOTO_STYLE)) {
-            CoroutineScope(Dispatchers.Main).launch {
+            if (currentSelectedTags.contains(TagType.PHOTO_STYLE)) {
                 val photoStyleTag = readPhotoStyle(photo)
                 photoStyleTag?.let {
-                    if (!tags.contains(it)) {
-                        tags.add(it)
-                        displayTags(tags)
+                    if (!newTags.contains(it)) {
+                        newTags.add(it)
+                        displayTags(newTags)
                     }
                 }
             }
@@ -641,6 +611,8 @@ class PhotoPageViewHolder(
     }
 
     fun recycle() {
+        tagLoadingJob?.cancel()
+        tagLoadingJob = null
         currentPhoto = null
         binding.videoView.player = null
         exoPlayer = null
