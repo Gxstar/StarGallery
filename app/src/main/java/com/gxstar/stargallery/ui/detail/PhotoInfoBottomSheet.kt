@@ -112,8 +112,10 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
                 binding.tvLens.visibility = View.GONE
             }
             
-            val width = photo.width
-            val height = photo.height
+            val exifWidth = subIFD?.getInteger(ExifSubIFDDirectory.TAG_EXIF_IMAGE_WIDTH) ?: 0
+            val exifHeight = subIFD?.getInteger(ExifSubIFDDirectory.TAG_EXIF_IMAGE_HEIGHT) ?: 0
+            val width = if (exifWidth > 0) exifWidth else photo.width
+            val height = if (exifHeight > 0) exifHeight else photo.height
             if (width > 0 && height > 0) {
                 val megapixels = (width.toLong() * height.toLong()) / 1_000_000.0
                 val pixelsStr = DecimalFormat("0.0").format(megapixels) + " MP"
@@ -132,9 +134,17 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
             }
             
             val focalLengthDesc = subIFD?.getDescription(ExifSubIFDDirectory.TAG_FOCAL_LENGTH)
+            val equivFocalLength = subIFD?.getInteger(ExifSubIFDDirectory.TAG_35MM_FILM_EQUIV_FOCAL_LENGTH)
             if (!focalLengthDesc.isNullOrBlank()) {
                 val match = Regex("(\\d+(?:\\.\\d+)?)").find(focalLengthDesc)
-                exposureParts.add("${match?.let { it.groupValues[1].removeSuffix(".0") } ?: focalLengthDesc} mm")
+                val physicalFocal = match?.let { it.groupValues[1].removeSuffix(".0") } ?: focalLengthDesc
+                val physicalFocalNum = physicalFocal.toFloatOrNull()
+                val focalStr = if (equivFocalLength != null && equivFocalLength > 0 && physicalFocalNum?.toInt() != equivFocalLength) {
+                    "${physicalFocal} mm (${equivFocalLength} mm)"
+                } else {
+                    "${physicalFocal} mm"
+                }
+                exposureParts.add(focalStr)
             }
             
             val fNumberDesc = subIFD?.getDescription(ExifSubIFDDirectory.TAG_FNUMBER)
