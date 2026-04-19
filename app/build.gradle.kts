@@ -61,8 +61,6 @@ dependencies {
     implementation(libs.zoomimage.view)
     implementation(libs.zoomimage.view.glide)
 
-    // 现代图片加载 - Coil (支持 AVIF/HEIC/GIF/HDR)
-    implementation(libs.coil)
 
     // 依赖注入 - Hilt
     implementation(libs.hilt.android)

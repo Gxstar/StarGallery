@@ -15,6 +15,12 @@ import java.util.Locale
  */
 object DateUtils {
 
+    private val monthFormat by lazy { SimpleDateFormat("yyyy年M月", Locale.CHINA) }
+    private val yearFormat by lazy { SimpleDateFormat("yyyy年", Locale.CHINA) }
+    private val dateFormat by lazy { SimpleDateFormat("yyyy年M月d日", Locale.CHINA) }
+    private val timeFormat by lazy { SimpleDateFormat("HH:mm", Locale.CHINA) }
+    private val dateTimeFormat by lazy { SimpleDateFormat("yyyy年M月d日 HH:mm", Locale.CHINA) }
+
     /**
      * 获取照片的有效时间戳（毫秒）
      * 优先使用拍摄时间，若为空则使用添加时间
@@ -76,40 +82,25 @@ object DateUtils {
     /**
      * 格式化月份（yyyy年M月）
      */
-    private fun formatMonth(timestampMillis: Long): String {
-        val dateFormat = SimpleDateFormat("yyyy年M月", Locale.CHINA)
-        return dateFormat.format(Date(timestampMillis))
-    }
+    private fun formatMonth(timestampMillis: Long): String = monthFormat.format(Date(timestampMillis))
 
     /**
      * 格式化年份（yyyy年）
      */
-    private fun formatYear(timestampMillis: Long): String {
-        val dateFormat = SimpleDateFormat("yyyy年", Locale.CHINA)
-        return dateFormat.format(Date(timestampMillis))
-    }
+    private fun formatYear(timestampMillis: Long): String = yearFormat.format(Date(timestampMillis))
 
     /**
      * 格式化日期（yyyy年M月d日）
      */
-    fun formatDate(timestampMillis: Long): String {
-        val dateFormat = SimpleDateFormat("yyyy年M月d日", Locale.CHINA)
-        return dateFormat.format(Date(timestampMillis))
-    }
+    fun formatDate(timestampMillis: Long): String = dateFormat.format(Date(timestampMillis))
 
     /**
      * 格式化时间（HH:mm）
      */
-    fun formatTime(timestampMillis: Long): String {
-        val timeFormat = SimpleDateFormat("HH:mm", Locale.CHINA)
-        return timeFormat.format(Date(timestampMillis))
-    }
+    fun formatTime(timestampMillis: Long): String = timeFormat.format(Date(timestampMillis))
 
     /**
      * 格式化日期和时间（yyyy年M月d日 HH:mm）
      */
-    fun formatDateTime(timestampMillis: Long): String {
-        val format = SimpleDateFormat("yyyy年M月d日 HH:mm", Locale.CHINA)
-        return format.format(Date(timestampMillis))
-    }
+    fun formatDateTime(timestampMillis: Long): String = dateTimeFormat.format(Date(timestampMillis))
 }

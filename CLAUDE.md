@@ -6,10 +6,12 @@
 
 ```bash
 gradlew.bat assembleDebug   # Debug 构建
-gradlew.bat installDebug   # 构建并安装
-gradlew.bat clean          # 清理
-gradlew.bat test           # 运行单元测试
+gradlew.bat installDebug    # 构建并安装到设备
+gradlew.bat clean           # 清理
+gradlew.bat test            # 运行单元测试
 ```
+
+**环境要求**: minSdk = 30 (Android 11), compileSdk = 36, Java 17
 
 ## 项目概述
 
@@ -18,7 +20,16 @@ StarGallery 是一款 Android 本地图库应用，采用 Kotlin + XML 开发，
 ## 架构
 
 ### 分层结构
-- **`data/`** - 数据层：模型、分页数据源、仓库（MediaRepository）
+- **`data/`** - 数据层
+  - `model/` - 数据模型 (Photo, Album)
+  - `paging/` - PhotoPagingSource
+  - `repository/` - MediaRepository
+  - `local/dao/` - Room DAO
+  - `local/database/` - AppDatabase
+  - `local/entity/` - 实体类
+  - `local/scanner/` - MetadataScanner 媒体扫描
+  - `local/util/` - ExifExtractor
+  - `local/preferences/` - ScanPreferences
 - **`di/`** - Hilt 依赖注入模块
 - **`ui/`** - UI 层：Fragment、ViewModel、适配器
   - `photos/` - 照片网格，支持分页、拖动选择、选中管理
@@ -68,13 +79,17 @@ StarGallery 是一款 Android 本地图库应用，采用 Kotlin + XML 开发，
 |----|------|
 | Kotlin | 2.3.20 |
 | AGP | 9.1.1 |
+| minSdk | 30 (Android 11) |
 | Paging 3 | 3.4.2 |
 | Glide | 4.16.0 |
 | Hilt | 2.59.2 |
 | Media3 (ExoPlayer) | 1.9.1 |
 | ZoomImage | 1.4.0 |
 | Coil | 2.7.0 |
+| PermissionX | 1.7.1 |
 | drag-select-recyclerview | 2.4.0 |
+| LeakCanary | 2.14 |
+| metadata-extractor | 2.20.0 |
 
 ## 现代图片格式支持
 

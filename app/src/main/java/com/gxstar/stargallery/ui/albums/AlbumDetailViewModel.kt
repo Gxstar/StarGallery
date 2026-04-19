@@ -49,10 +49,9 @@ class AlbumDetailViewModel @Inject constructor(
     private val _currentGroupType = MutableStateFlow(GroupType.DAY)
     val currentGroupType: StateFlow<GroupType> = _currentGroupType.asStateFlow()
 
+    private val _photos = MutableStateFlow<List<Photo>>(emptyList())
     private val _photoCount = MutableStateFlow(0)
     val photoCount: StateFlow<Int> = _photoCount.asStateFlow()
-
-    private val _photos = MutableStateFlow<List<Photo>>(emptyList())
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
