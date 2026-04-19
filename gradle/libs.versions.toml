@@ -2,6 +2,7 @@
 # AGP 和 Kotlin
 agp = "9.1.1"
 kotlin = "2.3.20"
+kotlinParcelize = "2.3.20"
 ksp = "2.3.6"
 
 # AndroidX 核心
@@ -143,3 +144,4 @@ android-application = { id = "com.android.application", version.ref = "agp" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 navigation-safeargs = { id = "androidx.navigation.safeargs.kotlin", version.ref = "navigation" }
+kotlin-parcelize = { id = "org.jetbrains.kotlin.plugin.parcelize", version.ref = "kotlinParcelize" }

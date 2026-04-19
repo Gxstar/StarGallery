@@ -1,7 +1,10 @@
 package com.gxstar.stargallery.data.model
 
 import android.net.Uri
+import android.os.Parcelable
+import kotlinx.parcelize.Parcelize
 
+@Parcelize
 data class Photo(
     val id: Long,
     val uri: Uri,
@@ -18,7 +21,7 @@ data class Photo(
     val longitude: Double?,
     val orientation: Int = 0,
     val isFavorite: Boolean = false
-) {
+) : Parcelable {
     val isVideo: Boolean
         get() = mimeType.startsWith("video/")
 

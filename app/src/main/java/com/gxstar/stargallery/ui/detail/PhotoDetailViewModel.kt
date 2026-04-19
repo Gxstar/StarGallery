@@ -23,7 +23,8 @@ class PhotoDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    // 从导航参数获取初始照片ID和排序方式
+    // 从导航参数获取初始照片和排序方式
+    private val initialPhoto: Photo? = savedStateHandle["initialPhoto"]
     private val initialPhotoId: Long = savedStateHandle["photoId"] ?: -1L
     private val sortTypeValue: Int = savedStateHandle["sortType"] ?: 0
     private val bucketId: Long = savedStateHandle["bucketId"] ?: -1L
@@ -67,41 +68,39 @@ class PhotoDetailViewModel @Inject constructor(
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     init {
-        loadPhotos()
+        // 立即显示初始照片，不等待完整列表加载
+        initialPhoto?.let { photo ->
+            _currentPhoto.value = photo
+            _photos.value = listOf(photo)
+            updateDateInfo(photo)
+        }
+        // 后台加载完整列表
+        loadPhotosInBackground()
     }
 
-    private fun loadPhotos() {
+    private fun loadPhotosInBackground() {
         viewModelScope.launch {
-            _isLoading.value = true
             val mediaSortType = when (sortType) {
                 MetadataRepository.SortType.DATE_TAKEN -> MediaRepository.SortType.DATE_TAKEN
                 MetadataRepository.SortType.DATE_ADDED -> MediaRepository.SortType.DATE_ADDED
                 else -> MediaRepository.SortType.DATE_TAKEN
             }
 
-            val photos = if (bucketId != -1L) {
+            val allPhotos = if (bucketId != -1L) {
                 mediaRepository.getPhotosByBucket(bucketId, mediaSortType)
             } else {
                 mediaRepository.getAllMedia(mediaSortType)
             }
 
-            _photos.value = photos
-            updateInitialSelection(photos)
+            if (allPhotos.isNotEmpty()) {
+                _photos.value = allPhotos
+                val initialPosition = allPhotos.indexOfFirst { it.id == initialPhotoId }.takeIf { it >= 0 } ?: 0
+                _currentPosition.value = initialPosition
+                _currentPhoto.value = allPhotos[initialPosition]
+                updateDateInfo(allPhotos[initialPosition])
+                loadMetadataForPhoto(allPhotos[initialPosition].id)
+            }
             _isLoading.value = false
-        }
-    }
-
-    private fun updateInitialSelection(sortedPhotos: List<Photo>) {
-        // 找到初始照片的位置
-        val initialPosition = sortedPhotos.indexOfFirst { it.id == initialPhotoId }
-        if (initialPosition >= 0) {
-            _currentPosition.value = initialPosition
-            val photo = sortedPhotos[initialPosition]
-            _currentPhoto.value = photo
-            updateDateInfo(photo)
-            
-            // 异步加载元数据
-            loadMetadataForPhoto(photo.id)
         }
     }
     

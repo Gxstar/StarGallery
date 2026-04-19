@@ -37,6 +37,10 @@
         android:name="com.gxstar.stargallery.ui.detail.PhotoDetailFragment"
         android:label="Photo Detail">
         <argument
+            android:name="initialPhoto"
+            app:argType="com.gxstar.stargallery.data.model.Photo"
+            app:nullable="true" />
+        <argument
             android:name="photoId"
             app:argType="long" />
         <argument

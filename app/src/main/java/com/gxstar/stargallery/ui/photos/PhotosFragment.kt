@@ -753,7 +753,7 @@ class PhotosFragment : Fragment() {
         saveScrollPosition()
 
         val sortTypeValue = if (viewModel.currentSortType.value == MediaRepository.SortType.DATE_TAKEN) 0 else 1
-        val action = PhotosFragmentDirections.actionPhotosFragmentToPhotoDetailFragment(photo.id, sortTypeValue)
+        val action = PhotosFragmentDirections.actionPhotosFragmentToPhotoDetailFragment(photo, photo.id, sortTypeValue)
         findNavController().navigate(action)
     }
 
