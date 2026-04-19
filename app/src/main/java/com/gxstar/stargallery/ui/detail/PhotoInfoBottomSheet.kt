@@ -186,7 +186,7 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
             shutterStr?.let { exposureParts.add(it) }
             
             if (exposureParts.isNotEmpty()) {
-                binding.tvExposureParams.text = exposureParts.joinToString("  •  ")
+                binding.tvExposureParams.text = exposureParts.joinToString(" • ")
                 binding.tvExposureParams.visibility = View.VISIBLE
             } else {
                 binding.tvExposureParams.visibility = View.GONE
