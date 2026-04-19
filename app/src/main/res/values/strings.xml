@@ -95,6 +95,11 @@
     <string name="move_to_trash_failed">移至回收站失败</string>
     <string name="delete_failed">删除失败</string>
     
+    <!-- 关于 -->
+    <string name="about">关于</string>
+    <string name="privacy_policy">隐私政策</string>
+    <string name="version">版本 %s</string>
+    
     <!-- 回收站 -->
     <string name="trash_title">回收站</string>
     <string name="trash_empty">回收站是空的</string>

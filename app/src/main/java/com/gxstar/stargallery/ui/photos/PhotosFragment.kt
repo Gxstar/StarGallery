@@ -565,6 +565,7 @@ class PhotosFragment : Fragment() {
                 R.id.action_group -> { showGroupDialog(); true }
                 R.id.action_columns -> { showColumnsDialog(); true }
                 R.id.action_trash -> { navigateToTrash(); true }
+                R.id.action_about -> { navigateToAbout(); true }
                 else -> false
             }
         }
@@ -787,6 +788,11 @@ class PhotosFragment : Fragment() {
 
     private fun navigateToTrash() {
         val action = PhotosFragmentDirections.actionPhotosFragmentToTrashFragment()
+        findNavController().navigate(action)
+    }
+
+    private fun navigateToAbout() {
+        val action = PhotosFragmentDirections.actionPhotosFragmentToAboutFragment()
         findNavController().navigate(action)
     }
 

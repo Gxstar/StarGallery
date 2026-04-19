@@ -18,6 +18,9 @@
         <action
             android:id="@+id/action_photosFragment_to_trashFragment"
             app:destination="@id/trashFragment" />
+        <action
+            android:id="@+id/action_photosFragment_to_aboutFragment"
+            app:destination="@id/aboutFragment" />
     </fragment>
 
     <fragment
@@ -69,5 +72,10 @@
         android:id="@+id/trashFragment"
         android:name="com.gxstar.stargallery.ui.trash.TrashFragment"
         android:label="@string/trash_title" />
+
+    <fragment
+        android:id="@+id/aboutFragment"
+        android:name="com.gxstar.stargallery.ui.about.AboutFragment"
+        android:label="@string/about" />
 
 </navigation>

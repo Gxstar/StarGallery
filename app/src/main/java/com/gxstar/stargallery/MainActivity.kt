@@ -91,8 +91,9 @@ class MainActivity : AppCompatActivity() {
         navController.addOnDestinationChangedListener { _, destination, _ ->
             when (destination.id) {
                 R.id.photoDetailFragment,
-                R.id.albumDetailFragment -> {
-                    // 详情页完全移除底部导航栏（不占用空间）
+                R.id.albumDetailFragment,
+                R.id.aboutFragment -> {
+                    // 详情页和关于页面完全移除底部导航栏（不占用空间）
                     if (binding.bottomNav.visibility != View.GONE) {
                         binding.bottomNav.visibility = View.GONE
                     }
