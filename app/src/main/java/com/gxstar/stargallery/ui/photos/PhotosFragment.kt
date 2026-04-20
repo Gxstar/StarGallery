@@ -323,12 +323,7 @@ class PhotosFragment : Fragment() {
                     else -> null
                 }
                 message?.let { Toast.makeText(requireContext(), it, Toast.LENGTH_SHORT).show() }
-
-                lastExplicitRefreshTime = System.currentTimeMillis()
-                binding.rvPhotos.postDelayed({
-                    refreshData()
-                    selectionManager.exitSelectionMode()
-                }, 300)
+                selectionManager.exitSelectionMode()
             }
             pendingFavoriteAction = BatchActionHandler.FAVORITE_ACTION_NONE
         }
@@ -341,10 +336,7 @@ class PhotosFragment : Fragment() {
 
         if (!hasRequest) {
             smoothRefreshItems(selectedIds)
-            binding.rvPhotos.postDelayed({
-                refreshData()
-                selectionManager.exitSelectionMode()
-            }, 300)
+            selectionManager.exitSelectionMode()
         }
     }
 
@@ -360,22 +352,14 @@ class PhotosFragment : Fragment() {
         intentSenderManager.setTrashCallback { success ->
             if (success) {
                 Toast.makeText(requireContext(), R.string.moved_to_trash, Toast.LENGTH_SHORT).show()
-                lastExplicitRefreshTime = System.currentTimeMillis()
-                binding.rvPhotos.postDelayed({
-                    refreshData()
-                    selectionManager.exitSelectionMode()
-                }, 300)
+                selectionManager.exitSelectionMode()
             }
         }
 
         intentSenderManager.setDeleteCallback { success ->
             if (success) {
                 Toast.makeText(requireContext(), R.string.deleted, Toast.LENGTH_SHORT).show()
-                lastExplicitRefreshTime = System.currentTimeMillis()
-                binding.rvPhotos.postDelayed({
-                    refreshData()
-                    selectionManager.exitSelectionMode()
-                }, 300)
+                selectionManager.exitSelectionMode()
             }
         }
 
@@ -384,11 +368,7 @@ class PhotosFragment : Fragment() {
             intentSenderManager.trashLauncher,
             intentSenderManager.deleteLauncher
         ) {
-            lastExplicitRefreshTime = System.currentTimeMillis()
-            binding.rvPhotos.postDelayed({
-                refreshData()
-                selectionManager.exitSelectionMode()
-            }, 300)
+            selectionManager.exitSelectionMode()
         }
     }
 
