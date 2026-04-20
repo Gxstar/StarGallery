@@ -690,7 +690,7 @@ class PhotosFragment : Fragment() {
         val first = gridLayoutManager.findFirstVisibleItemPosition()
         val last = gridLayoutManager.findLastVisibleItemPosition()
         if (first != RecyclerView.NO_POSITION && last != RecyclerView.NO_POSITION) {
-            photoAdapter.notifyItemRangeChanged(first, last - first + 1)
+            photoAdapter.notifyItemRangeChanged(first, last - first + 1, PhotoPagingAdapter.PAYLOAD_SELECTION_CHANGED)
         }
     }
 

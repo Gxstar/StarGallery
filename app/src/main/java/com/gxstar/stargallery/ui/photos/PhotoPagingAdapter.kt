@@ -98,6 +98,7 @@ class PhotoPagingAdapter(
     companion object {
         private const val TYPE_HEADER = 0
         private const val TYPE_PHOTO = 1
+        const val PAYLOAD_SELECTION_CHANGED = "selection_changed"
 
         private val PHOTO_DIFF_CALLBACK = object : DiffUtil.ItemCallback<PhotoModel>() {
             override fun areItemsTheSame(oldItem: PhotoModel, newItem: PhotoModel): Boolean {
@@ -155,8 +156,23 @@ class PhotoPagingAdapter(
                 // 更新分隔符缓存
                 separatorCache[position] = item.dateText
             }
-            holder is PhotoViewHolder && item is PhotoModel.PhotoItem -> 
+            holder is PhotoViewHolder && item is PhotoModel.PhotoItem ->
                 holder.bind(item.photo)
+        }
+    }
+
+    override fun onBindViewHolder(
+        holder: RecyclerView.ViewHolder,
+        position: Int,
+        payloads: MutableList<Any>
+    ) {
+        if (payloads.isEmpty()) {
+            super.onBindViewHolder(holder, position, payloads)
+            return
+        }
+        if (holder is PhotoViewHolder) {
+            val item = getItem(position) as? PhotoModel.PhotoItem ?: return
+            holder.updateSelectionState(item.photo)
         }
     }
 
@@ -239,6 +255,15 @@ class PhotoViewHolder(
         // 设置点击事件
         binding.photoContainer.setOnClickListener { onPhotoClick(photo) }
         binding.photoContainer.setOnLongClickListener { onPhotoLongClick?.invoke(photo) ?: false }
+    }
+
+    /**
+     * 仅更新选择状态，不重新加载图片（使用 payload 时调用）
+     */
+    fun updateSelectionState(photo: Photo) {
+        val isSelectionMode = isSelectionModeProvider()
+        val isSelected = isSelectedProvider(photo.id)
+        updateSelectionUI(isSelectionMode, isSelected, photo)
     }
 
     private fun loadImage(photo: Photo) {
