@@ -38,7 +38,7 @@
 
 ### 照片详情
 - **高清大图查看**: SubsamplingScaleImageView 分块加载，支持缩放操作
-- **详细信息**: 拍摄时间、尺寸、EXIF 信息（通过 ExifExtractor）
+- **详细信息**: 拍摄时间、尺寸、EXIF 信息（通过 Metadata Extractor 实时解析）
 - **视频播放**: Media3/ExoPlayer 集成，支持边看边滑动浏览
 - **标签设置**: TagsSettingsBottomSheet 支持自定义标签管理
 
@@ -76,11 +76,8 @@ app/src/main/java/com/gxstar/stargallery/
 │   ├── paging/             # 分页数据源 (PhotoPagingSource)
 │   ├── repository/         # 数据仓库 (MediaRepository)
 │   └── local/
-│       ├── dao/            # Room DAO
-│       ├── database/       # AppDatabase
-│       ├── entity/         # 实体类
 │       ├── scanner/        # 媒体扫描器
-│       └── util/           # 工具类 (ExifExtractor)
+│       └── preferences/    # 扫描状态持久化
 ├── di/                     # Hilt 依赖注入模块
 ├── ui/
 │   ├── albums/             # 相册列表和详情
@@ -112,7 +109,7 @@ app/src/main/java/com/gxstar/stargallery/
 ### MVVM + Repository Pattern
 - **UI 层**: Fragment/ViewModel 处理用户交互、事件响应
 - **Repository 层**: MediaRepository 封装所有数据访问逻辑
-- **Data 层**: Room Database (可选)、MediaStore API、本地扫描器
+- **Data 层**: MediaStore API、本地扫描器
 
 ## RAW 配对实现
 
@@ -130,8 +127,7 @@ app/src/main/java/com/gxstar/stargallery/
 
 - **分页加载**: Paging 3 避免一次性加载大量数据，默认每页 50 项
 - **图片缓存**: Glide 使用 LruCache 和磁盘缓存
-- **大图分块**: SubsamplingScaleImageView 按需加载图像金字塔
-- **数据库索引**: MediaMetadataDao 对常用查询字段建立索引
+- **大图分块**: ZoomImageView 按需加载图像金字塔
 - **异步处理**: 所有 IO 操作在 Dispatchers.IO 线程池执行
 
 ## 开发约定

@@ -4,10 +4,8 @@ import android.content.IntentSender
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.gxstar.stargallery.data.local.entity.MediaMetadata
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.data.repository.MediaRepository
-import com.gxstar.stargallery.data.repository.MetadataRepository
 import com.gxstar.stargallery.ui.util.DateUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,7 +17,6 @@ import javax.inject.Inject
 @HiltViewModel
 class PhotoDetailViewModel @Inject constructor(
     private val mediaRepository: MediaRepository,
-    private val metadataRepository: MetadataRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -30,26 +27,18 @@ class PhotoDetailViewModel @Inject constructor(
     private val bucketId: Long = savedStateHandle["bucketId"] ?: -1L
 
     private val sortType = when (sortTypeValue) {
-        0 -> MetadataRepository.SortType.DATE_TAKEN
-        1 -> MetadataRepository.SortType.DATE_ADDED
-        else -> MetadataRepository.SortType.DATE_TAKEN
+        0 -> MediaRepository.SortType.DATE_TAKEN
+        1 -> MediaRepository.SortType.DATE_ADDED
+        else -> MediaRepository.SortType.DATE_TAKEN
     }
 
-    // 元数据列表
-    private val _metadataList = MutableStateFlow<List<MediaMetadata>>(emptyList())
-    val metadataList: StateFlow<List<MediaMetadata>> = _metadataList.asStateFlow()
-
-    // 照片列表（从元数据转换）
+    // 照片列表
     private val _photos = MutableStateFlow<List<Photo>>(emptyList())
     val photos: StateFlow<List<Photo>> = _photos.asStateFlow()
 
     // 当前照片
     private val _currentPhoto = MutableStateFlow<Photo?>(null)
     val currentPhoto: StateFlow<Photo?> = _currentPhoto.asStateFlow()
-    
-    // 当前元数据
-    private val _currentMetadata = MutableStateFlow<MediaMetadata?>(null)
-    val currentMetadata: StateFlow<MediaMetadata?> = _currentMetadata.asStateFlow()
 
     // 当前位置
     private val _currentPosition = MutableStateFlow(0)
@@ -68,28 +57,20 @@ class PhotoDetailViewModel @Inject constructor(
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     init {
-        // 立即显示初始照片，不等待完整列表加载
         initialPhoto?.let { photo ->
             _currentPhoto.value = photo
             _photos.value = listOf(photo)
             updateDateInfo(photo)
         }
-        // 后台加载完整列表
         loadPhotosInBackground()
     }
 
     private fun loadPhotosInBackground() {
         viewModelScope.launch {
-            val mediaSortType = when (sortType) {
-                MetadataRepository.SortType.DATE_TAKEN -> MediaRepository.SortType.DATE_TAKEN
-                MetadataRepository.SortType.DATE_ADDED -> MediaRepository.SortType.DATE_ADDED
-                else -> MediaRepository.SortType.DATE_TAKEN
-            }
-
             val allPhotos = if (bucketId != -1L) {
-                mediaRepository.getPhotosByBucket(bucketId, mediaSortType)
+                mediaRepository.getPhotosByBucket(bucketId, sortType)
             } else {
-                mediaRepository.getAllMedia(mediaSortType)
+                mediaRepository.getAllMedia(sortType)
             }
 
             if (allPhotos.isNotEmpty()) {
@@ -98,21 +79,8 @@ class PhotoDetailViewModel @Inject constructor(
                 _currentPosition.value = initialPosition
                 _currentPhoto.value = allPhotos[initialPosition]
                 updateDateInfo(allPhotos[initialPosition])
-                loadMetadataForPhoto(allPhotos[initialPosition].id)
             }
             _isLoading.value = false
-        }
-    }
-    
-    private fun loadMetadataForPhoto(photoId: Long) {
-        viewModelScope.launch {
-            val metadata = metadataRepository.getMetadataById(photoId)
-            _currentMetadata.value = metadata
-            
-            // 元数据加载完成后，更新日期显示（使用数据库中的准确时间）
-            metadata?.let {
-                updateDateInfoFromMetadata(it)
-            }
         }
     }
 
@@ -126,31 +94,12 @@ class PhotoDetailViewModel @Inject constructor(
             val photo = photoList[position]
             _currentPhoto.value = photo
             updateDateInfo(photo)
-            
-            // 加载当前位置的元数据（加载完成后会自动更新日期）
-            loadMetadataForPhoto(photo.id)
         }
     }
 
     private fun updateDateInfo(photo: Photo) {
         _dateText.value = DateUtils.formatDate(photo.dateTaken)
         _infoText.value = DateUtils.formatTime(photo.dateTaken)
-    }
-    
-    /**
-     * 使用数据库元数据更新日期信息
-     * 优先使用 EXIF 原始时间 (dateTakenOriginal)
-     */
-    private fun updateDateInfoFromMetadata(metadata: MediaMetadata) {
-        // 优先级：EXIF DateTimeOriginal > dateTaken > photo.dateTaken
-        val dateTaken = when {
-            metadata.dateTakenOriginal != null && metadata.dateTakenOriginal > 0 -> metadata.dateTakenOriginal
-            metadata.dateTaken > 0 -> metadata.dateTaken
-            else -> return // 没有有效时间，不更新
-        }
-        
-        _dateText.value = DateUtils.formatDate(dateTaken)
-        _infoText.value = DateUtils.formatTime(dateTaken)
     }
 
     fun prepareToggleFavorite(): IntentSender? {
@@ -173,12 +122,7 @@ class PhotoDetailViewModel @Inject constructor(
         _pendingFavoritePhoto?.let { photo ->
             val updatedPhoto = photo.copy(isFavorite = _pendingFavoriteState)
             _currentPhoto.value = updatedPhoto
-            
-            // 更新元数据库中的收藏状态（异步）
-            viewModelScope.launch {
-                metadataRepository.updateFavorite(photo.id, _pendingFavoriteState)
-            }
-            
+
             val currentList = _photos.value.toMutableList()
             val index = currentList.indexOfFirst { it.id == photo.id }
             if (index >= 0) {
@@ -196,7 +140,7 @@ class PhotoDetailViewModel @Inject constructor(
             onResult(intentSender)
         }
     }
-    
+
     /**
      * 从列表中移除指定位置的照片
      * @param position 要移除的照片位置
@@ -204,35 +148,29 @@ class PhotoDetailViewModel @Inject constructor(
      */
     fun removeCurrentPhoto(position: Int): Boolean {
         val currentList = _photos.value.toMutableList()
-        
+
         if (position !in currentList.indices) return false
-        
-        // 移除照片
+
         currentList.removeAt(position)
         _photos.value = currentList
-        
-        // 如果列表为空，返回 false 表示需要退出
+
         if (currentList.isEmpty()) {
             return false
         }
-        
-        // 计算新位置
+
         val newPosition = if (position >= currentList.size) {
-            // 如果删除的是最后一张，则移动到新的最后一张
             currentList.size - 1
         } else {
-            // 否则保持当前位置（此时已经是下一张照片了）
             position
         }
-        
-        // 更新当前照片
+
         _currentPosition.value = newPosition
         _currentPhoto.value = currentList[newPosition]
         updateDateInfo(currentList[newPosition])
-        
+
         return true
     }
-    
+
     /**
      * 获取初始位置
      */

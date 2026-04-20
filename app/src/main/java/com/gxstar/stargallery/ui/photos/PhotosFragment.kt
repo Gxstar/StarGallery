@@ -28,7 +28,6 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.gxstar.stargallery.R
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.data.repository.MediaRepository
-import com.gxstar.stargallery.data.repository.MetadataRepository
 import com.gxstar.stargallery.databinding.FragmentPhotosBinding
 import com.gxstar.stargallery.ui.photos.action.BatchActionHandler
 import com.gxstar.stargallery.ui.photos.animation.PhotoItemAnimator
@@ -70,9 +69,6 @@ class PhotosFragment : Fragment() {
 
     @Inject
     lateinit var mediaRepository: MediaRepository
-
-    @Inject
-    lateinit var metadataRepository: MetadataRepository
 
     // 状态
     private var currentSpanCount = MIN_SPAN_COUNT
@@ -144,7 +140,7 @@ class PhotosFragment : Fragment() {
 
     /**
      * 初始化媒体变化检测器
-     * ContentObserver 作为触发器，检测到变化时刷新 Paging 数据并增量更新数据库
+     * ContentObserver 作为触发器，检测到变化时刷新 Paging 数据
      */
     private fun initMediaChangeDetector() {
         mediaChangeDetector = MediaChangeDetector(
@@ -153,8 +149,6 @@ class PhotosFragment : Fragment() {
             onChangeDetected = {
                 // MediaStore 是实时数据源，直接刷新 PagingSource 即可
                 refreshData()
-                // 同时触发增量扫描，更新数据库中的 EXIF 元数据
-                triggerIncrementalScan()
             },
             shouldSkipRefresh = {
                 System.currentTimeMillis() - lastExplicitRefreshTime < 1000
@@ -162,24 +156,6 @@ class PhotosFragment : Fragment() {
         )
     }
 
-    /**
-     * 触发增量扫描（带节流，避免频繁扫描）
-     * 扫描新增或修改的媒体的 EXIF 信息
-     */
-    private fun triggerIncrementalScan() {
-        viewLifecycleOwner.lifecycleScope.launch {
-            // 使用 lastScanTime 作为节流依据，避免在短时间内重复扫描
-            val now = System.currentTimeMillis()
-            if (now - lastIncrementalScanTime < MIN_INCREMENTAL_SCAN_INTERVAL_MS) {
-                return@launch
-            }
-            lastIncrementalScanTime = now
-
-            metadataRepository.performIncrementalScan()
-        }
-    }
-
-    private var lastIncrementalScanTime = 0L
     private var lastExplicitRefreshTime = 0L
 
     private fun setupSettings() {

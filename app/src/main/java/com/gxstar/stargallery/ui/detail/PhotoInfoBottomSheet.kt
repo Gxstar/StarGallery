@@ -13,7 +13,6 @@ import com.drew.metadata.exif.makernotes.PanasonicMakernoteDirectory
 import com.drew.metadata.jpeg.JpegDirectory
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.gxstar.stargallery.R
-import com.gxstar.stargallery.data.local.entity.MediaMetadata
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.databinding.LayoutPhotoInfoBottomSheetBinding
 import kotlinx.coroutines.CoroutineScope
@@ -34,7 +33,6 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
     private val binding get() = _binding!!
 
     private var photo: Photo? = null
-    private var metadata: MediaMetadata? = null
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = LayoutPhotoInfoBottomSheetBinding.inflate(inflater, container, false)
@@ -43,11 +41,11 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        photo?.let { loadPhotoInfo(it, metadata) }
+        photo?.let { loadPhotoInfo(it) }
     }
 
-    private fun loadPhotoInfo(photo: Photo, metadata: MediaMetadata?) {
-        setupBaseInfo(photo, metadata)
+    private fun loadPhotoInfo(photo: Photo) {
+        setupBaseInfo(photo)
 
         CoroutineScope(Dispatchers.Main).launch {
             val exifMetadata = extractMetadata(photo)
@@ -55,7 +53,7 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
         }
     }
 
-    private fun setupBaseInfo(photo: Photo, metadata: MediaMetadata?) {
+    private fun setupBaseInfo(photo: Photo) {
         CoroutineScope(Dispatchers.Main).launch {
             val fullName = withContext(Dispatchers.IO) { getFullFileName(photo.uri) }
             binding.tvFilename.text = fullName ?: ""
@@ -73,8 +71,6 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
 
         val sdf = SimpleDateFormat("yyyy年MM月dd日", Locale.CHINA)
         val dateMs = when {
-            metadata?.dateTakenOriginal != null && metadata.dateTakenOriginal > 0 -> metadata.dateTakenOriginal
-            metadata?.dateTaken != null && metadata.dateTaken > 0 -> metadata.dateTaken
             photo.dateTaken > 0 -> photo.dateTaken
             else -> photo.dateModified * 1000
         }
@@ -276,10 +272,9 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
 
     companion object {
         const val TAG = "PhotoInfoBottomSheet"
-        fun newInstance(photo: Photo, metadata: MediaMetadata?): PhotoInfoBottomSheet {
+        fun newInstance(photo: Photo): PhotoInfoBottomSheet {
             return PhotoInfoBottomSheet().apply {
                 this.photo = photo
-                this.metadata = metadata
             }
         }
     }

@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.gxstar.stargallery.data.local.preferences.ScanPreferences
 import com.gxstar.stargallery.data.local.scanner.MetadataScanner
-import com.gxstar.stargallery.data.repository.MetadataRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,39 +17,36 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class ScanViewModel @Inject constructor(
-    private val metadataRepository: MetadataRepository,
+    private val metadataScanner: MetadataScanner,
     private val scanPreferences: ScanPreferences
 ) : ViewModel() {
-    
+
     private val _scanState = MutableStateFlow<MetadataScanner.ScanState>(MetadataScanner.ScanState.Idle)
     val scanState: StateFlow<MetadataScanner.ScanState> = _scanState.asStateFlow()
-    
+
     private val _isInitialized = MutableStateFlow(false)
     val isInitialized: StateFlow<Boolean> = _isInitialized.asStateFlow()
-    
+
     init {
         observeScanState()
         checkInitialization()
     }
-    
+
     /**
      * 检查是否需要扫描
      */
     private fun checkInitialization() {
         viewModelScope.launch {
-            val needsScan = metadataRepository.needsScan()
+            val needsScan = metadataScanner.needsScan()
             when {
-                // 数据库为空 → 全量扫描（首次）
                 needsScan -> {
                     _isInitialized.value = false
                     startScan()
                 }
-                // 数据库有数据且已完成首次扫描 → 增量更新
                 scanPreferences.isScanCompleted -> {
                     _isInitialized.value = true
                     performIncrementalScan()
                 }
-                // 数据库有数据但未标记完成（首次扫描中断）→ 标记完成并增量更新
                 else -> {
                     scanPreferences.isScanCompleted = true
                     _isInitialized.value = true
@@ -59,50 +55,48 @@ class ScanViewModel @Inject constructor(
             }
         }
     }
-    
+
     /**
      * 观察扫描状态
      */
     private fun observeScanState() {
         viewModelScope.launch {
-            metadataRepository.getScanState().collect { state ->
+            metadataScanner.scanState.collect { state ->
                 _scanState.value = state
-                
-                // 扫描完成时更新偏好设置
+
                 if (state is MetadataScanner.ScanState.Completed) {
                     scanPreferences.isScanCompleted = true
                     scanPreferences.lastScanTime = System.currentTimeMillis()
-                    scanPreferences.lastMediaCount = state.totalScanned
                     _isInitialized.value = true
                 }
             }
         }
     }
-    
+
     /**
      * 开始扫描
      */
     fun startScan() {
         viewModelScope.launch {
-            metadataRepository.performFullScan()
+            metadataScanner.performFullScan()
         }
     }
-    
+
     /**
      * 执行增量扫描
      */
     fun performIncrementalScan() {
         viewModelScope.launch {
-            metadataRepository.performIncrementalScan()
+            metadataScanner.performIncrementalScan()
         }
     }
-    
+
     /**
      * 强制重新扫描
      */
     fun forceRescan() {
         viewModelScope.launch {
-            metadataRepository.performFullScan()
+            metadataScanner.performFullScan()
         }
     }
 }

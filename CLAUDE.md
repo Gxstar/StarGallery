@@ -24,11 +24,7 @@ StarGallery 是一款 Android 本地图库应用，采用 Kotlin + XML 开发，
   - `model/` - 数据模型 (Photo, Album)
   - `paging/` - PhotoPagingSource
   - `repository/` - MediaRepository
-  - `local/dao/` - Room DAO
-  - `local/database/` - AppDatabase
-  - `local/entity/` - 实体类
   - `local/scanner/` - MetadataScanner 媒体扫描
-  - `local/util/` - ExifExtractor
   - `local/preferences/` - ScanPreferences
 - **`di/`** - Hilt 依赖注入模块
 - **`ui/`** - UI 层：Fragment、ViewModel、适配器
@@ -85,15 +81,8 @@ StarGallery 是一款 Android 本地图库应用，采用 Kotlin + XML 开发，
 | Hilt | 2.59.2 |
 | Media3 (ExoPlayer) | 1.9.1 |
 | ZoomImage | 1.4.0 |
-| Coil | 2.7.0 |
 | PermissionX | 1.7.1 |
 | drag-select-recyclerview | 2.4.0 |
 | LeakCanary | 2.14 |
 | metadata-extractor | 2.20.0 |
 
-## 现代图片格式支持
-
-应用使用双图片加载器架构：
-- **Glide** - 照片网格缩略图
-- **Coil** - 支持 AVIF、HEIC、GIF、HDR 等现代格式
-- **ZoomImage** - 大图查看和缩放（替代已废弃的 SubsamplingScaleImageView）
