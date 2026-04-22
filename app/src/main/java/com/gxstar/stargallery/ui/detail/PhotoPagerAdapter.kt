@@ -1,6 +1,8 @@
 package com.gxstar.stargallery.ui.detail
 
 import android.view.ViewGroup
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import com.gxstar.stargallery.data.model.Photo
@@ -9,6 +11,7 @@ import com.gxstar.stargallery.data.model.Photo
  * ViewPager2 的照片适配器
  */
 class PhotoPagerAdapter(
+    private val lifecycleOwner: LifecycleOwner,
     private val onEdgeSwipe: ((isSwipeRight: Boolean) -> Unit)? = null,
     private val viewPagerSwipeController: ((enabled: Boolean) -> Unit)? = null,
     private val onSingleTap: (() -> Unit)? = null
@@ -80,7 +83,7 @@ class PhotoPagerAdapter(
     
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         viewHolders[position] = holder.viewHolder
-        holder.viewHolder.bind(photos[position])
+        holder.viewHolder.bind(photos[position], lifecycleOwner.lifecycleScope)
     }
     
     override fun onViewRecycled(holder: ViewHolder) {

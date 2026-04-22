@@ -31,6 +31,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.cancelChildren
 import kotlin.math.abs
 
 /**
@@ -134,7 +135,14 @@ class PhotoPageViewHolder(
     private var currentSelectedTags: Set<TagType> = TagType.entries.toSet()
 
     @OptIn(UnstableApi::class)
-    fun bind(photo: Photo) {
+    private var viewHolderScope: CoroutineScope? = null
+
+    fun bind(photo: Photo, scope: CoroutineScope? = null) {
+        // 取消之前的作用域
+        viewHolderScope?.coroutineContext?.cancelChildren()
+        // 使用传入的 scope 或创建新的（用于预览图加载的协程）
+        viewHolderScope = scope
+
         currentPhoto = photo
         binding.progressBar.visibility = View.VISIBLE
 
@@ -198,7 +206,9 @@ class PhotoPageViewHolder(
 
         if (photo.isVideo || photo.isGif) return
 
-        tagLoadingJob = CoroutineScope(Dispatchers.Main).launch {
+        // 使用 ViewHolder 的 scope（如果可用）或创建临时 scope
+        val scope = viewHolderScope ?: CoroutineScope(Dispatchers.Main)
+        tagLoadingJob = scope.launch {
             val newTags = tags.toMutableList()
 
             if (currentSelectedTags.contains(TagType.CAMERA_MAKE)) {
@@ -663,14 +673,21 @@ class PhotoPageViewHolder(
     }
 
     fun recycle() {
+        // 取消所有协程
         tagLoadingJob?.cancel()
         tagLoadingJob = null
+        viewHolderScope?.coroutineContext?.cancelChildren()
+        viewHolderScope = null
+
         currentPhoto = null
         binding.videoView.player = null
         exoPlayer = null
 
         // 重置图片缩放状态
         resetZoom()
+
+        // 清理子采样资源（释放大图解码器）
+        binding.ivPhoto.setSubsamplingImage(null as com.github.panpf.zoomimage.subsampling.ImageSource?)
 
         // 清理 Glide 加载的图片
         Glide.with(binding.root.context).clear(binding.ivPhoto)

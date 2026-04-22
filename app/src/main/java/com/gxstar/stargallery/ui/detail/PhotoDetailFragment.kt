@@ -139,6 +139,7 @@ class PhotoDetailFragment : Fragment() {
 
     private fun setupViewPager() {
         pagerAdapter = PhotoPagerAdapter(
+            lifecycleOwner = this,
             onEdgeSwipe = { canSwipeToSwitch = true },
             viewPagerSwipeController = { canSwipe -> canSwipeToSwitch = canSwipe },
             onSingleTap = { toggleFullscreen() }
