@@ -11,6 +11,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.os.bundleOf
@@ -43,16 +44,16 @@ class PhotoDetailFragment : Fragment() {
 
     private val viewModel: PhotoDetailViewModel by viewModels()
     private lateinit var pagerAdapter: PhotoPagerAdapter
-    
+
     @Inject
     lateinit var mediaRepository: MediaRepository
-    
+
     private var startY = 0f
     private var isDragging = false
-    
+
     // 是否处于全屏模式
     private var isFullscreen = false
-    
+
     // 当前页面是否可以左右滑动切换
     private var canSwipeToSwitch = true
 
@@ -97,14 +98,26 @@ class PhotoDetailFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        setupBackPressedCallback()
         setupWindowInsets()
         setupViewPager()
         setupViews()
         setupSwipeToDismiss()
         observeData()
-        
+
         // 初始状态下应用状态栏图标颜色
         updateSystemBarIcons(!isFullscreen)
+    }
+
+    private fun setupBackPressedCallback() {
+        requireActivity().onBackPressedDispatcher.addCallback(
+            viewLifecycleOwner,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    findNavController().navigateUp()
+                }
+            }
+        )
     }
 
     /**
@@ -130,35 +143,12 @@ class PhotoDetailFragment : Fragment() {
             viewPagerSwipeController = { canSwipe -> canSwipeToSwitch = canSwipe },
             onSingleTap = { toggleFullscreen() }
         )
-        
+
         binding.viewPager.adapter = pagerAdapter
         binding.viewPager.offscreenPageLimit = 1
-        
+
         var lastPosition = -1
-        
-        binding.viewPager.getChildAt(0).setOnTouchListener { v, event ->
-            val currentItem = pagerAdapter.getCurrentViewHolder()
-            val isImageZoomed = currentItem?.isImageZoomed() ?: false
-            
-            when (event.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    if (isImageZoomed) binding.viewPager.requestDisallowInterceptTouchEvent(true)
-                }
-                MotionEvent.ACTION_MOVE -> {
-                    if (isImageZoomed && !canSwipeToSwitch) {
-                        binding.viewPager.requestDisallowInterceptTouchEvent(true)
-                    } else {
-                        binding.viewPager.requestDisallowInterceptTouchEvent(false)
-                    }
-                }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    canSwipeToSwitch = true
-                    binding.viewPager.requestDisallowInterceptTouchEvent(false)
-                }
-            }
-            false
-        }
-        
+
         binding.viewPager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
             override fun onPageSelected(position: Int) {
                 if (lastPosition >= 0 && lastPosition != position) {

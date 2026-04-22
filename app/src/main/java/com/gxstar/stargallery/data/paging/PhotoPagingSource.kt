@@ -23,10 +23,10 @@ class InMemoryPhotoPagingSource(
         return try {
             val position = params.key ?: 0
             val loadSize = params.loadSize
-            
+
             val endPosition = minOf(photos.size, position + loadSize)
             val pagedData = photos.subList(position, endPosition)
-            
+
             LoadResult.Page(
                 data = pagedData,
                 prevKey = if (position == 0) null else maxOf(0, position - loadSize),
@@ -37,4 +37,3 @@ class InMemoryPhotoPagingSource(
         }
     }
 }
-

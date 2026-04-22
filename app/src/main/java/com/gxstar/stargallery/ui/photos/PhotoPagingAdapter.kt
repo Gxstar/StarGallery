@@ -46,15 +46,11 @@ class PhotoPagingAdapter(
     private val onPhotoLongClick: ((Photo) -> Boolean)? = null,
     private val isSelectionModeProvider: () -> Boolean = { false },
     private val isSelectedProvider: (Long) -> Boolean = { false }
-) : PagingDataAdapter<PhotoModel, RecyclerView.ViewHolder>(PHOTO_DIFF_CALLBACK), 
+) : PagingDataAdapter<PhotoModel, RecyclerView.ViewHolder>(PHOTO_DIFF_CALLBACK),
     DragSelectHelper.PhotoProvider, PopupTextProvider {
 
-    // 性能优化：缓存照片数量
     private var cachedPhotoCount = -1
-    // 性能优化：缓存分隔符位置 -> 日期文本
-    private var separatorCache = mutableMapOf<Int, String>()
-    
-    // 排序和分组类型，用于格式化快速滑动时的日期弹出框
+
     private var currentSortType = MediaRepository.SortType.DATE_TAKEN
     private var currentGroupType = GroupType.DAY
 
@@ -78,20 +74,8 @@ class PhotoPagingAdapter(
         currentSortType = sortType
         currentGroupType = groupType
     }
-    
-    /**
-     * 清除缓存（数据刷新时调用）
-     */
-    fun clearCache() {
-        cachedPhotoCount = -1
-        separatorCache.clear()
-    }
-    
-    /**
-     * 数据更新后调用，增量更新缓存
-     */
+
     fun onPagesUpdated() {
-        // 不立即计算，延迟到需要时再计算
         cachedPhotoCount = -1
     }
 
@@ -153,8 +137,6 @@ class PhotoPagingAdapter(
         when {
             holder is HeaderViewHolder && item is PhotoModel.SeparatorItem -> {
                 holder.bind(item.dateText)
-                // 更新分隔符缓存
-                separatorCache[position] = item.dateText
             }
             holder is PhotoViewHolder && item is PhotoModel.PhotoItem ->
                 holder.bind(item.photo)

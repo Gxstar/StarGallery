@@ -31,78 +31,6 @@ class MediaRepository @Inject constructor(
         DATE_ADDED       // 创建时间
     }
 
-    suspend fun getPhotos(page: Int, pageSize: Int = 50, sortType: SortType = SortType.DATE_TAKEN): List<Photo> = withContext(Dispatchers.IO) {
-        val photos = mutableListOf<Photo>()
-        val uri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
-        val projection = arrayOf(
-            MediaStore.Images.Media._ID,
-            MediaStore.Images.Media.DATE_TAKEN,
-            MediaStore.Images.Media.DATE_MODIFIED,
-            MediaStore.Images.Media.DATE_ADDED,
-            MediaStore.Images.Media.MIME_TYPE,
-            MediaStore.Images.Media.WIDTH,
-            MediaStore.Images.Media.HEIGHT,
-            MediaStore.Images.Media.SIZE,
-            MediaStore.Images.Media.BUCKET_ID,
-            MediaStore.Images.Media.BUCKET_DISPLAY_NAME,
-            MediaStore.Images.Media.LATITUDE,
-            MediaStore.Images.Media.LONGITUDE,
-            MediaStore.Images.Media.ORIENTATION,
-            MediaStore.Images.Media.IS_FAVORITE
-        )
-
-        val sortOrder = when (sortType) {
-            SortType.DATE_TAKEN -> "${MediaStore.Images.Media.DATE_TAKEN} DESC"
-            SortType.DATE_ADDED -> "${MediaStore.Images.Media.DATE_ADDED} DESC"
-        }
-        val offset = page * pageSize
-
-        contentResolver.query(uri, projection, null, null, sortOrder)?.use { cursor ->
-            if (offset > 0) {
-                cursor.moveToPosition(offset - 1)
-            }
-            var count = 0
-            while (cursor.moveToNext() && count < pageSize) {
-                photos.add(cursor.toPhoto())
-                count++
-            }
-        }
-        photos
-    }
-
-    suspend fun getAllPhotos(sortType: SortType = SortType.DATE_TAKEN): List<Photo> = withContext(Dispatchers.IO) {
-        val photos = mutableListOf<Photo>()
-        val uri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
-        val projection = arrayOf(
-            MediaStore.Images.Media._ID,
-            MediaStore.Images.Media.DATE_TAKEN,
-            MediaStore.Images.Media.DATE_MODIFIED,
-            MediaStore.Images.Media.DATE_ADDED,
-            MediaStore.Images.Media.MIME_TYPE,
-            MediaStore.Images.Media.WIDTH,
-            MediaStore.Images.Media.HEIGHT,
-            MediaStore.Images.Media.SIZE,
-            MediaStore.Images.Media.BUCKET_ID,
-            MediaStore.Images.Media.BUCKET_DISPLAY_NAME,
-            MediaStore.Images.Media.LATITUDE,
-            MediaStore.Images.Media.LONGITUDE,
-            MediaStore.Images.Media.ORIENTATION,
-            MediaStore.Images.Media.IS_FAVORITE
-        )
-
-        val sortOrder = when (sortType) {
-            SortType.DATE_TAKEN -> "${MediaStore.Images.Media.DATE_TAKEN} DESC"
-            SortType.DATE_ADDED -> "${MediaStore.Images.Media.DATE_ADDED} DESC"
-        }
-
-        contentResolver.query(uri, projection, null, null, sortOrder)?.use { cursor ->
-            while (cursor.moveToNext()) {
-                photos.add(cursor.toPhoto())
-            }
-        }
-        photos
-    }
-
     /**
      * 加载全部媒体（图片+视频）到内存，用于自定义高级排序
      */
@@ -466,7 +394,7 @@ class MediaRepository @Inject constructor(
 
         contentResolver.query(uri, projection, bundle, null)?.use { cursor ->
             while (cursor.moveToNext()) {
-                photos.add(cursor.toTrashedPhoto())
+                photos.add(cursor.toMediaPhoto())
             }
         }
         photos
@@ -506,43 +434,6 @@ class MediaRepository @Inject constructor(
     }
 
     private fun Cursor.toMediaPhoto(): Photo {
-        val id = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns._ID))
-        val mimeType = getString(getColumnIndexOrThrow(MediaStore.Files.FileColumns.MIME_TYPE)) ?: "image/jpeg"
-
-        // 根据MIME_TYPE确定URI类型（图片或视频）
-        val uri: Uri = if (mimeType.startsWith("video/")) {
-            ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id)
-        } else {
-            ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id)
-        }
-
-        val orientationIndex = getColumnIndex(MediaStore.Files.FileColumns.ORIENTATION)
-        val orientation = if (orientationIndex >= 0) getInt(orientationIndex) else 0
-
-        val dateTaken = extractDateTaken()
-        val dateModified = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_MODIFIED))
-        val dateAdded = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_ADDED))
-
-        return Photo(
-            id = id,
-            uri = uri,
-            dateTaken = dateTaken,
-            dateModified = dateModified,
-            dateAdded = dateAdded,
-            mimeType = mimeType,
-            width = getInt(getColumnIndexOrThrow(MediaStore.Files.FileColumns.WIDTH)),
-            height = getInt(getColumnIndexOrThrow(MediaStore.Files.FileColumns.HEIGHT)),
-            size = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns.SIZE)),
-            bucketId = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns.BUCKET_ID)),
-            bucketName = getString(getColumnIndexOrThrow(MediaStore.Files.FileColumns.BUCKET_DISPLAY_NAME)) ?: "Unknown",
-            latitude = null,
-            longitude = null,
-            orientation = orientation,
-            isFavorite = getInt(getColumnIndexOrThrow(MediaStore.Files.FileColumns.IS_FAVORITE)) == 1
-        )
-    }
-
-    private fun Cursor.toTrashedPhoto(): Photo {
         val id = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns._ID))
         val mimeType = getString(getColumnIndexOrThrow(MediaStore.Files.FileColumns.MIME_TYPE)) ?: "image/jpeg"
 

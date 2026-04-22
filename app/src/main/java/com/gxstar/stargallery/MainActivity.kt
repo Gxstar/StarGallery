@@ -113,17 +113,19 @@ class MainActivity : AppCompatActivity() {
             override fun handleOnBackPressed() {
                 val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as? NavHostFragment
                 val currentFragment = navHostFragment?.childFragmentManager?.fragments?.firstOrNull()
-                
-                // 如果当前是 PhotosFragment 且处于选择模式，退出选择模式
-                if (currentFragment is PhotosFragment && currentFragment.onBackPressed()) {
-                    // 已由 Fragment 处理，不再执行默认返回行为
-                    return
+
+                if (currentFragment is PhotosFragment) {
+                    // PhotosFragment 自己的 backPressedCallback 会处理选择模式
+                    // 这里只需委托给系统处理默认返回行为
+                    isEnabled = false
+                    onBackPressedDispatcher.onBackPressed()
+                    isEnabled = true
+                } else {
+                    // 对于其他 Fragment，委托给系统处理（返回）
+                    isEnabled = false
+                    onBackPressedDispatcher.onBackPressed()
+                    isEnabled = true
                 }
-                
-                // 否则执行默认返回行为
-                isEnabled = false
-                onBackPressedDispatcher.onBackPressed()
-                isEnabled = true
             }
         })
     }

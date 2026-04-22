@@ -11,6 +11,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.PopupMenu
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.setFragmentResultListener
 import androidx.fragment.app.viewModels
@@ -83,9 +84,16 @@ class PhotosFragment : Fragment() {
     private var isSelectionModeProvider: () -> Boolean = { false }
     private var isSelectedProvider: (Long) -> Boolean = { false }
 
+    private val backPressedCallback = object : OnBackPressedCallback(false) {
+        override fun handleOnBackPressed() {
+            selectionManager.exitSelectionMode()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         intentSenderManager = IntentSenderManager(this)
+        requireActivity().onBackPressedDispatcher.addCallback(this, backPressedCallback)
         setupSettings()
         initAdapter()
         initManagers()
@@ -295,21 +303,13 @@ class PhotosFragment : Fragment() {
     }
 
     private fun handleShareAction() {
-        val photos = getSelectedPhotos()
-        if (photos.isEmpty()) {
-            Toast.makeText(requireContext(), R.string.no_photos_selected, Toast.LENGTH_SHORT).show()
-            return
-        }
+        val photos = getSelectedPhotosOrShowToast() ?: return
         batchActionHandler.sharePhotos(photos)
         selectionManager.exitSelectionMode()
     }
 
     private fun handleFavoriteAction() {
-        val photos = getSelectedPhotos()
-        if (photos.isEmpty()) {
-            Toast.makeText(requireContext(), R.string.no_photos_selected, Toast.LENGTH_SHORT).show()
-            return
-        }
+        val photos = getSelectedPhotosOrShowToast() ?: return
 
         pendingFavoriteAction = calculateFavoriteAction(photos)
         val selectedIds = photos.map { it.id }.toSet()
@@ -341,11 +341,7 @@ class PhotosFragment : Fragment() {
     }
 
     private fun handleDeleteAction() {
-        val photos = getSelectedPhotos()
-        if (photos.isEmpty()) {
-            Toast.makeText(requireContext(), R.string.no_photos_selected, Toast.LENGTH_SHORT).show()
-            return
-        }
+        val photos = getSelectedPhotosOrShowToast() ?: return
 
         val selectedIds = photos.map { it.id }.toSet()
 
@@ -386,6 +382,15 @@ class PhotosFragment : Fragment() {
     private fun getSelectedPhotos(): List<Photo> {
         val selectedIds = selectionManager.selectedPhotoIds
         return selectedIds.mapNotNull { id -> findPhotoById(id) }
+    }
+
+    private fun getSelectedPhotosOrShowToast(): List<Photo>? {
+        val photos = getSelectedPhotos()
+        if (photos.isEmpty()) {
+            Toast.makeText(requireContext(), R.string.no_photos_selected, Toast.LENGTH_SHORT).show()
+            return null
+        }
+        return photos
     }
 
     private fun findPhotoById(id: Long): Photo? {
@@ -458,6 +463,7 @@ class PhotosFragment : Fragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 selectionManager.isSelectionMode.collect { isSelectionMode ->
+                    backPressedCallback.isEnabled = isSelectionMode
                     if (isSelectionMode) {
                         binding.normalToolbar.visibility = View.GONE
                         binding.selectionToolbar.visibility = View.VISIBLE
@@ -750,15 +756,6 @@ class PhotosFragment : Fragment() {
     private fun navigateToAbout() {
         val action = PhotosFragmentDirections.actionPhotosFragmentToAboutFragment()
         findNavController().navigate(action)
-    }
-
-    fun onBackPressed(): Boolean {
-        return if (selectionManager.isSelectionMode.value) {
-            selectionManager.exitSelectionMode()
-            true
-        } else {
-            false
-        }
     }
 
     override fun onResume() {

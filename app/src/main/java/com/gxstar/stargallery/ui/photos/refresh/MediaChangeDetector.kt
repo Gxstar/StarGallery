@@ -121,14 +121,6 @@ class MediaChangeDetector(
     }
 
     /**
-     * 重置检测状态（用于手动刷新后）
-     * ContentObserver 模式下无需重置，保留此方法以兼容现有调用
-     */
-    fun reset() {
-        // ContentObserver 模式下无需额外操作
-    }
-
-    /**
      * ContentObserver 内部类
      */
     private inner class MediaContentObserver : ContentObserver(Handler(Looper.getMainLooper())) {

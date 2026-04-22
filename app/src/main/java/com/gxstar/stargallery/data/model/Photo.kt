@@ -75,4 +75,17 @@ data class Photo(
      */
     val isUltraHdr: Boolean
         get() = mimeType == "image/jpeg" || mimeType == "image/jpg"
+
+    /**
+     * 标准化的时间戳（毫秒）
+     * dateTaken 可能为 0，此时 fallback 到 dateModified 或 dateAdded（秒级转毫秒）
+     * 用于排序和显示
+     */
+    val normalizedDateTaken: Long
+        get() = when {
+            dateTaken > 0 -> dateTaken
+            dateModified > 0 -> dateModified * 1000L
+            dateAdded > 0 -> dateAdded * 1000L
+            else -> System.currentTimeMillis()
+        }
 }
