@@ -22,6 +22,7 @@ import com.drew.imaging.ImageMetadataReader
 import com.drew.metadata.exif.ExifIFD0Directory
 import com.drew.metadata.exif.makernotes.PanasonicMakernoteDirectory
 import com.github.panpf.zoomimage.ZoomImageView
+import com.github.panpf.zoomimage.subsampling.ContentImageSource
 import com.gxstar.stargallery.R
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.databinding.ItemPhotoPageBinding
@@ -440,56 +441,107 @@ class PhotoPageViewHolder(
 
     /**
      * 使用 ZoomImageView 加载所有图片格式
-     * ZoomImageView 支持子采样，无需区分格式
-     * 同时检测并支持 Ultra HDR、HEIF HDR、AVIF HDR (Android 14+)
      * 
-     * 对于 HEIF/AVIF HDR 图片，使用 RGBA_F16 格式保留高位深信息
+     * 优化策略：
+     * 1. 小图（< 2000px）：直接用 Glide 加载原图，无需子采样
+     * 2. 大图（>= 2000px）：先用 Glide 加载缩略图预览，再启用子采样加载高清区域
+     * 3. 保持原始宽高比，不裁剪
+     * 4. 支持 HDR 图片
      */
     private fun loadImage(photo: Photo) {
         setMediaVisibility(photo = true)
+        binding.progressBar.visibility = View.VISIBLE
 
-        // 判断是否可能是 HDR 格式（HEIF/AVIF/Ultra HDR）
+        val context = binding.root.context
         val isPotentialHdr = photo.isHeic || photo.isAvif || photo.isUltraHdr
+        val maxDimension = maxOf(photo.width, photo.height)
 
-        // 构建 Glide 请求
+        // 判断是否需要子采样：大图或 RAW 格式启用子采样
+        val needSubsampling = maxDimension >= 2000 || photo.isRaw
+
+        if (!needSubsampling) {
+            // 小图直接加载原图
+            loadFullImage(photo, isPotentialHdr)
+        } else {
+            // 大图使用子采样策略
+            loadWithSubsampling(photo, isPotentialHdr)
+        }
+    }
+
+    /**
+     * 直接加载完整图片（适用于小图）
+     */
+    private fun loadFullImage(photo: Photo, isPotentialHdr: Boolean) {
         val requestBuilder = Glide.with(binding.root.context)
-            .asBitmap()
             .load(photo.uri)
             .placeholder(android.R.color.black)
             .error(android.R.color.darker_gray)
+            .fitCenter()
 
-        // 如果是潜在的 HDR 图片，使用 RGBA_F16 格式以保留高位深信息
         if (isPotentialHdr && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             requestBuilder.apply(
                 RequestOptions()
                     .format(DecodeFormat.PREFER_ARGB_8888)
-                    .encodeFormat(Bitmap.CompressFormat.PNG) // 无损格式保留更多信息
                     .diskCacheStrategy(DiskCacheStrategy.ALL)
             )
         }
 
-        requestBuilder.into(object : CustomTarget<Bitmap>() {
-            override fun onResourceReady(
-                resource: Bitmap,
-                transition: Transition<in Bitmap>?
-            ) {
-                binding.ivPhoto.setImageBitmap(resource)
-                binding.progressBar.visibility = View.GONE
-                updateEdgeState()
+        requestBuilder.into(binding.ivPhoto)
+        binding.progressBar.visibility = View.GONE
+    }
 
-                // 检测并设置 HDR 模式 (Android 14+)
-                setupHdrMode(resource)
-            }
+    /**
+     * 使用子采样加载大图
+     * 先显示缩略图，再启用子采样加载高清区域
+     */
+    private fun loadWithSubsampling(photo: Photo, isPotentialHdr: Boolean) {
+        val context = binding.root.context
 
-            override fun onLoadCleared(placeholder: android.graphics.drawable.Drawable?) {
-                binding.ivPhoto.setImageDrawable(placeholder)
-            }
+        // 第一步：加载缩略图作为预览
+        Glide.with(context)
+            .asBitmap()
+            .load(photo.uri)
+            .placeholder(android.R.color.black)
+            .override(1200) // 只指定一边，Glide 会自动保持比例
+            .fitCenter()
+            .diskCacheStrategy(DiskCacheStrategy.RESOURCE)
+            .into(object : CustomTarget<Bitmap>() {
+                override fun onResourceReady(
+                    resource: Bitmap,
+                    transition: Transition<in Bitmap>?
+                ) {
+                    // 显示缩略图
+                    binding.ivPhoto.setImageBitmap(resource)
+                    binding.progressBar.visibility = View.GONE
+                    updateEdgeState()
+                    setupHdrMode(resource)
 
-            override fun onLoadFailed(errorDrawable: android.graphics.drawable.Drawable?) {
-                binding.ivPhoto.setImageDrawable(errorDrawable)
-                binding.progressBar.visibility = View.GONE
-            }
-        })
+                    // 启用子采样
+                    enableSubsampling(photo)
+                }
+
+                override fun onLoadCleared(placeholder: android.graphics.drawable.Drawable?) {
+                    binding.ivPhoto.setImageDrawable(placeholder)
+                }
+
+                override fun onLoadFailed(errorDrawable: android.graphics.drawable.Drawable?) {
+                    binding.ivPhoto.setImageDrawable(errorDrawable)
+                    binding.progressBar.visibility = View.GONE
+                }
+            })
+    }
+
+    /**
+     * 启用子采样功能
+     * ZoomImage 会自动根据缩放级别只加载可视区域的图片块(tiles)
+     */
+    private fun enableSubsampling(photo: Photo) {
+        try {
+            val imageSource = ContentImageSource(binding.root.context, photo.uri)
+            binding.ivPhoto.setSubsamplingImage(imageSource)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     /**

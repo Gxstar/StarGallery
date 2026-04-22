@@ -11,7 +11,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
-        <!-- Image Viewer - ZoomImageView for all image formats -->
+        <!-- Image Viewer - ZoomImageView 支持子采样，优化大图加载 -->
         <com.github.panpf.zoomimage.ZoomImageView
             android:id="@+id/ivPhoto"
             android:layout_width="match_parent"

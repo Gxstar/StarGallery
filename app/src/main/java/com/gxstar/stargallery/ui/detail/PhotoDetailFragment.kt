@@ -145,7 +145,9 @@ class PhotoDetailFragment : Fragment() {
         )
 
         binding.viewPager.adapter = pagerAdapter
-        binding.viewPager.offscreenPageLimit = 1
+        // 增加预加载页数，让滑动更流畅
+        // 预加载左右各 2 页，平衡内存占用与滑动体验
+        binding.viewPager.offscreenPageLimit = 2
 
         var lastPosition = -1
 
