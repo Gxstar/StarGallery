@@ -39,6 +39,11 @@ StarGallery 是一款 Android 本地图库应用，采用 Kotlin + XML 开发，
 - **PhotoSelectionManager** - 管理拖动选择的状态
 - **IntentSenderManager** - 处理 MediaStore IntentSender 流程（收藏/删除/移入回收站）
 
+### IntentSender 回调流程
+1. ViewModel/Fragment 调用 Repository 方法获取 `IntentSender?`
+2. 调用 `Activity.startIntentSenderForResult()` 并设置 `IntentSenderCallback`
+3. 用户确认后系统回调 `onActivityResult()`，通知 ViewModel/Fragment 刷新数据
+
 ### 导航 (SafeArgs)
 - `photosFragment` (起始页) → `photoDetailFragment`
 - `albumsFragment` → `albumDetailFragment` → `photoDetailFragment`

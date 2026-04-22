@@ -21,7 +21,8 @@
       "WebFetch(domain:github.com)",
       "Bash(./gradlew.bat assembleDebug --no-daemon)",
       "WebFetch(domain:developer.android.google.cn)",
-      "Bash(./gradlew.bat assembleDebug --refresh-dependencies)"
+      "Bash(./gradlew.bat assembleDebug --refresh-dependencies)",
+      "Bash(./gradlew.bat compileDebugKotlin)"
     ]
   }
 }

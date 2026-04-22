@@ -56,12 +56,17 @@ class PhotoDetailViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    // 用户是否已经手动滑动过位置（用于防止后台加载完成后重置位置）
+    private var _userHasMovedPosition = false
+
     init {
+        // 立即显示初始照片，不等待全部加载
         initialPhoto?.let { photo ->
             _currentPhoto.value = photo
             _photos.value = listOf(photo)
             updateDateInfo(photo)
         }
+        // 后台渐进加载所有照片，加载完成后自动刷新列表
         loadPhotosInBackground()
     }
 
@@ -74,11 +79,14 @@ class PhotoDetailViewModel @Inject constructor(
             }
 
             if (allPhotos.isNotEmpty()) {
+                val initialPos = allPhotos.indexOfFirst { it.id == initialPhotoId }.takeIf { it >= 0 } ?: 0
+                // 仅在用户未主动滑动过的情况下才更新位置，否则保持用户在详情页的手动滑动位置
                 _photos.value = allPhotos
-                val initialPosition = allPhotos.indexOfFirst { it.id == initialPhotoId }.takeIf { it >= 0 } ?: 0
-                _currentPosition.value = initialPosition
-                _currentPhoto.value = allPhotos[initialPosition]
-                updateDateInfo(allPhotos[initialPosition])
+                if (!_userHasMovedPosition) {
+                    _currentPosition.value = initialPos
+                    _currentPhoto.value = allPhotos[initialPos]
+                    updateDateInfo(allPhotos[initialPos])
+                }
             }
             _isLoading.value = false
         }
@@ -90,6 +98,7 @@ class PhotoDetailViewModel @Inject constructor(
     fun setPosition(position: Int) {
         val photoList = _photos.value
         if (position in photoList.indices) {
+            _userHasMovedPosition = true
             _currentPosition.value = position
             val photo = photoList[position]
             _currentPhoto.value = photo
