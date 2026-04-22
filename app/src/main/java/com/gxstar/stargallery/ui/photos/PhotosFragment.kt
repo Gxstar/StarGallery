@@ -506,8 +506,12 @@ class PhotosFragment : Fragment() {
         com.permissionx.guolindev.PermissionX.init(this)
             .permissions(*permissions)
             .request { allGranted, _, _ ->
-                if (allGranted && photoAdapter.itemCount == 0) {
-                    refreshData()
+                if (allGranted) {
+                    // 权限获取后重新加载照片数量（解决初次显示为0的问题）
+                    viewModel.loadCounts()
+                    if (photoAdapter.itemCount == 0) {
+                        refreshData()
+                    }
                 }
             }
     }
