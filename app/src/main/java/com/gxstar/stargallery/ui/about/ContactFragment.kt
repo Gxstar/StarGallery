@@ -45,9 +45,9 @@ class ContactFragment : Fragment() {
         }
 
         // 应用内反馈
-        binding.btnFeedback.setOnClickListener {
-            // TODO: 实现应用内反馈功能
-        }
+        // binding.btnFeedback.setOnClickListener {
+        //     // TODO: 实现应用内反馈功能
+        // }
     }
 
     override fun onDestroyView() {

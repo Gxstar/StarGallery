@@ -90,52 +90,7 @@
                     app:tint="@color/text_secondary"/>
             </LinearLayout>
 
-            <!-- 应用内反馈 -->
-            <LinearLayout
-                android:id="@+id/btnFeedback"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:background="@drawable/bg_card"
-                android:padding="16dp"
-                android:layout_marginTop="12dp"
-                android:foreground="?attr/selectableItemBackground">
-
-                <ImageView
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
-                    android:src="@drawable/ic_feedback"
-                    app:tint="@color/primary"/>
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical"
-                    android:layout_marginStart="16dp">
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/contact_feedback_title"
-                        android:textSize="16sp"
-                        android:textColor="@color/text_primary"
-                        android:fontFamily="sans-serif-medium"/>
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/contact_feedback_desc"
-                        android:textSize="13sp"
-                        android:textColor="@color/text_secondary"
-                        android:layout_marginTop="2dp"/>
-                </LinearLayout>
-
-                <ImageView
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:src="@drawable/ic_arrow_right"
-                    app:tint="@color/text_secondary"/>
-            </LinearLayout>
+            
 
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
