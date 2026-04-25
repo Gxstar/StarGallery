@@ -117,6 +117,13 @@ class PhotoSelectionManager(
     
     fun isSelected(id: Long) = tracker?.isSelected(id) ?: false
     fun getTracker() = tracker
+    
+    fun clear() {
+        dragCtrl?.let { recyclerView.removeOnItemTouchListener(it) }
+        tracker?.clearSelection()
+        dragCtrl = null
+        tracker = null
+    }
 }
 
 @SuppressLint("ClickableViewAccessibility")

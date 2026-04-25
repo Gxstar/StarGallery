@@ -821,7 +821,7 @@ class PhotosFragment : Fragment() {
     private fun dpToPx(dp: Int): Int = (dp * resources.displayMetrics.density).toInt()
 
     override fun onDestroyView() {
-        // SelectionTracker 不需要手动清理
+        selectionManager.clear()
         binding.rvPhotos.adapter = null
         binding.rvPhotos.layoutManager = null
         gridLayoutManager.spanSizeLookup = null
