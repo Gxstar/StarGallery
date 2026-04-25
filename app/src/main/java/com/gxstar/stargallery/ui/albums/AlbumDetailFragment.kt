@@ -4,7 +4,6 @@ import android.content.res.Configuration
 import android.Manifest
 import android.app.Activity
 import android.content.Intent
-import android.content.IntentSender
 import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Build
@@ -24,10 +23,9 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import androidx.paging.LoadState
+import androidx.recyclerview.selection.SelectionTracker
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.afollestad.dragselectrecyclerview.DragSelectReceiver
-import com.afollestad.dragselectrecyclerview.DragSelectTouchListener
 import com.bumptech.glide.Glide
 import com.bumptech.glide.integration.recyclerview.RecyclerViewPreloader
 import com.bumptech.glide.util.ViewPreloadSizeProvider
@@ -42,6 +40,8 @@ import com.gxstar.stargallery.ui.photos.GroupType
 import com.gxstar.stargallery.ui.photos.PhotoModel
 import com.gxstar.stargallery.ui.photos.PhotoPagingAdapter
 import com.gxstar.stargallery.ui.photos.PhotoPreloadModelProvider
+import com.gxstar.stargallery.ui.photos.selection.PhotoItemKeyProvider
+import com.gxstar.stargallery.ui.photos.selection.PhotoItemDetailsLookup
 import com.permissionx.guolindev.PermissionX
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Job
@@ -52,7 +52,7 @@ import me.zhanghai.android.fastscroll.FastScrollerBuilder
 import javax.inject.Inject
 
 @AndroidEntryPoint
-class AlbumDetailFragment : Fragment(), DragSelectReceiver {
+class AlbumDetailFragment : Fragment() {
 
     private var _binding: FragmentPhotosBinding? = null
     private val binding get() = _binding!!
@@ -62,7 +62,7 @@ class AlbumDetailFragment : Fragment(), DragSelectReceiver {
 
     private lateinit var photoAdapter: PhotoPagingAdapter
     private lateinit var gridLayoutManager: GridLayoutManager
-    private lateinit var dragSelectTouchListener: DragSelectTouchListener
+    private var selectionTracker: SelectionTracker<Long>? = null
 
     private var pagingDataJob: Job? = null
 
@@ -74,9 +74,6 @@ class AlbumDetailFragment : Fragment(), DragSelectReceiver {
 
     private var currentSpanCount = 4
     private var itemSize = 0
-
-    private val selectedPhotoIds = mutableSetOf<Long>()
-    private val photoIdToPosition = mutableMapOf<Long, Int>()
 
     private var isSelectionMode = false
 
@@ -207,10 +204,11 @@ class AlbumDetailFragment : Fragment(), DragSelectReceiver {
     }
 
     private fun shareSelectedPhotos() {
-        if (selectedPhotoIds.isEmpty()) return
+        val selectedIds = selectionTracker?.selection?.toSet() ?: emptySet()
+        if (selectedIds.isEmpty()) return
 
         val uris = ArrayList<Uri>()
-        selectedPhotoIds.forEach { id ->
+        selectedIds.forEach { id ->
             findPhotoById(id)?.uri?.let { uris.add(it) }
         }
 
@@ -226,12 +224,13 @@ class AlbumDetailFragment : Fragment(), DragSelectReceiver {
     }
 
     private fun favoriteSelectedPhotos() {
-        if (selectedPhotoIds.isEmpty()) return
+        val selectedIds = selectionTracker?.selection?.toSet() ?: emptySet()
+        if (selectedIds.isEmpty()) return
 
         val photosToFavorite = mutableListOf<Photo>()
         val photosToUnfavorite = mutableListOf<Photo>()
 
-        selectedPhotoIds.forEach { id ->
+        selectedIds.forEach { id ->
             findPhotoById(id)?.let { photo ->
                 if (photo.isFavorite) photosToUnfavorite.add(photo)
                 else photosToFavorite.add(photo)
@@ -280,10 +279,11 @@ class AlbumDetailFragment : Fragment(), DragSelectReceiver {
     }
 
     private fun deleteSelectedPhotos() {
-        if (selectedPhotoIds.isEmpty()) return
+        val selectedIds = selectionTracker?.selection?.toSet() ?: emptySet()
+        if (selectedIds.isEmpty()) return
 
         val photos = mutableListOf<Photo>()
-        selectedPhotoIds.forEach { id ->
+        selectedIds.forEach { id ->
             findPhotoById(id)?.let { photos.add(it) }
         }
 
@@ -311,150 +311,25 @@ class AlbumDetailFragment : Fragment(), DragSelectReceiver {
     }
 
     private fun deletePermanently(photos: List<Photo>) {
-        mediaRepository.deletePhotos(photos)?.let { intentSender ->
-            try {
-                deleteRequestLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
-            } catch (e: Exception) {
-                e.printStackTrace()
-                Toast.makeText(requireContext(), R.string.delete_failed, Toast.LENGTH_SHORT).show()
-                exitSelectionMode()
-            }
-        } ?: run {
-            Toast.makeText(requireContext(), R.string.delete_failed, Toast.LENGTH_SHORT).show()
-            exitSelectionMode()
-        }
-    }
-
-    private fun findPhotoById(id: Long): Photo? {
-        for (i in 0 until photoAdapter.itemCount) {
-            photoAdapter.getPhoto(i)?.let { if (it.id == id) return it }
-        }
-        return null
-    }
-
-    private fun showPopupMenu(view: View) {
-        val popupMenu = PopupMenu(requireContext(), view)
-        popupMenu.menuInflater.inflate(R.menu.menu_photos, popupMenu.menu)
-
-        // 隐藏不需要的菜单项
-        popupMenu.menu.findItem(R.id.action_trash)?.isVisible = false
-
-        val selectItem = popupMenu.menu.findItem(R.id.action_select)
-        selectItem?.title = if (isSelectionMode) getString(R.string.cancel_select) else getString(R.string.select)
-
-        popupMenu.setOnMenuItemClickListener { menuItem ->
-            when (menuItem.itemId) {
-                R.id.action_select -> {
-                    if (isSelectionMode) exitSelectionMode() else enterSelectionMode()
-                    true
-                }
-                R.id.action_sort -> { showSortDialog(); true }
-                R.id.action_group -> { showGroupDialog(); true }
-                R.id.action_columns -> { showColumnsDialog(); true }
-                else -> false
-            }
-        }
-        popupMenu.show()
-    }
-
-    private fun showSortDialog() {
-        val currentSortType = viewModel.currentSortType.value
-        val options = arrayOf(getString(R.string.sort_by_date_taken), getString(R.string.sort_by_date_added))
-        val checkedItem = when (currentSortType) {
-            MediaRepository.SortType.DATE_TAKEN -> 0
-            MediaRepository.SortType.DATE_ADDED -> 1
-        }
-
         MaterialAlertDialogBuilder(requireContext())
-            .setTitle(R.string.select_sort)
-            .setSingleChoiceItems(options, checkedItem) { dialog, which ->
-                val newSortType = when (which) {
-                    0 -> MediaRepository.SortType.DATE_TAKEN
-                    1 -> MediaRepository.SortType.DATE_ADDED
-                    else -> MediaRepository.SortType.DATE_TAKEN
+            .setTitle(R.string.delete_permanently_confirm_title)
+            .setMessage(getString(R.string.delete_permanently_confirm_message, photos.size))
+            .setPositiveButton(R.string.delete_permanently) { _, _ ->
+                mediaRepository.deletePhotos(photos)?.let { intentSender ->
+                    try {
+                        deleteRequestLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                        Toast.makeText(requireContext(), R.string.delete_failed, Toast.LENGTH_SHORT).show()
+                        exitSelectionMode()
+                    }
+                } ?: run {
+                    Toast.makeText(requireContext(), R.string.delete_failed, Toast.LENGTH_SHORT).show()
+                    exitSelectionMode()
                 }
-                saveSortType(newSortType)
-                viewModel.setSortType(newSortType)
-                dialog.dismiss()
             }
             .setNegativeButton(R.string.cancel, null)
             .show()
-    }
-
-    private fun showGroupDialog() {
-        val currentGroupType = viewModel.currentGroupType.value
-        val options = arrayOf(getString(R.string.group_by_day), getString(R.string.group_by_month), getString(R.string.group_by_year))
-        val checkedItem = when (currentGroupType) {
-            GroupType.DAY -> 0
-            GroupType.MONTH -> 1
-            GroupType.YEAR -> 2
-        }
-
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle(R.string.select_group)
-            .setSingleChoiceItems(options, checkedItem) { dialog, which ->
-                val newGroupType = when (which) {
-                    0 -> GroupType.DAY
-                    1 -> GroupType.MONTH
-                    2 -> GroupType.YEAR
-                    else -> GroupType.DAY
-                }
-                saveGroupType(newGroupType)
-                viewModel.setGroupType(newGroupType)
-                dialog.dismiss()
-            }
-            .setNegativeButton(R.string.cancel, null)
-            .show()
-    }
-
-    private fun showColumnsDialog() {
-        val options = arrayOf("3", "4", "5", "6", "7", "8")
-        val checkedItem = currentSpanCount - 3 // 3列对应索引0，4列对应索引1，以此类推
-
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle(R.string.select_columns)
-            .setSingleChoiceItems(options, checkedItem) { dialog, which ->
-                val newSpan = which + 3 // 索引0对应3列，索引1对应4列，以此类推
-                if (newSpan != currentSpanCount) {
-                    updateSpanCount(newSpan)
-                }
-                dialog.dismiss()
-            }
-            .setNegativeButton(R.string.cancel, null)
-            .show()
-    }
-    
-    /**
-     * 更新列数（丝滑切换，不重建 RecyclerView）
-     */
-    private fun updateSpanCount(newSpanCount: Int) {
-        // 保存新的列数
-        sharedPreferences.edit().putInt(KEY_SPAN_COUNT, newSpanCount).apply()
-        currentSpanCount = newSpanCount
-        
-        // 重新计算图片大小
-        calculateItemSize()
-        
-        // 更新 LayoutManager 的列数
-        gridLayoutManager.spanCount = newSpanCount
-        
-        // 更新适配器配置
-        photoAdapter.updateConfig(itemSize, newSpanCount)
-        
-        // 更新 ItemDecoration（需要移除旧的再添加新的）
-        while (binding.rvPhotos.itemDecorationCount > 0) {
-            binding.rvPhotos.removeItemDecorationAt(0)
-        }
-        binding.rvPhotos.addItemDecoration(GridSpacingItemDecoration(newSpanCount, dpToPx(2), true))
-    }
-
-    private fun enterSelectionMode() {
-        isSelectionMode = true
-        selectedPhotoIds.clear()
-        binding.normalToolbar.visibility = View.GONE
-        binding.selectionToolbar.visibility = View.VISIBLE
-        binding.tvSelectionCount.text = getString(R.string.selected, 0)
-        refreshVisibleItems()
     }
 
     fun onBackPressed(): Boolean {
@@ -466,10 +341,17 @@ class AlbumDetailFragment : Fragment(), DragSelectReceiver {
         }
     }
 
+    private fun enterSelectionMode() {
+        isSelectionMode = true
+        binding.normalToolbar.visibility = View.GONE
+        binding.selectionToolbar.visibility = View.VISIBLE
+        binding.tvSelectionCount.text = getString(R.string.selected, 0)
+        refreshVisibleItems()
+    }
+
     private fun exitSelectionMode() {
         isSelectionMode = false
-        selectedPhotoIds.clear()
-        dragSelectTouchListener.setIsActive(false, -1)
+        selectionTracker?.clearSelection()
         binding.normalToolbar.visibility = View.VISIBLE
         binding.selectionToolbar.visibility = View.GONE
         refreshVisibleItems()
@@ -483,63 +365,53 @@ class AlbumDetailFragment : Fragment(), DragSelectReceiver {
         }
     }
 
-    private fun togglePhotoSelection(photo: Photo) {
-        val position = photoIdToPosition[photo.id] ?: return
-        if (selectedPhotoIds.contains(photo.id)) selectedPhotoIds.remove(photo.id)
-        else selectedPhotoIds.add(photo.id)
-        photoAdapter.notifyItemChanged(position)
-        updateSelectionUI()
-    }
-
-    private fun updateSelectionUI() {
-        if (selectedPhotoIds.isEmpty()) exitSelectionMode()
-        else binding.tvSelectionCount.text = getString(R.string.selected, selectedPhotoIds.size)
+    private fun togglePhotoSelection(photoId: Long) {
+        selectionTracker?.let {
+            if (it.isSelected(photoId)) {
+                it.deselect(photoId)
+            } else {
+                it.select(photoId)
+            }
+        }
     }
 
     private fun startDragSelection(position: Int) {
         if (!isSelectionMode) enterSelectionMode()
-        photoAdapter.getPhoto(position)?.let { photo ->
-            if (!selectedPhotoIds.contains(photo.id)) {
-                selectedPhotoIds.add(photo.id)
-                photoAdapter.notifyItemChanged(position)
-                updateSelectionUI()
-            }
-        }
-        dragSelectTouchListener.setIsActive(true, position)
-    }
 
-    // ========== DragSelectReceiver ==========
-    override fun setSelected(index: Int, selected: Boolean) {
-        photoAdapter.getPhoto(index)?.let { photo ->
-            val wasSelected = selectedPhotoIds.contains(photo.id)
-            if (selected && !wasSelected) {
-                selectedPhotoIds.add(photo.id)
-                photoAdapter.notifyItemChanged(index)
-            } else if (!selected && wasSelected) {
-                selectedPhotoIds.remove(photo.id)
-                photoAdapter.notifyItemChanged(index)
-            }
-            updateSelectionUI()
+        val key = photoAdapter.getPhotoKey(position)
+        if (key != RecyclerView.NO_ID && selectionTracker?.isSelected(key) == false) {
+            selectionTracker?.select(key)
         }
     }
 
-    override fun isSelected(index: Int): Boolean = photoAdapter.getPhoto(index)?.let { selectedPhotoIds.contains(it.id) } ?: false
-    override fun isIndexSelectable(index: Int): Boolean = index >= 0 && index < photoAdapter.itemCount && photoAdapter.getPhoto(index) != null
-    override fun getItemCount(): Int = photoAdapter.itemCount
+    private fun findPhotoById(id: Long): Photo? {
+        val snapshot = photoAdapter.snapshot()
+        for (i in 0 until snapshot.size) {
+            val item = snapshot[i]
+            if (item is PhotoModel.PhotoItem && item.photo.id == id) {
+                return item.photo
+            }
+        }
+        return null
+    }
 
     private fun setupRecyclerView() {
         photoAdapter = PhotoPagingAdapter(
             itemSize = itemSize,
             spanCount = currentSpanCount,
             onPhotoClick = { photo ->
-                if (isSelectionMode) togglePhotoSelection(photo)
+                if (isSelectionMode) togglePhotoSelection(photo.id)
                 else navigateToDetail(photo)
             },
             onPhotoLongClick = { photo ->
-                photoIdToPosition[photo.id]?.let { startDragSelection(it); true } ?: false
+                val position = findPhotoPosition(photo.id)
+                if (position != RecyclerView.NO_POSITION) {
+                    startDragSelection(position)
+                    true
+                } else false
             },
             isSelectionModeProvider = { isSelectionMode },
-            isSelectedProvider = { id -> selectedPhotoIds.contains(id) }
+            isSelectedProvider = { id -> selectionTracker?.isSelected(id) ?: false }
         )
 
         gridLayoutManager = GridLayoutManager(requireContext(), currentSpanCount)
@@ -551,18 +423,42 @@ class AlbumDetailFragment : Fragment(), DragSelectReceiver {
             isSpanIndexCacheEnabled = true
         }
 
-        dragSelectTouchListener = DragSelectTouchListener.create(requireContext(), this) {
-            hotspotHeight = dpToPx(56)
-        }
-
         binding.rvPhotos.layoutManager = gridLayoutManager
         binding.rvPhotos.adapter = photoAdapter
         binding.rvPhotos.addItemDecoration(GridSpacingItemDecoration(currentSpanCount, dpToPx(2), true))
-        binding.rvPhotos.addOnItemTouchListener(dragSelectTouchListener)
-
         binding.rvPhotos.setHasFixedSize(true)
         binding.rvPhotos.setItemViewCacheSize(24)
         binding.rvPhotos.isNestedScrollingEnabled = false
+
+        // 初始化 SelectionTracker
+        selectionTracker = SelectionTracker.Builder(
+            "album-detail-selection",
+            binding.rvPhotos,
+            PhotoItemKeyProvider(photoAdapter),
+            PhotoItemDetailsLookup(binding.rvPhotos),
+            androidx.recyclerview.selection.StorageStrategy.createLongStorage()
+        ).withSelectionPredicate(
+            object : SelectionTracker.SelectionPredicate<Long>() {
+                override fun canSetStateForKey(key: Long, nextState: Boolean): Boolean = true
+                override fun canSetStateAtPosition(position: Int, nextState: Boolean): Boolean = true
+                override fun canSelectMultiple(): Boolean = true
+            }
+        ).build().apply {
+            addObserver(object : SelectionTracker.SelectionObserver<Long>() {
+                override fun onSelectionChanged() {
+                    val count = selection?.size() ?: 0
+                    if (count == 0 && isSelectionMode) {
+                        exitSelectionMode()
+                    } else if (count > 0 && !isSelectionMode) {
+                        enterSelectionMode()
+                    }
+                    if (isSelectionMode) {
+                        binding.tvSelectionCount.text = getString(R.string.selected, count)
+                    }
+                    refreshVisibleItems()
+                }
+            })
+        }
 
         val glideRequest = Glide.with(this)
         val preloadSizeProvider = ViewPreloadSizeProvider<Uri>()
@@ -575,7 +471,7 @@ class AlbumDetailFragment : Fragment(), DragSelectReceiver {
         binding.rvPhotos.addOnScrollListener(preloader)
 
         photoAdapter.addOnPagesUpdatedListener {
-            updatePositionMap()
+            // Paging 数据更新时不需要额外操作
         }
 
         val thumbDrawable = requireContext().getDrawable(R.drawable.fastscroll_thumb_material)!!
@@ -593,10 +489,15 @@ class AlbumDetailFragment : Fragment(), DragSelectReceiver {
             .build()
     }
 
-    private fun updatePositionMap() {
-        for (i in 0 until photoAdapter.itemCount) {
-            photoAdapter.getPhoto(i)?.let { photoIdToPosition[it.id] = i }
+    private fun findPhotoPosition(photoId: Long): Int {
+        val snapshot = photoAdapter.snapshot()
+        for (i in 0 until snapshot.size) {
+            val item = snapshot[i]
+            if (item is PhotoModel.PhotoItem && item.photo.id == photoId) {
+                return i
+            }
         }
+        return RecyclerView.NO_POSITION
     }
 
     private fun dpToPx(dp: Int): Int = (dp * resources.displayMetrics.density).toInt()
@@ -654,15 +555,112 @@ class AlbumDetailFragment : Fragment(), DragSelectReceiver {
         findNavController().navigate(action)
     }
 
+    private fun showPopupMenu(view: View) {
+        val popupMenu = PopupMenu(requireContext(), view)
+        popupMenu.menuInflater.inflate(R.menu.menu_photos, popupMenu.menu)
+
+        popupMenu.menu.findItem(R.id.action_select)?.isVisible = false
+        popupMenu.menu.findItem(R.id.action_trash)?.isVisible = false
+        popupMenu.menu.findItem(R.id.action_about)?.isVisible = false
+
+        popupMenu.setOnMenuItemClickListener { menuItem ->
+            when (menuItem.itemId) {
+                R.id.action_sort -> { showSortDialog(); true }
+                R.id.action_group -> { showGroupDialog(); true }
+                R.id.action_columns -> { showColumnsDialog(); true }
+                else -> false
+            }
+        }
+        popupMenu.show()
+    }
+
+    private fun showSortDialog() {
+        val currentSortType = viewModel.currentSortType.value
+        val options = arrayOf(getString(R.string.sort_by_date_taken), getString(R.string.sort_by_date_added))
+        val checkedItem = when (currentSortType) {
+            MediaRepository.SortType.DATE_TAKEN -> 0
+            MediaRepository.SortType.DATE_ADDED -> 1
+        }
+
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.sort_by)
+            .setSingleChoiceItems(options, checkedItem) { dialog, which ->
+                val newSortType = if (which == 0) MediaRepository.SortType.DATE_TAKEN else MediaRepository.SortType.DATE_ADDED
+                if (newSortType != currentSortType) {
+                    viewModel.setSortType(newSortType)
+                    saveSortType(newSortType)
+                    refreshData()
+                }
+                dialog.dismiss()
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
+    private fun showGroupDialog() {
+        val currentGroupType = viewModel.currentGroupType.value
+        val options = arrayOf(getString(R.string.group_by_day), getString(R.string.group_by_month), getString(R.string.group_by_year))
+        val checkedItem = when (currentGroupType) {
+            GroupType.DAY -> 0
+            GroupType.MONTH -> 1
+            GroupType.YEAR -> 2
+        }
+
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.group_by)
+            .setSingleChoiceItems(options, checkedItem) { dialog, which ->
+                val newGroupType = when (which) {
+                    0 -> GroupType.DAY
+                    1 -> GroupType.MONTH
+                    else -> GroupType.YEAR
+                }
+                if (newGroupType != currentGroupType) {
+                    viewModel.setGroupType(newGroupType)
+                    saveGroupType(newGroupType)
+                    refreshData()
+                }
+                dialog.dismiss()
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
+    private fun showColumnsDialog() {
+        val options = arrayOf("3", "4", "5")
+        val checkedItem = when (currentSpanCount) {
+            3 -> 0
+            4 -> 1
+            else -> 2
+        }
+
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.select_columns)
+            .setSingleChoiceItems(options, checkedItem) { dialog, which ->
+                val newSpanCount = when (which) {
+                    0 -> 3
+                    1 -> 4
+                    else -> 5
+                }
+                if (newSpanCount != currentSpanCount) {
+                    currentSpanCount = newSpanCount
+                    sharedPreferences.edit().putInt(KEY_SPAN_COUNT, newSpanCount).apply()
+
+                    gridLayoutManager.spanCount = newSpanCount
+                    calculateItemSize()
+                    photoAdapter.updateConfig(itemSize, newSpanCount)
+                }
+                dialog?.dismiss()
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
     override fun onDestroyView() {
         pagingDataJob?.cancel()
         pagingDataJob = null
-        binding.rvPhotos.removeOnItemTouchListener(dragSelectTouchListener)
         binding.rvPhotos.adapter = null
         binding.rvPhotos.layoutManager = null
         gridLayoutManager.spanSizeLookup = null
-        photoIdToPosition.clear()
-        selectedPhotoIds.clear()
         _binding = null
         super.onDestroyView()
     }

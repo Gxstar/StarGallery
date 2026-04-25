@@ -30,8 +30,8 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
     }
     buildFeatures {
         viewBinding = true
@@ -93,8 +93,8 @@ dependencies {
     // 快速滚动
     implementation(libs.android.fastscroll)
 
-    // 拖动多选
-    implementation(libs.drag.select.recyclerview)
+    // AndroidX Selection Library (用于拖动多选功能)
+    implementation(libs.androidx.recyclerview.selection)
 
     // 协程
     implementation(libs.kotlinx.coroutines.android)

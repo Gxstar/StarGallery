@@ -4,6 +4,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.paging.PagingDataAdapter
+import androidx.recyclerview.selection.ItemDetailsLookup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
@@ -12,7 +13,6 @@ import com.gxstar.stargallery.R
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.databinding.ItemDateHeaderBinding
 import com.gxstar.stargallery.databinding.ItemPhotoBinding
-import com.gxstar.stargallery.ui.common.DragSelectHelper
 import me.zhanghai.android.fastscroll.PopupTextProvider
 import android.content.Context
 import com.gxstar.stargallery.data.repository.MediaRepository
@@ -47,12 +47,14 @@ class PhotoPagingAdapter(
     private val isSelectionModeProvider: () -> Boolean = { false },
     private val isSelectedProvider: (Long) -> Boolean = { false }
 ) : PagingDataAdapter<PhotoModel, RecyclerView.ViewHolder>(PHOTO_DIFF_CALLBACK),
-    DragSelectHelper.PhotoProvider, PopupTextProvider {
+    PopupTextProvider {
 
     private var cachedPhotoCount = -1
 
     private var currentSortType = MediaRepository.SortType.DATE_TAKEN
     private var currentGroupType = GroupType.DAY
+
+
 
     /**
      * 更新配置（列数和图片大小）
@@ -110,6 +112,31 @@ class PhotoPagingAdapter(
         }
     }
 
+    /**
+     * 公开方法供 KeyProvider 使用
+     */
+    fun getPhotoKey(position: Int): Long {
+        val item = getItem(position) ?: return RecyclerView.NO_ID
+        return when (item) {
+            is PhotoModel.PhotoItem -> item.photo.id
+            is PhotoModel.SeparatorItem -> item.dateText.hashCode().toLong()
+        }
+    }
+
+    /**
+     * 根据 photo id 获取位置
+     */
+    fun getPhotoPosition(photoId: Long): Int {
+        val snapshot = snapshot()
+        for (i in 0 until snapshot.size) {
+            val item = snapshot[i]
+            if (item is PhotoModel.PhotoItem && item.photo.id == photoId) {
+                return i
+            }
+        }
+        return RecyclerView.NO_POSITION
+    }
+
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
         return when (viewType) {
             TYPE_HEADER -> {
@@ -158,16 +185,17 @@ class PhotoPagingAdapter(
         }
     }
 
-    override fun getPhoto(position: Int): Photo? {
-        if (position < 0 || position >= itemCount) return null
-        val item = getItem(position) ?: return null
-        return if (item is PhotoModel.PhotoItem) item.photo else null
-    }
-
-    // ========== DragSelectHelper.PhotoProvider 实现 ==========
-    override fun notifyItemNeedsUpdate(position: Int) {
-        if (position >= 0 && position < itemCount) {
-            notifyItemChanged(position)
+    override fun onViewAttachedToWindow(holder: RecyclerView.ViewHolder) {
+        super.onViewAttachedToWindow(holder)
+        // ViewHolder 从缓存恢复时更新选择状态
+        if (holder is PhotoViewHolder) {
+            val position = holder.bindingAdapterPosition
+            if (position != RecyclerView.NO_POSITION) {
+                val item = getItem(position) as? PhotoModel.PhotoItem
+                if (item != null) {
+                    holder.updateSelectionState(item.photo)
+                }
+            }
         }
     }
 
@@ -224,7 +252,10 @@ class PhotoViewHolder(
     private val isSelectedProvider: (Long) -> Boolean
 ) : RecyclerView.ViewHolder(binding.root) {
 
+    private var currentPhoto: Photo? = null
+
     fun bind(photo: Photo) {
+        currentPhoto = photo
         val isSelectionMode = isSelectionModeProvider()
         val isSelected = isSelectedProvider(photo.id)
 
@@ -236,7 +267,17 @@ class PhotoViewHolder(
 
         // 设置点击事件
         binding.photoContainer.setOnClickListener { onPhotoClick(photo) }
-        binding.photoContainer.setOnLongClickListener { onPhotoLongClick?.invoke(photo) ?: false }
+        // 长按事件交给 SelectionTracker 处理，不设置 setOnLongClickListener
+    }
+
+    /**
+     * Selection Library 的 ItemDetails 提供者
+     */
+    fun getItemDetails(): ItemDetailsLookup.ItemDetails<Long> {
+        return object : ItemDetailsLookup.ItemDetails<Long>() {
+            override fun getPosition(): Int = bindingAdapterPosition
+            override fun getSelectionKey(): Long? = currentPhoto?.id
+        }
     }
 
     /**

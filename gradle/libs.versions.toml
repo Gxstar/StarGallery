@@ -49,8 +49,8 @@ media3 = "1.9.1"
 # 快速滚动
 androidFastScroll = "1.3.0"
 
-# 拖动多选
-dragSelectRecyclerview = "2.4.0"
+# AndroidX Selection Library
+recyclerviewSelection = "1.1.0"
 
 # 内存泄漏检测
 leakcanary = "2.14"
@@ -115,8 +115,8 @@ androidx-media3-ui = { group = "androidx.media3", name = "media3-ui", version.re
 # 快速滚动
 android-fastscroll = { group = "me.zhanghai.android.fastscroll", name = "library", version.ref = "androidFastScroll" }
 
-# 拖动多选
-drag-select-recyclerview = { group = "com.afollestad", name = "drag-select-recyclerview", version.ref = "dragSelectRecyclerview" }
+# AndroidX Selection Library
+androidx-recyclerview-selection = { group = "androidx.recyclerview", name = "recyclerview-selection", version.ref = "recyclerviewSelection" }
 
 # 内存泄漏检测
 leakcanary = { group = "com.squareup.leakcanary", name = "leakcanary-android", version.ref = "leakcanary" }

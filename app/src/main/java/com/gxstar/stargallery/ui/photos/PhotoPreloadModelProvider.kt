@@ -17,10 +17,11 @@ class PhotoPreloadModelProvider(
 ) : ListPreloader.PreloadModelProvider<Uri> {
 
     override fun getPreloadItems(position: Int): MutableList<Uri> {
-        // 直接从 adapter 获取指定位置的图片 URI
-        val photo = adapter.getPhoto(position)
-        return if (photo != null) {
-            mutableListOf(photo.uri)
+        // 使用 snapshot 获取指定位置的图片 URI
+        val snapshot = adapter.snapshot()
+        val item = snapshot.getOrNull(position)
+        return if (item is PhotoModel.PhotoItem) {
+            mutableListOf(item.photo.uri)
         } else {
             mutableListOf()
         }

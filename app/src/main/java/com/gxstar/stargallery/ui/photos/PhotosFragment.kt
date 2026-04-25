@@ -137,12 +137,12 @@ class PhotosFragment : Fragment() {
     }
 
     private fun bindSelectionProviders() {
-        isSelectionModeProvider = { selectionManager.isSelectionMode.value }
+        isSelectionModeProvider = { selectionManager.isInSelectionMode() }
         isSelectedProvider = { id -> selectionManager.isSelected(id) }
     }
 
     private fun initManagers() {
-        selectionManager = PhotoSelectionManager(this, photoAdapter)
+        // 延迟初始化 selectionManager，因为需要 recyclerView
         batchActionHandler = BatchActionHandler(this, mediaRepository, childFragmentManager)
     }
 
@@ -211,15 +211,19 @@ class PhotosFragment : Fragment() {
             setItemViewCacheSize(ITEM_VIEW_CACHE_SIZE)
             itemAnimator = PhotoItemAnimator()
             addItemDecoration(GridSpacingItemDecoration(currentSpanCount, dpToPx(2), true))
-            addOnItemTouchListener(selectionManager.dragSelectTouchListener)
+            // 注意：不需要手动添加 ItemTouchListener，SelectionTracker 会自动处理
         }
+
+        // 初始化选择管理器（必须在设置好 adapter 之后）
+        selectionManager = PhotoSelectionManager(binding.rvPhotos, photoAdapter)
+        selectionManager.init()
+        bindSelectionProviders()
 
         setupGlidePreloader()
         setupFastScroller()
 
         photoAdapter.addOnPagesUpdatedListener {
             photoAdapter.onPagesUpdated()
-            selectionManager.updatePositionMap()
         }
     }
 
@@ -297,9 +301,27 @@ class PhotosFragment : Fragment() {
     }
 
     private fun handlePhotoLongClick(photo: Photo): Boolean {
-        val position = selectionManager.getPosition(photo.id) ?: return false
-        selectionManager.startDragSelection(position)
-        return true
+        // 找到照片在 adapter 中的位置
+        val position = findPhotoPosition(photo.id)
+        if (position != RecyclerView.NO_POSITION) {
+            selectionManager.startDragSelection(position)
+            return true
+        }
+        return false
+    }
+
+    /**
+     * 根据照片 ID 找到其在 RecyclerView 中的位置
+     */
+    private fun findPhotoPosition(photoId: Long): Int {
+        val snapshot = photoAdapter.snapshot()
+        for (i in 0 until snapshot.size) {
+            val item = snapshot[i]
+            if (item is PhotoModel.PhotoItem && item.photo.id == photoId) {
+                return i
+            }
+        }
+        return RecyclerView.NO_POSITION
     }
 
     private fun handleShareAction() {
@@ -394,8 +416,12 @@ class PhotosFragment : Fragment() {
     }
 
     private fun findPhotoById(id: Long): Photo? {
-        for (i in 0 until photoAdapter.itemCount) {
-            photoAdapter.getPhoto(i)?.let { if (it.id == id) return it }
+        val snapshot = photoAdapter.snapshot()
+        for (i in 0 until snapshot.size) {
+            val item = snapshot[i]
+            if (item is PhotoModel.PhotoItem && item.photo.id == id) {
+                return item.photo
+            }
         }
         return null
     }
@@ -669,12 +695,12 @@ class PhotosFragment : Fragment() {
 
         val positions = mutableListOf<Int>()
         val searchEnd = minOf(lastVisible + 10, photoAdapter.itemCount - 1)
+        val snapshot = photoAdapter.snapshot()
 
         for (i in maxOf(0, firstVisible - 10)..searchEnd) {
-            photoAdapter.getPhoto(i)?.let { photo ->
-                if (photo.id in photoIds) {
-                    positions.add(i)
-                }
+            val item = snapshot.getOrNull(i)
+            if (item is PhotoModel.PhotoItem && item.photo.id in photoIds) {
+                positions.add(i)
             }
         }
 
@@ -795,7 +821,7 @@ class PhotosFragment : Fragment() {
     private fun dpToPx(dp: Int): Int = (dp * resources.displayMetrics.density).toInt()
 
     override fun onDestroyView() {
-        selectionManager.onDestroy()
+        // SelectionTracker 不需要手动清理
         binding.rvPhotos.adapter = null
         binding.rvPhotos.layoutManager = null
         gridLayoutManager.spanSizeLookup = null
