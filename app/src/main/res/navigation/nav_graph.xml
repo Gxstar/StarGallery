@@ -80,6 +80,67 @@
     <fragment
         android:id="@+id/aboutFragment"
         android:name="com.gxstar.stargallery.ui.about.AboutFragment"
-        android:label="@string/about" />
+        android:label="@string/about">
+        <action
+            android:id="@+id/action_aboutFragment_to_privacyPolicyFragment"
+            app:destination="@id/privacyPolicyFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right" />
+        <action
+            android:id="@+id/action_aboutFragment_to_permissionsFragment"
+            app:destination="@id/permissionsFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right" />
+        <action
+            android:id="@+id/action_aboutFragment_to_thirdPartyLibrariesFragment"
+            app:destination="@id/thirdPartyLibrariesFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right" />
+        <action
+            android:id="@+id/action_aboutFragment_to_contactFragment"
+            app:destination="@id/contactFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right" />
+        <action
+            android:id="@+id/action_aboutFragment_to_licenseFragment"
+            app:destination="@id/licenseFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/privacyPolicyFragment"
+        android:name="com.gxstar.stargallery.ui.about.PrivacyPolicyFragment"
+        android:label="@string/privacy_policy" />
+
+    <fragment
+        android:id="@+id/permissionsFragment"
+        android:name="com.gxstar.stargallery.ui.about.PermissionsFragment"
+        android:label="@string/permissions_title" />
+
+    <fragment
+        android:id="@+id/thirdPartyLibrariesFragment"
+        android:name="com.gxstar.stargallery.ui.about.ThirdPartyLibrariesFragment"
+        android:label="@string/third_party_title" />
+
+    <fragment
+        android:id="@+id/contactFragment"
+        android:name="com.gxstar.stargallery.ui.about.ContactFragment"
+        android:label="@string/contact_title" />
+
+    <fragment
+        android:id="@+id/licenseFragment"
+        android:name="com.gxstar.stargallery.ui.about.LicenseFragment"
+        android:label="@string/open_source_license" />
 
 </navigation>

@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fitsSystemWindows="true"
+    android:background="@color/background">
+
+    <com.google.android.material.appbar.AppBarLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:fitsSystemWindows="true"
+        app:elevation="0dp">
+
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:background="@color/background_white"
+            app:title="@string/permissions_title"
+            app:navigationIcon="@drawable/ic_back"/>
+
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="20dp">
+
+            <!-- 介绍 -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/permissions_intro"
+                android:textSize="14sp"
+                android:textColor="@color/text_secondary"
+                android:lineSpacingMultiplier="1.5"
+                android:layout_marginBottom="24dp"/>
+
+            <!-- 权限列表 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/bg_card"
+                android:padding="16dp">
+
+                <!-- READ_MEDIA_IMAGES -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_marginBottom="16dp">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/permission_media_images_title"
+                        android:textSize="15sp"
+                        android:textColor="@color/text_primary"
+                        android:fontFamily="sans-serif-medium"/>
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/permission_media_images_desc"
+                        android:textSize="13sp"
+                        android:textColor="@color/text_secondary"
+                        android:lineSpacingMultiplier="1.4"
+                        android:layout_marginTop="4dp"/>
+                </LinearLayout>
+
+                <!-- READ_MEDIA_VIDEO -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_marginBottom="16dp">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/permission_media_video_title"
+                        android:textSize="15sp"
+                        android:textColor="@color/text_primary"
+                        android:fontFamily="sans-serif-medium"/>
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/permission_media_video_desc"
+                        android:textSize="13sp"
+                        android:textColor="@color/text_secondary"
+                        android:lineSpacingMultiplier="1.4"
+                        android:layout_marginTop="4dp"/>
+                </LinearLayout>
+
+                <!-- READ_EXTERNAL_STORAGE -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_marginBottom="16dp">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/permission_storage_title"
+                        android:textSize="15sp"
+                        android:textColor="@color/text_primary"
+                        android:fontFamily="sans-serif-medium"/>
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/permission_storage_desc"
+                        android:textSize="13sp"
+                        android:textColor="@color/text_secondary"
+                        android:lineSpacingMultiplier="1.4"
+                        android:layout_marginTop="4dp"/>
+                </LinearLayout>
+
+                <!-- READ_MEDIA_VISUAL_USER_SELECTED -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/permission_user_selected_title"
+                        android:textSize="15sp"
+                        android:textColor="@color/text_primary"
+                        android:fontFamily="sans-serif-medium"/>
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/permission_user_selected_desc"
+                        android:textSize="13sp"
+                        android:textColor="@color/text_secondary"
+                        android:lineSpacingMultiplier="1.4"
+                        android:layout_marginTop="4dp"/>
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <!-- 说明 -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/permissions_note"
+                android:textSize="13sp"
+                android:textColor="@color/text_secondary"
+                android:lineSpacingMultiplier="1.4"
+                android:layout_marginTop="20dp"/>
+
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

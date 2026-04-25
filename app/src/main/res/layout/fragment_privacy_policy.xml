@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fitsSystemWindows="true"
+    android:background="@color/background">
+
+    <com.google.android.material.appbar.AppBarLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:fitsSystemWindows="true"
+        app:elevation="0dp">
+
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:background="@color/background_white"
+            app:title="@string/privacy_policy_title"
+            app:navigationIcon="@drawable/ic_back"/>
+
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="20dp">
+
+            <!-- 更新日期 -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/privacy_policy_date"
+                android:textSize="12sp"
+                android:textColor="@color/text_secondary"
+                android:layout_marginBottom="16dp"/>
+
+            <!-- 介绍 -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/privacy_policy_intro"
+                android:textSize="14sp"
+                android:textColor="@color/text_primary"
+                android:lineSpacingMultiplier="1.5"
+                android:layout_marginBottom="24dp"/>
+
+            <!-- 数据收集 -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/privacy_section_1_title"
+                android:textSize="17sp"
+                android:textColor="@color/text_primary"
+                android:fontFamily="sans-serif-medium"
+                android:layout_marginBottom="8dp"/>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/privacy_section_1_content"
+                android:textSize="14sp"
+                android:textColor="@color/text_secondary"
+                android:lineSpacingMultiplier="1.4"
+                android:layout_marginBottom="20dp"/>
+
+            <!-- 数据使用 -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/privacy_section_2_title"
+                android:textSize="17sp"
+                android:textColor="@color/text_primary"
+                android:fontFamily="sans-serif-medium"
+                android:layout_marginBottom="8dp"/>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/privacy_section_2_content"
+                android:textSize="14sp"
+                android:textColor="@color/text_secondary"
+                android:lineSpacingMultiplier="1.4"
+                android:layout_marginBottom="20dp"/>
+
+            <!-- 数据存储 -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/privacy_section_3_title"
+                android:textSize="17sp"
+                android:textColor="@color/text_primary"
+                android:fontFamily="sans-serif-medium"
+                android:layout_marginBottom="8dp"/>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/privacy_section_3_content"
+                android:textSize="14sp"
+                android:textColor="@color/text_secondary"
+                android:lineSpacingMultiplier="1.4"
+                android:layout_marginBottom="20dp"/>
+
+            <!-- 第三方服务 -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/privacy_section_5_title"
+                android:textSize="17sp"
+                android:textColor="@color/text_primary"
+                android:fontFamily="sans-serif-medium"
+                android:layout_marginBottom="8dp"/>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/privacy_section_5_content"
+                android:textSize="14sp"
+                android:textColor="@color/text_secondary"
+                android:lineSpacingMultiplier="1.4"
+                android:layout_marginBottom="20dp"/>
+
+            <!-- 用户权利 -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/privacy_section_7_title"
+                android:textSize="17sp"
+                android:textColor="@color/text_primary"
+                android:fontFamily="sans-serif-medium"
+                android:layout_marginBottom="8dp"/>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/privacy_section_7_content"
+                android:textSize="14sp"
+                android:textColor="@color/text_secondary"
+                android:lineSpacingMultiplier="1.4"
+                android:layout_marginBottom="20dp"/>
+
+            <!-- 政策更新 -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/privacy_section_9_title"
+                android:textSize="17sp"
+                android:textColor="@color/text_primary"
+                android:fontFamily="sans-serif-medium"
+                android:layout_marginBottom="8dp"/>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/privacy_section_9_content"
+                android:textSize="14sp"
+                android:textColor="@color/text_secondary"
+                android:lineSpacingMultiplier="1.4"/>
+
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

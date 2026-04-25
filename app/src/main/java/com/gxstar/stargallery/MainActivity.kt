@@ -92,7 +92,12 @@ class MainActivity : AppCompatActivity() {
             when (destination.id) {
                 R.id.photoDetailFragment,
                 R.id.albumDetailFragment,
-                R.id.aboutFragment -> {
+                R.id.aboutFragment,
+                R.id.privacyPolicyFragment,
+                R.id.permissionsFragment,
+                R.id.thirdPartyLibrariesFragment,
+                R.id.contactFragment,
+                R.id.licenseFragment -> {
                     // 详情页和关于页面完全移除底部导航栏（不占用空间）
                     if (binding.bottomNav.visibility != View.GONE) {
                         binding.bottomNav.visibility = View.GONE

@@ -22,7 +22,7 @@
 
     </com.google.android.material.appbar.AppBarLayout>
 
-    <ScrollView
+    <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
@@ -31,7 +31,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="24dp">
+            android:paddingBottom="32dp">
 
             <!-- App Icon and Name -->
             <LinearLayout
@@ -39,8 +39,8 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:gravity="center"
-                android:layout_marginTop="32dp"
-                android:layout_marginBottom="32dp">
+                android:paddingTop="48dp"
+                android:paddingBottom="32dp">
 
                 <ImageView
                     android:layout_width="80dp"
@@ -69,29 +69,274 @@
             <!-- Divider -->
             <View
                 android:layout_width="match_parent"
-                android:layout_height="0.5dp"
-                android:background="@color/divider"
-                android:layout_marginBottom="16dp"/>
-
-            <!-- Privacy Policy -->
-            <TextView
-                android:id="@+id/tvPrivacyPolicy"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/privacy_policy"
-                android:textSize="16sp"
-                android:textColor="@color/text_primary"
-                android:paddingVertical="16dp"
-                android:background="?attr/selectableItemBackground"
-                android:drawableEnd="@drawable/ic_arrow_right"
-                android:drawablePadding="8dp"/>
-
-            <!-- Divider -->
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="0.5dp"
+                android:layout_height="8dp"
                 android:background="@color/divider"/>
 
+            <!-- About Section Title -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/about_section_general"
+                android:textSize="12sp"
+                android:textColor="@color/text_secondary"
+                android:fontFamily="sans-serif-medium"
+                android:paddingHorizontal="16dp"
+                android:paddingTop="16dp"
+                android:paddingBottom="8dp"/>
+
+            <!-- Privacy Policy -->
+            <LinearLayout
+                android:id="@+id/itemPrivacyPolicy"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingHorizontal="16dp"
+                android:paddingVertical="14dp"
+                android:background="?attr/selectableItemBackground">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_privacy"
+                    app:tint="@color/text_primary"/>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:layout_marginStart="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/privacy_policy"
+                        android:textSize="16sp"
+                        android:textColor="@color/text_primary"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/privacy_policy_subtitle"
+                        android:textSize="13sp"
+                        android:textColor="@color/text_secondary"
+                        android:layout_marginTop="2dp"/>
+                </LinearLayout>
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_arrow_right"
+                    app:tint="@color/text_secondary"/>
+            </LinearLayout>
+
+            <!-- Permissions -->
+            <LinearLayout
+                android:id="@+id/itemPermissions"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingHorizontal="16dp"
+                android:paddingVertical="14dp"
+                android:background="?attr/selectableItemBackground">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_permission"
+                    app:tint="@color/text_primary"/>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:layout_marginStart="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/permissions_title"
+                        android:textSize="16sp"
+                        android:textColor="@color/text_primary"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/permissions_subtitle"
+                        android:textSize="13sp"
+                        android:textColor="@color/text_secondary"
+                        android:layout_marginTop="2dp"/>
+                </LinearLayout>
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_arrow_right"
+                    app:tint="@color/text_secondary"/>
+            </LinearLayout>
+
+            <!-- Third Party Libraries -->
+            <LinearLayout
+                android:id="@+id/itemThirdParty"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingHorizontal="16dp"
+                android:paddingVertical="14dp"
+                android:background="?attr/selectableItemBackground">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_code"
+                    app:tint="@color/text_primary"/>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:layout_marginStart="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/third_party_title"
+                        android:textSize="16sp"
+                        android:textColor="@color/text_primary"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/third_party_subtitle"
+                        android:textSize="13sp"
+                        android:textColor="@color/text_secondary"
+                        android:layout_marginTop="2dp"/>
+                </LinearLayout>
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_arrow_right"
+                    app:tint="@color/text_secondary"/>
+            </LinearLayout>
+
+            <!-- Contact -->
+            <LinearLayout
+                android:id="@+id/itemContact"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingHorizontal="16dp"
+                android:paddingVertical="14dp"
+                android:background="?attr/selectableItemBackground">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_email"
+                    app:tint="@color/text_primary"/>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:layout_marginStart="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/contact_title"
+                        android:textSize="16sp"
+                        android:textColor="@color/text_primary"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/contact_subtitle"
+                        android:textSize="13sp"
+                        android:textColor="@color/text_secondary"
+                        android:layout_marginTop="2dp"/>
+                </LinearLayout>
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_arrow_right"
+                    app:tint="@color/text_secondary"/>
+            </LinearLayout>
+
+            <!-- Open Source Section -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="8dp"
+                android:background="@color/divider"
+                android:layout_marginTop="16dp"/>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/about_section_open_source"
+                android:textSize="12sp"
+                android:textColor="@color/text_secondary"
+                android:fontFamily="sans-serif-medium"
+                android:paddingHorizontal="16dp"
+                android:paddingTop="16dp"
+                android:paddingBottom="8dp"/>
+
+            <!-- License Info -->
+            <LinearLayout
+                android:id="@+id/itemLicense"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingHorizontal="16dp"
+                android:paddingVertical="14dp"
+                android:background="?attr/selectableItemBackground">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_license"
+                    app:tint="@color/text_primary"/>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:layout_marginStart="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/open_source_license"
+                        android:textSize="16sp"
+                        android:textColor="@color/text_primary"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/open_source_license_desc"
+                        android:textSize="13sp"
+                        android:textColor="@color/text_secondary"
+                        android:layout_marginTop="2dp"/>
+                </LinearLayout>
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_arrow_right"
+                    app:tint="@color/text_secondary"/>
+            </LinearLayout>
+
         </LinearLayout>
-    </ScrollView>
+    </androidx.core.widget.NestedScrollView>
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

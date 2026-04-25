@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">相册</string>
-    
+
     <!-- 底部导航 -->
     <string name="nav_photos">照片</string>
     <string name="nav_albums">相册</string>
-    
+
     <!-- 主界面 -->
     <string name="photos_title">照片</string>
     <string name="today">今天</string>
     <string name="yesterday">昨天</string>
-    
+
     <!-- 相册页面 -->
     <string name="albums_title">相册</string>
     <string name="my_albums">我的相册</string>
@@ -23,7 +23,7 @@
     <string name="qq">QQ</string>
     <string name="favorite">收藏</string>
     <string name="video">视频</string>
-    
+
     <!-- 详情页 -->
     <string name="detail_info">%1$s | %2$s</string>
     <string name="send">发送</string>
@@ -33,7 +33,7 @@
     <string name="set_as">设为</string>
     <string name="wallpaper">壁纸</string>
     <string name="info">详情</string>
-    
+
     <!-- 操作 -->
     <string name="search">搜索</string>
     <string name="search_hint">输入文件名搜索</string>
@@ -48,44 +48,44 @@
     <string name="removed_from_favorite">已从收藏移除</string>
     <string name="favorite_toggled">收藏状态已切换</string>
     <string name="add_to_favorite_failed">添加收藏失败</string>
-    
+
     <!-- 数量 -->
     <string name="photo_count">%d张</string>
     <string name="favorite_count">%d张收藏</string>
     <string name="selected_count">已选%d项</string>
     <string name="filter_favorites">筛选收藏</string>
-    
+
     <!-- 权限 -->
     <string name="permission_required">需要存储权限</string>
     <string name="permission_denied">权限被拒绝</string>
-    
+
     <!-- 空状态 -->
     <string name="no_photos">暂无照片</string>
     <string name="no_albums">暂无相册</string>
-    
+
     <!-- 列数设置 -->
     <string name="columns">列数</string>
     <string name="select_columns">选择列数</string>
-    
+
     <!-- 选择模式 -->
     <string name="cancel_select">取消选择</string>
     <string name="select_all">全选</string>
     <string name="selected">已选 %d 项</string>
     <string name="delete_selected_confirm">确定要删除选中的 %d 张照片吗？</string>
-    
+
     <!-- 排序方式 -->
     <string name="sort_by">排序方式</string>
     <string name="sort_by_date_taken">拍摄时间</string>
     <string name="sort_by_date_added">创建时间</string>
     <string name="select_sort">选择排序方式</string>
-    
+
     <!-- 分组方式 -->
     <string name="group_by">分组方式</string>
     <string name="group_by_day">按日分组</string>
     <string name="group_by_month">按月分组</string>
     <string name="group_by_year">按年分组</string>
     <string name="select_group">选择分组方式</string>
-    
+
     <!-- 删除选项 -->
     <string name="delete_options_title">删除媒体</string>
     <string name="delete_options_subtitle">选中的媒体将执行以下操作</string>
@@ -94,12 +94,7 @@
     <string name="moved_to_trash">已移至回收站</string>
     <string name="move_to_trash_failed">移至回收站失败</string>
     <string name="delete_failed">删除失败</string>
-    
-    <!-- 关于 -->
-    <string name="about">关于</string>
-    <string name="privacy_policy">隐私政策</string>
-    <string name="version">版本 %s</string>
-    
+
     <!-- 回收站 -->
     <string name="trash_title">回收站</string>
     <string name="trash_empty">回收站是空的</string>
@@ -110,11 +105,11 @@
     <string name="delete_permanently_confirm_title">永久删除</string>
     <string name="delete_permanently_confirm_message">确定要永久删除选中的 %d 项吗？此操作无法撤销。</string>
     <string name="more_info_not_implemented">查看详情功能开发中</string>
-    
+
     <!-- 自动刷新 -->
     <string name="new_photos_detected">检测到新照片</string>
     <string name="no_photos_selected">请先选择照片</string>
-    
+
     <!-- 图片信息 -->
     <string name="info_filename">文件名</string>
     <string name="info_dimensions">分辨率</string>
@@ -146,4 +141,71 @@
     <string name="scanning_warning">请勿关闭应用，这可能需要几分钟</string>
     <string name="scanning_total">共扫描 %d 张照片</string>
     <string name="scanning_hide">后台运行</string>
+
+    <!-- 关于页面 -->
+    <string name="about">关于</string>
+    <string name="version">版本 %s</string>
+    <string name="about_section_general">通用</string>
+    <string name="about_section_open_source">开源许可</string>
+
+    <!-- 隐私政策 -->
+    <string name="privacy_policy">隐私政策</string>
+    <string name="privacy_policy_subtitle">了解我们如何保护您的数据</string>
+    <string name="privacy_policy_title">隐私政策</string>
+    <string name="privacy_policy_intro">感谢您使用相册。我们非常重视您的隐私和个人信息保护。</string>
+
+    <!-- 权限说明 -->
+    <string name="permissions_title">权限说明</string>
+    <string name="permissions_subtitle">应用请求的权限及其用途</string>
+    <string name="permissions_intro">相册应用请求以下权限以提供核心功能。所有权限仅用于访问本地媒体文件，不会用于任何其他目的。</string>
+    <string name="permission_media_images_title">读取媒体图片 (READ_MEDIA_IMAGES)</string>
+    <string name="permission_media_images_desc">用于访问设备上的照片，是应用的核心功能。此权限仅允许读取照片，不会修改或删除任何文件。</string>
+    <string name="permission_media_video_title">读取媒体视频 (READ_MEDIA_VIDEO)</string>
+    <string name="permission_media_video_desc">用于访问设备上的视频文件，以便在相册中展示和播放视频内容。</string>
+    <string name="permission_storage_title">读取存储 (READ_EXTERNAL_STORAGE)</string>
+    <string name="permission_storage_desc">用于兼容 Android 11 (API 30) 以下版本的设备。在 Android 11 及以上版本中，应用使用 scoped storage 保护您的隐私。</string>
+    <string name="permission_user_selected_title">用户选择的媒体 (READ_MEDIA_VISUAL_USER_SELECTED)</string>
+    <string name="permission_user_selected_desc">用于在 Android 14+ 设备上访问用户特别选择的照片，即使应用尚未获得完整媒体���权限。</string>
+    <string name="permissions_note">您可以在系统设置中的应用权限管理中随时撤销这些权限。撤销权限后，应用将无法访问相应的媒体文件。</string>
+
+    <!-- 第三方库 -->
+    <string name="third_party_title">第三方库</string>
+    <string name="third_party_subtitle">应用使用的开源库列表</string>
+    <string name="third_party_intro">本应用使用以下优秀的开源库/服务，为用户提供更好的体验。点击库名称可查看其项目主页和详细文档。</string>
+    <string name="tap_to_view">点击查看项目主页</string>
+
+    <!-- 联系我们 -->
+    <string name="contact_title">联系我们</string>
+    <string name="contact_subtitle">有问题或建议？</string>
+    <string name="contact_intro">如果您有任何问题、功能建议或发现了 bug，欢迎通过以下方式联系我们。我们会尽快回复您的问题。</string>
+    <string name="contact_email_title">发送邮件</string>
+    <string name="contact_email">stargallery@example.com</string>
+    <string name="contact_email_subject">相册应用��馈</string>
+    <string name="contact_feedback_title">应用内反馈</string>
+    <string name="contact_feedback_desc">直接在应用内提交反馈和建议</string>
+    <string name="send_email">选择邮件应用</string>
+
+    <!-- 开源许可 -->
+    <string name="open_source_license">开源许可</string>
+    <string name="open_source_license_desc">本应用使用的开源库许可协议</string>
+    <string name="license_intro">本应用使用的开源库分别采用以下许可协议。</string>
+    <string name="license_apache_title">Apache License 2.0</string>
+    <string name="license_apache_content">大多数第三方库采用 Apache License 2.0 许可。这意味着您可以自由地使用、修改和分发这些代码，但需要保留原始版权声明和许可声明。</string>
+    <string name="license_mit_title">MIT License</string>
+    <string name="license_mit_content">drag-select-recyclerview 采用 MIT License。这是一个非常宽松的许可，允许在保留版权声明的情况下自由使用代码。</string>
+
+    <!-- 隐私政策详细章节 -->
+    <string name="privacy_policy_date">最后更新：2026年4月25日</string>
+    <string name="privacy_section_1_title">一、信息收集</string>
+    <string name="privacy_section_1_content">相册应用仅访问您设备上的本地媒体文件（照片和视频），以提供以下功能：\n\n• 照片浏览：以网格形式展示设备中的照片和视频\n• 相册管理：按文件夹自动整理照片\n• 照片预览：查看照片详情和基本信息\n• 收藏功能：标记您喜欢的照片\n• 回收站：安全删除和恢复已删除的媒体文件\n\n我们不会收集、传输或分享您的任何个人信息到外部服务器。所有数据处理均在您的设备本地完成。</string>
+    <string name="privacy_section_2_title">二、信息使用</string>
+    <string name="privacy_section_2_content">您设备上的媒体文件仅用于以下目的：\n\n• 显示：按照日期、名称等排序展示您的照片\n• 分类：按相册/文件夹组织您的媒体文件\n• 预览：加载和显示照片缩略图和原图\n• 元数据读取：读取EXIF信息（相机型号、拍摄参数等）用于显示标签\n• 搜索：根据文件名搜索您的照片\n\n我们不会将您的照片用于任何其他目的，也不会与任何第三方共享。</string>
+    <string name="privacy_section_3_title">三、信息存储</string>
+    <string name="privacy_section_3_content">• 本地存储：所有照片数据均存储在您的设备本地存储中，我们不会创建任何额外的照片副本\n• 应用设置：您的偏好设置（如列数、排序方式）存储在应用的私有目录中\n• 缓存数据：为提升加载速度，我们会缓存部分缩略图，缓存文件存储在应用私有目录，可随时清除\n• 不上传：我们的应用不会将您的任何照片或视频上传至服务器</string>
+    <string name="privacy_section_5_title">四、第三方服务</string>
+    <string name="privacy_section_5_content">本应用可能包含以下第三方库/服务：\n\n• Glide：图片加载和缓存库\n• ZoomImage：图片缩放查看库\n• ExoPlayer：视频播放库\n• metadata-extractor：EXIF元数据读取库\n• Paging 3：分页加载库\n• Hilt：依赖注入框架\n• Navigation Component：页面导航库\n• Room：本地数据库\n• Coil：图片加载库\n\n这些第三方服务仅在您的设备本地处理数据，不会收集您的个人信息。</string>
+    <string name="privacy_section_7_title">五、用户权利</string>
+    <string name="privacy_section_7_content">您对您的数据拥有完全控制权：\n\n• 访问权：您可以随时通过应用浏览您的所有照片\n• 删除权：您可以使用系统功能或应用内置的删除功能删除照片\n• 权限控制：您可以在系统设置中管理应用权限\n• 卸载权：您可以随时卸载应用，卸载后所有应用数据将被清除\n• 清除缓存：在应用设置中可以清除所有缓存数据</string>
+    <string name="privacy_section_9_title">六、政策更新</string>
+    <string name="privacy_section_9_content">我们可能会不时更新本隐私政策。更新时，我们会在应用内发布更新通知。建议您定期查看本政策以了解最新内容。重大变更将通过应用更新日志通知您。</string>
 </resources>
