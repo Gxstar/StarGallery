@@ -75,6 +75,12 @@ dependencies {
     // 分页 - Paging 3
     implementation(libs.androidx.paging.runtime)
 
+    // 数据库 - Room
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    implementation(libs.androidx.room.paging)
+    ksp(libs.androidx.room.compiler)
+
     // 列表分组 - Groupie (未使用，已用 Paging 3 insertSeparators 替代)
     // implementation(libs.groupie)
     // implementation(libs.groupie.viewbinding)

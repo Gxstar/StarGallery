@@ -34,6 +34,9 @@ navigation = "2.9.7"
 # 分页
 paging = "3.4.2"
 
+# 数据库
+room = "2.8.4"
+
 # 列表分组 (未使用)
 # groupie = "2.10.1"
 
@@ -97,6 +100,12 @@ androidx-navigation-ui = { group = "androidx.navigation", name = "navigation-ui-
 
 # 分页
 androidx-paging-runtime = { group = "androidx.paging", name = "paging-runtime-ktx", version.ref = "paging" }
+
+# 数据库
+androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
+androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
+androidx-room-paging = { group = "androidx.room", name = "room-paging", version.ref = "room" }
+androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
 
 # 列表分组 (未使用，已用 Paging 3 insertSeparators 替代)
 # groupie = { group = "com.github.lisawray.groupie", name = "groupie", version.ref = "groupie" }

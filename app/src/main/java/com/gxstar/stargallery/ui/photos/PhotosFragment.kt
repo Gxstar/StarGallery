@@ -3,9 +3,13 @@ package com.gxstar.stargallery.ui.photos
 import android.Manifest
 import android.content.SharedPreferences
 import android.content.res.Configuration
+import android.database.ContentObserver
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.provider.MediaStore
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -60,6 +64,15 @@ class PhotosFragment : Fragment() {
     private lateinit var batchActionHandler: BatchActionHandler
     private lateinit var intentSenderManager: IntentSenderManager
     private lateinit var mediaChangeDetector: MediaChangeDetector
+
+    // ContentObserver 用于监听 MediaStore 变化
+    private val mediaContentObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
+        override fun onChange(selfChange: Boolean) {
+            super.onChange(selfChange)
+            // MediaStore 发生变化，触发增量扫描
+            viewModel.requestIncrementalScan()
+        }
+    }
 
     // UI 组件
     private lateinit var photoAdapter: PhotoPagingAdapter
@@ -346,6 +359,8 @@ class PhotosFragment : Fragment() {
                 }
                 message?.let { Toast.makeText(requireContext(), it, Toast.LENGTH_SHORT).show() }
                 selectionManager.exitSelectionMode()
+                // 收藏操作成功后触发增量扫描同步数据库
+                viewModel.requestIncrementalScan()
             }
             pendingFavoriteAction = BatchActionHandler.FAVORITE_ACTION_NONE
         }
@@ -371,6 +386,8 @@ class PhotosFragment : Fragment() {
             if (success) {
                 Toast.makeText(requireContext(), R.string.moved_to_trash, Toast.LENGTH_SHORT).show()
                 selectionManager.exitSelectionMode()
+                // 删除操作成功后触发增量扫描同步数据库
+                viewModel.requestIncrementalScan()
             }
         }
 
@@ -378,6 +395,8 @@ class PhotosFragment : Fragment() {
             if (success) {
                 Toast.makeText(requireContext(), R.string.deleted, Toast.LENGTH_SHORT).show()
                 selectionManager.exitSelectionMode()
+                // 删除操作成功后触发增量扫描同步数据库
+                viewModel.requestIncrementalScan()
             }
         }
 
@@ -451,6 +470,16 @@ class PhotosFragment : Fragment() {
                     binding.progressBar.visibility = if (isInitialLoading) View.VISIBLE else View.GONE
                     binding.emptyStateView.visibility = if (isEmpty && !isInitialLoading) View.VISIBLE else View.GONE
                     binding.rvPhotos.visibility = if (isInitialLoading || hasError) View.GONE else View.VISIBLE
+                }
+            }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.isScanning.collect { isScanning ->
+                    binding.scanningView.visibility = if (isScanning) View.VISIBLE else View.GONE
+                    binding.emptyStateView.visibility = if (isScanning) View.GONE else binding.emptyStateView.visibility
+                    binding.progressBar.visibility = if (isScanning) View.GONE else binding.progressBar.visibility
                 }
             }
         }
@@ -790,6 +819,12 @@ class PhotosFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
+        // 注册 ContentObserver 监听 MediaStore 变化
+        requireContext().contentResolver.registerContentObserver(
+            MediaStore.Files.getContentUri("external"),
+            true,  // notifyForDescendants
+            mediaContentObserver
+        )
         // 从详情页返回时恢复位置，不刷新数据
         // 从后台恢复时由 MediaChangeDetector 触发刷新
         if (savedScrollPosition >= 0) {
@@ -819,6 +854,16 @@ class PhotosFragment : Fragment() {
     }
 
     private fun dpToPx(dp: Int): Int = (dp * resources.displayMetrics.density).toInt()
+
+    override fun onPause() {
+        super.onPause()
+        // 注销 ContentObserver
+        try {
+            requireContext().contentResolver.unregisterContentObserver(mediaContentObserver)
+        } catch (e: Exception) {
+            // ignore if not registered
+        }
+    }
 
     override fun onDestroyView() {
         selectionManager.clear()

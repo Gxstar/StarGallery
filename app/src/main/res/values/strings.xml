@@ -62,6 +62,7 @@
     <!-- 空状态 -->
     <string name="no_photos">暂无照片</string>
     <string name="no_albums">暂无相册</string>
+    <string name="scanning_media">正在扫描媒体…</string>
 
     <!-- 列数设置 -->
     <string name="columns">列数</string>

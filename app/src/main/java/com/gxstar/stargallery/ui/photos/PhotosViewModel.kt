@@ -9,8 +9,11 @@ import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import androidx.paging.insertSeparators
 import androidx.paging.map
+import com.gxstar.stargallery.data.local.db.PhotoDao
+import com.gxstar.stargallery.data.local.db.PhotoEntity
+import com.gxstar.stargallery.data.local.scanner.MediaScanner
 import com.gxstar.stargallery.data.model.Photo
-import com.gxstar.stargallery.data.paging.MediaStorePagingSource
+import com.gxstar.stargallery.data.paging.RoomPagingSource
 import com.gxstar.stargallery.data.repository.MediaRepository
 import com.gxstar.stargallery.ui.util.DateUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -33,7 +36,8 @@ enum class GroupType {
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class PhotosViewModel @Inject constructor(
-    private val mediaRepository: MediaRepository,
+    private val photoDao: PhotoDao,
+    private val mediaScanner: MediaScanner,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -60,10 +64,24 @@ class PhotosViewModel @Inject constructor(
     private val _searchQuery = MutableStateFlow<String?>(null)
     val searchQuery: StateFlow<String?> = _searchQuery.asStateFlow()
 
+    private val _isScanning = MutableStateFlow(false)
+    val isScanning: StateFlow<Boolean> = _isScanning.asStateFlow()
+
+    // 扫描完成后递增，触发 PagingSource 重新加载
+    private val _refreshTrigger = MutableStateFlow(0L)
+    val refreshTrigger: StateFlow<Long> = _refreshTrigger.asStateFlow()
+
     val isSearching: Flow<Boolean> = _searchQuery.map { !it.isNullOrBlank() }
 
     init {
-        loadCounts()
+        // 初始化时执行一次全量扫描
+        viewModelScope.launch {
+            _isScanning.value = true
+            mediaScanner.performFullScan()
+            loadCounts()
+            _isScanning.value = false
+            _refreshTrigger.value++  // 扫描完成后触发刷新
+        }
     }
 
     fun setSortType(sortType: MediaRepository.SortType) {
@@ -88,21 +106,39 @@ class PhotosViewModel @Inject constructor(
 
     fun loadCounts() {
         viewModelScope.launch {
-            _photoCount.value = mediaRepository.getPhotoCount()
-            _favoriteCount.value = mediaRepository.getFavoriteCount()
+            _photoCount.value = photoDao.getPhotoCount()
+            _favoriteCount.value = photoDao.getFavoriteCount()
         }
     }
 
     /**
-     * 基础照片数据流（直接使用 MediaStore，实时反映媒体库变化）
+     * 触发增量扫描（由 ContentObserver 调用）
+     */
+    fun requestIncrementalScan() {
+        viewModelScope.launch {
+            _isScanning.value = true
+            val changed = mediaScanner.performIncrementalScan()
+            loadCounts()
+            _isScanning.value = false
+            if (changed) {
+                _refreshTrigger.value++  // 有变化时触发刷新
+            }
+        }
+    }
+
+    /**
+     * 基础照片数据流（从 Room 数据库读取）
+     * 当 _refreshTrigger 变化时重新创建 PagingSource（实现数据刷新）
      */
     private val basePhotoPagingFlow: Flow<PagingData<PhotoModel.PhotoItem>> = combine(
         _currentSortType,
         _showFavoritesOnly,
-        _searchQuery
-    ) { sortType, showFavoritesOnly, searchQuery ->
+        _searchQuery,
+        _refreshTrigger
+    ) { sortType, showFavoritesOnly, searchQuery, _ ->
         Triple(sortType, showFavoritesOnly, searchQuery)
     }.flatMapLatest { (sortType, showFavoritesOnly, searchQuery) ->
+        // 目前搜索功能暂不支持（需要 Room 支持全文搜索），先忽略 searchQuery
         Pager(
             config = PagingConfig(
                 pageSize = PAGE_SIZE,
@@ -111,21 +147,20 @@ class PhotosViewModel @Inject constructor(
                 prefetchDistance = PREFETCH_DISTANCE
             ),
             pagingSourceFactory = {
-                MediaStorePagingSource(
-                    contentResolver = context.contentResolver,
+                RoomPagingSource(
+                    photoDao = photoDao,
                     sortType = sortType,
-                    searchQuery = searchQuery,
                     showFavoritesOnly = showFavoritesOnly
                 )
             }
         ).flow
             .map { pagingData ->
-                pagingData.map { photo -> PhotoModel.PhotoItem(photo) }
+                pagingData.map { entity -> PhotoModel.PhotoItem(entity.toPhoto()) }
             }
     }.cachedIn(viewModelScope)
 
     /**
-     * 带日期分组的照片数据流（收藏筛选已在数据库层处理）
+     * 带日期分组的照片数据流
      */
     val photoPagingFlow: Flow<PagingData<PhotoModel>> = combine(
         basePhotoPagingFlow,
@@ -160,5 +195,28 @@ class PhotosViewModel @Inject constructor(
         } else {
             _photoCount.value
         }
+    }
+
+    /**
+     * 将 PhotoEntity 转换为 Photo
+     */
+    private fun PhotoEntity.toPhoto(): Photo {
+        return Photo(
+            id = id,
+            uri = android.net.Uri.parse(uri),
+            dateTaken = dateTaken,
+            dateModified = dateModified,
+            dateAdded = dateAdded,
+            mimeType = mimeType,
+            width = width,
+            height = height,
+            size = size,
+            bucketId = bucketId,
+            bucketName = bucketName,
+            latitude = latitude,
+            longitude = longitude,
+            orientation = orientation,
+            isFavorite = isFavorite
+        )
     }
 }
