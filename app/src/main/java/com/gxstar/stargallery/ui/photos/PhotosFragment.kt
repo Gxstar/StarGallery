@@ -562,11 +562,8 @@ class PhotosFragment : Fragment() {
             .permissions(*permissions)
             .request { allGranted, _, _ ->
                 if (allGranted) {
-                    // 权限获取后重新加载照片数量（解决初次显示为0的问题）
-                    viewModel.loadCounts()
-                    if (photoAdapter.itemCount == 0) {
-                        refreshData()
-                    }
+                    // 权限获取后重新扫描媒体库
+                    viewModel.rescanAfterPermissionGranted()
                 }
             }
     }

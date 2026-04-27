@@ -112,6 +112,19 @@ class PhotosViewModel @Inject constructor(
     }
 
     /**
+     * 权限授权后重新扫描
+     */
+    fun rescanAfterPermissionGranted() {
+        viewModelScope.launch {
+            _isScanning.value = true
+            mediaScanner.performFullScan()
+            loadCounts()
+            _isScanning.value = false
+            _refreshTrigger.value++
+        }
+    }
+
+    /**
      * 触发增量扫描（由 ContentObserver 调用）
      */
     fun requestIncrementalScan() {
