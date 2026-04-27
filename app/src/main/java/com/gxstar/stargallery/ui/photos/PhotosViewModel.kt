@@ -134,8 +134,43 @@ class PhotosViewModel @Inject constructor(
             loadCounts()
             _isScanning.value = false
             if (changed) {
-                _refreshTrigger.value++  // 有变化时触发刷新
+                _refreshTrigger.value++
             }
+        }
+    }
+
+    /**
+     * 更新收藏状态
+     */
+    fun updateFavorite(photoIds: List<Long>, isFavorite: Boolean) {
+        viewModelScope.launch {
+            mediaScanner.updateFavorite(photoIds, isFavorite)
+            loadCounts()
+        }
+    }
+
+    /**
+     * 更新混合收藏状态
+     */
+    fun updateFavoriteMixed(toFavorite: List<Long>, toUnfavorite: List<Long>) {
+        viewModelScope.launch {
+            if (toFavorite.isNotEmpty()) {
+                mediaScanner.updateFavorite(toFavorite, true)
+            }
+            if (toUnfavorite.isNotEmpty()) {
+                mediaScanner.updateFavorite(toUnfavorite, false)
+            }
+            loadCounts()
+        }
+    }
+
+    /**
+     * 删除照片
+     */
+    fun deletePhotos(photoIds: List<Long>) {
+        viewModelScope.launch {
+            photoIds.forEach { mediaScanner.deletePhoto(it) }
+            loadCounts()
         }
     }
 

@@ -347,7 +347,7 @@ class PhotosFragment : Fragment() {
         val photos = getSelectedPhotosOrShowToast() ?: return
 
         pendingFavoriteAction = calculateFavoriteAction(photos)
-        val selectedIds = photos.map { it.id }.toSet()
+        val selectedIds = photos.map { it.id }
 
         intentSenderManager.setFavoriteCallback { success ->
             if (success) {
@@ -359,8 +359,21 @@ class PhotosFragment : Fragment() {
                 }
                 message?.let { Toast.makeText(requireContext(), it, Toast.LENGTH_SHORT).show() }
                 selectionManager.exitSelectionMode()
-                // 收藏操作成功后触发增量扫描同步数据库
-                viewModel.requestIncrementalScan()
+                // 更新数据库并刷新列表
+                when (pendingFavoriteAction) {
+                    BatchActionHandler.FAVORITE_ACTION_ADD -> {
+                        viewModel.updateFavorite(selectedIds, true)
+                    }
+                    BatchActionHandler.FAVORITE_ACTION_REMOVE -> {
+                        viewModel.updateFavorite(selectedIds, false)
+                    }
+                    BatchActionHandler.FAVORITE_ACTION_MIXED -> {
+                        val toFavorite = photos.filter { !it.isFavorite }.map { it.id }
+                        val toUnfavorite = photos.filter { it.isFavorite }.map { it.id }
+                        viewModel.updateFavoriteMixed(toFavorite, toUnfavorite)
+                    }
+                }
+                photoAdapter.refresh()
             }
             pendingFavoriteAction = BatchActionHandler.FAVORITE_ACTION_NONE
         }
@@ -372,7 +385,7 @@ class PhotosFragment : Fragment() {
         )
 
         if (!hasRequest) {
-            smoothRefreshItems(selectedIds)
+            smoothRefreshItems(selectedIds.toSet())
             selectionManager.exitSelectionMode()
         }
     }
@@ -380,14 +393,15 @@ class PhotosFragment : Fragment() {
     private fun handleDeleteAction() {
         val photos = getSelectedPhotosOrShowToast() ?: return
 
-        val selectedIds = photos.map { it.id }.toSet()
+        val selectedIds = photos.map { it.id }
 
         intentSenderManager.setTrashCallback { success ->
             if (success) {
                 Toast.makeText(requireContext(), R.string.moved_to_trash, Toast.LENGTH_SHORT).show()
                 selectionManager.exitSelectionMode()
-                // 删除操作成功后触发增量扫描同步数据库
-                viewModel.requestIncrementalScan()
+                // 更新数据库并刷新列表
+                viewModel.deletePhotos(selectedIds)
+                photoAdapter.refresh()
             }
         }
 
@@ -395,8 +409,9 @@ class PhotosFragment : Fragment() {
             if (success) {
                 Toast.makeText(requireContext(), R.string.deleted, Toast.LENGTH_SHORT).show()
                 selectionManager.exitSelectionMode()
-                // 删除操作成功后触发增量扫描同步数据库
-                viewModel.requestIncrementalScan()
+                // 更新数据库并刷新列表
+                viewModel.deletePhotos(selectedIds)
+                photoAdapter.refresh()
             }
         }
 
