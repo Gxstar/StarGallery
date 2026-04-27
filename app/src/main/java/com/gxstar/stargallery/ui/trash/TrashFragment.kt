@@ -106,9 +106,8 @@ class TrashFragment : Fragment() {
                     showPhotoPreview(photo)
                 }
             },
-            onPhotoLongClick = { photo ->
+            onPhotoLongClick = { _ ->
                 if (!isSelectionMode) enterSelectionMode()
-                toggleSelection(photo.id)
                 true
             },
             isSelectionModeProvider = { isSelectionMode },
@@ -142,9 +141,17 @@ class TrashFragment : Fragment() {
                     if (count == 0 && isSelectionMode) {
                         exitSelectionMode()
                     } else if (count > 0) {
+                        if (!isSelectionMode) {
+                            isSelectionMode = true
+                            binding.normalToolbar.visibility = View.GONE
+                            binding.selectionToolbar.visibility = View.VISIBLE
+                            binding.tvSelectionCount.text = getString(R.string.selected, 0)
+                        }
                         binding.tvSelectionCount.text = getString(R.string.selected, count)
+                        binding.rvPhotos.post {
+                            if (_binding != null) refreshVisibleItems()
+                        }
                     }
-                    // 不在这里调用 refreshVisibleItems()，避免无限递归
                 }
             })
         }
@@ -211,8 +218,9 @@ class TrashFragment : Fragment() {
         binding.normalToolbar.visibility = View.GONE
         binding.selectionToolbar.visibility = View.VISIBLE
         binding.tvSelectionCount.text = getString(R.string.selected, 0)
-        // 使用 post 避免在 SelectionTracker 回调中直接刷新导致递归
-        binding.rvPhotos.post { refreshVisibleItems() }
+        binding.rvPhotos.post {
+            if (_binding != null) refreshVisibleItems()
+        }
     }
 
     private fun exitSelectionMode() {
@@ -220,8 +228,9 @@ class TrashFragment : Fragment() {
         selectionTracker?.clearSelection()
         binding.normalToolbar.visibility = View.VISIBLE
         binding.selectionToolbar.visibility = View.GONE
-        // 使用 post 避免在 SelectionTracker 回调中直接刷新导致递归
-        binding.rvPhotos.post { refreshVisibleItems() }
+        binding.rvPhotos.post {
+            if (_binding != null) refreshVisibleItems()
+        }
     }
 
     private fun refreshVisibleItems() {

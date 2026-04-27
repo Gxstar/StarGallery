@@ -455,13 +455,15 @@ class PhotosFragment : Fragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 photoAdapter.loadStateFlow.collect { loadStates ->
-                    val isInitialLoading = loadStates.refresh is LoadState.Loading
+                    val isRefreshing = loadStates.refresh is LoadState.Loading
                     val isEmpty = loadStates.refresh is LoadState.NotLoading && photoAdapter.itemCount == 0
                     val hasError = loadStates.refresh is LoadState.Error
 
-                    binding.progressBar.visibility = if (isInitialLoading) View.VISIBLE else View.GONE
-                    binding.emptyStateView.visibility = if (isEmpty && !isInitialLoading) View.VISIBLE else View.GONE
-                    binding.rvPhotos.visibility = if (isInitialLoading || hasError) View.GONE else View.VISIBLE
+                    // 只有首次加载（无数据）时显示进度条，刷新时保持列表可见
+                    binding.progressBar.visibility = if (isRefreshing && photoAdapter.itemCount == 0) View.VISIBLE else View.GONE
+                    binding.emptyStateView.visibility = if (isEmpty) View.VISIBLE else View.GONE
+                    // 刷新时保持旧数据可见，只有错误时隐藏列表
+                    binding.rvPhotos.visibility = if (hasError) View.GONE else View.VISIBLE
                 }
             }
         }
@@ -470,7 +472,6 @@ class PhotosFragment : Fragment() {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.isScanning.collect { isScanning ->
                     binding.scanningView.visibility = if (isScanning) View.VISIBLE else View.GONE
-                    binding.emptyStateView.visibility = if (isScanning) View.GONE else binding.emptyStateView.visibility
                     binding.progressBar.visibility = if (isScanning) View.GONE else binding.progressBar.visibility
                 }
             }
@@ -797,11 +798,13 @@ class PhotosFragment : Fragment() {
     }
 
     private fun navigateToTrash() {
+        saveScrollPosition()
         val action = PhotosFragmentDirections.actionPhotosFragmentToTrashFragment()
         findNavController().navigate(action)
     }
 
     private fun navigateToAbout() {
+        saveScrollPosition()
         val action = PhotosFragmentDirections.actionPhotosFragmentToAboutFragment()
         findNavController().navigate(action)
     }

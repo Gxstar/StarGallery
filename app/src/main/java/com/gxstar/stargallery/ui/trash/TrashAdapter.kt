@@ -67,6 +67,7 @@ class TrashAdapter(
     ) : RecyclerView.ViewHolder(binding.root) {
 
         private var currentPhoto: Photo? = null
+        private var isClickProcessing = false
 
         fun bind(photo: Photo) {
             currentPhoto = photo
@@ -96,8 +97,18 @@ class TrashAdapter(
                 binding.ivPhoto.alpha = 1.0f
             }
 
-            binding.root.setOnClickListener { onPhotoClick(photo) }
-            binding.root.setOnLongClickListener { onPhotoLongClick(photo) }
+            binding.photoContainer.setOnClickListener {
+                if (isClickProcessing) {
+                    isClickProcessing = false
+                    return@setOnClickListener
+                }
+                onPhotoClick(photo)
+            }
+
+            binding.photoContainer.setOnLongClickListener {
+                isClickProcessing = true
+                onPhotoLongClick(photo)
+            }
         }
 
         /**
