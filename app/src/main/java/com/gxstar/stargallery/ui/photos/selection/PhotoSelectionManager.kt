@@ -40,8 +40,8 @@ class PhotoItemDetailsLookup(
 }
 
 class PhotoSelectionManager(
-    private val recyclerView: RecyclerView,
-    private val adapter: PhotoPagingAdapter
+    private var recyclerView: RecyclerView?,
+    private var adapter: PhotoPagingAdapter?
 ) {
     private var tracker: SelectionTracker<Long>? = null
     
@@ -52,7 +52,7 @@ class PhotoSelectionManager(
     val selectedCount: StateFlow<Int> = _count.asStateFlow()
     
     fun init() {
-        tracker = SelectionTracker.Builder("ps", recyclerView, PhotoItemKeyProvider(adapter), PhotoItemDetailsLookup(recyclerView), StorageStrategy.createLongStorage())
+        tracker = SelectionTracker.Builder("ps", recyclerView!!, PhotoItemKeyProvider(adapter!!), PhotoItemDetailsLookup(recyclerView!!), StorageStrategy.createLongStorage())
             .withSelectionPredicate(object : SelectionTracker.SelectionPredicate<Long>() {
                 override fun canSetStateForKey(key: Long, nextState: Boolean): Boolean = true
                 override fun canSetStateAtPosition(position: Int, nextState: Boolean): Boolean = true
@@ -86,7 +86,7 @@ class PhotoSelectionManager(
     
     private fun refreshAllVisible() {
         // 刷新所有 item，确保包括预加载的 ViewHolder
-        adapter.notifyItemRangeChanged(0, adapter.itemCount, PAYLOAD_SELECTION_CHANGED)
+        adapter?.notifyItemRangeChanged(0, adapter?.itemCount ?: 0, PAYLOAD_SELECTION_CHANGED)
     }
     
     companion object {
@@ -109,5 +109,8 @@ class PhotoSelectionManager(
     fun clear() {
         tracker?.clearSelection()
         tracker = null
+        adapter = null
+        recyclerView?.adapter = null
+        recyclerView = null
     }
 }
