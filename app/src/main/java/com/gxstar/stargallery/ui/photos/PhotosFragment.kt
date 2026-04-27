@@ -700,10 +700,11 @@ class PhotosFragment : Fragment() {
 
     /**
      * 刷新数据
-     * 直接让 PagingSource 重新加载，数据源是 MediaStore，实时反映媒体库变化
+     * 先触发增量扫描将 MediaStore 变化同步到 Room，_refreshTrigger 自动触发 Paging 刷新
      */
     private fun refreshData() {
-        photoAdapter.refresh()
+        lastExplicitRefreshTime = System.currentTimeMillis()
+        viewModel.requestIncrementalScan()
     }
 
     private fun smoothRefreshItems(photoIds: Set<Long>) {
