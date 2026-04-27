@@ -129,7 +129,6 @@ class PhotosFragment : Fragment() {
             itemSize = itemSize,
             spanCount = currentSpanCount,
             onPhotoClick = { photo -> handlePhotoClick(photo) },
-            onPhotoLongClick = { photo -> handlePhotoLongClick(photo) },
             isSelectionModeProvider = { isSelectionModeProvider() },
             isSelectedProvider = { id -> isSelectedProvider(id) }
         ).apply {
@@ -299,16 +298,6 @@ class PhotosFragment : Fragment() {
         } else {
             navigateToDetail(photo)
         }
-    }
-
-    private fun handlePhotoLongClick(photo: Photo): Boolean {
-        // 找到照片在 adapter 中的位置
-        val position = findPhotoPosition(photo.id)
-        if (position != RecyclerView.NO_POSITION) {
-            selectionManager.startDragSelection(position)
-            return true
-        }
-        return false
     }
 
     /**

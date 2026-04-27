@@ -43,7 +43,6 @@ class PhotoPagingAdapter(
     private var itemSize: Int,
     private var spanCount: Int,
     private val onPhotoClick: (Photo) -> Unit,
-    private val onPhotoLongClick: ((Photo) -> Boolean)? = null,
     private val isSelectionModeProvider: () -> Boolean = { false },
     private val isSelectedProvider: (Long) -> Boolean = { false }
 ) : PagingDataAdapter<PhotoModel, RecyclerView.ViewHolder>(PHOTO_DIFF_CALLBACK),
@@ -154,7 +153,7 @@ class PhotoPagingAdapter(
                     false
                 )
                 // 传入获取 itemSize 的函数，支持动态更新
-                PhotoViewHolder(binding, { itemSize }, onPhotoClick, onPhotoLongClick, isSelectionModeProvider, isSelectedProvider)
+                PhotoViewHolder(binding, { itemSize }, onPhotoClick, isSelectionModeProvider, isSelectedProvider)
             }
         }
     }
@@ -247,7 +246,6 @@ class PhotoViewHolder(
     private val binding: ItemPhotoBinding,
     private val itemSizeProvider: () -> Int,
     private val onPhotoClick: (Photo) -> Unit,
-    private val onPhotoLongClick: ((Photo) -> Boolean)?,
     private val isSelectionModeProvider: () -> Boolean,
     private val isSelectedProvider: (Long) -> Boolean
 ) : RecyclerView.ViewHolder(binding.root) {
@@ -267,7 +265,6 @@ class PhotoViewHolder(
 
         // 设置点击事件
         binding.photoContainer.setOnClickListener { onPhotoClick(photo) }
-        // 长按事件交给 SelectionTracker 处理，不设置 setOnLongClickListener
     }
 
     /**

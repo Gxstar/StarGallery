@@ -377,15 +377,6 @@ class AlbumDetailFragment : Fragment() {
         }
     }
 
-    private fun startDragSelection(position: Int) {
-        if (!isSelectionMode) enterSelectionMode()
-
-        val key = photoAdapter.getPhotoKey(position)
-        if (key != RecyclerView.NO_ID && selectionTracker?.isSelected(key) == false) {
-            selectionTracker?.select(key)
-        }
-    }
-
     private fun findPhotoById(id: Long): Photo? {
         val snapshot = photoAdapter.snapshot()
         for (i in 0 until snapshot.size) {
@@ -404,13 +395,6 @@ class AlbumDetailFragment : Fragment() {
             onPhotoClick = { photo ->
                 if (isSelectionMode) togglePhotoSelection(photo.id)
                 else navigateToDetail(photo)
-            },
-            onPhotoLongClick = { photo ->
-                val position = findPhotoPosition(photo.id)
-                if (position != RecyclerView.NO_POSITION) {
-                    startDragSelection(position)
-                    true
-                } else false
             },
             isSelectionModeProvider = { isSelectionMode },
             isSelectedProvider = { id -> selectionTracker?.isSelected(id) ?: false }
