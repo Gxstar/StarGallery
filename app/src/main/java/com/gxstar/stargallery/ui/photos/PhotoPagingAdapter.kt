@@ -251,20 +251,28 @@ class PhotoViewHolder(
 ) : RecyclerView.ViewHolder(binding.root) {
 
     private var currentPhoto: Photo? = null
+    private var isClickProcessing = false
 
     fun bind(photo: Photo) {
         currentPhoto = photo
         val isSelectionMode = isSelectionModeProvider()
         val isSelected = isSelectedProvider(photo.id)
 
-        // 加载图片
         loadImage(photo)
-
-        // 更新选择状态UI
         updateSelectionUI(isSelectionMode, isSelected, photo)
 
-        // 设置点击事件
-        binding.photoContainer.setOnClickListener { onPhotoClick(photo) }
+        binding.photoContainer.setOnClickListener {
+            if (isClickProcessing) {
+                isClickProcessing = false
+                return@setOnClickListener
+            }
+            onPhotoClick(photo)
+        }
+
+        binding.photoContainer.setOnLongClickListener {
+            isClickProcessing = true
+            false
+        }
     }
 
     /**
