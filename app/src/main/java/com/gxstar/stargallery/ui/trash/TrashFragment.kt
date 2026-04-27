@@ -144,7 +144,7 @@ class TrashFragment : Fragment() {
                     } else if (count > 0) {
                         binding.tvSelectionCount.text = getString(R.string.selected, count)
                     }
-                    refreshVisibleItems()
+                    // 不在这里调用 refreshVisibleItems()，避免无限递归
                 }
             })
         }
@@ -211,7 +211,8 @@ class TrashFragment : Fragment() {
         binding.normalToolbar.visibility = View.GONE
         binding.selectionToolbar.visibility = View.VISIBLE
         binding.tvSelectionCount.text = getString(R.string.selected, 0)
-        refreshVisibleItems()
+        // 使用 post 避免在 SelectionTracker 回调中直接刷新导致递归
+        binding.rvPhotos.post { refreshVisibleItems() }
     }
 
     private fun exitSelectionMode() {
@@ -219,7 +220,8 @@ class TrashFragment : Fragment() {
         selectionTracker?.clearSelection()
         binding.normalToolbar.visibility = View.VISIBLE
         binding.selectionToolbar.visibility = View.GONE
-        refreshVisibleItems()
+        // 使用 post 避免在 SelectionTracker 回调中直接刷新导致递归
+        binding.rvPhotos.post { refreshVisibleItems() }
     }
 
     private fun refreshVisibleItems() {

@@ -3,12 +3,9 @@ package com.gxstar.stargallery.ui.photos
 import android.Manifest
 import android.content.SharedPreferences
 import android.content.res.Configuration
-import android.database.ContentObserver
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.provider.MediaStore
 import android.view.LayoutInflater
 import android.view.View
@@ -64,15 +61,6 @@ class PhotosFragment : Fragment() {
     private lateinit var batchActionHandler: BatchActionHandler
     private lateinit var intentSenderManager: IntentSenderManager
     private lateinit var mediaChangeDetector: MediaChangeDetector
-
-    // ContentObserver 用于监听 MediaStore 变化
-    private val mediaContentObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
-        override fun onChange(selfChange: Boolean) {
-            super.onChange(selfChange)
-            // MediaStore 发生变化，触发增量扫描
-            viewModel.requestIncrementalScan()
-        }
-    }
 
     // UI 组件
     private lateinit var photoAdapter: PhotoPagingAdapter
@@ -831,12 +819,6 @@ class PhotosFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
-        // 注册 ContentObserver 监听 MediaStore 变化
-        requireContext().contentResolver.registerContentObserver(
-            MediaStore.Files.getContentUri("external"),
-            true,  // notifyForDescendants
-            mediaContentObserver
-        )
         // 从详情页返回时恢复位置，不刷新数据
         // 从后台恢复时由 MediaChangeDetector 触发刷新
         if (savedScrollPosition >= 0) {
@@ -866,16 +848,6 @@ class PhotosFragment : Fragment() {
     }
 
     private fun dpToPx(dp: Int): Int = (dp * resources.displayMetrics.density).toInt()
-
-    override fun onPause() {
-        super.onPause()
-        // 注销 ContentObserver
-        try {
-            requireContext().contentResolver.unregisterContentObserver(mediaContentObserver)
-        } catch (e: Exception) {
-            // ignore if not registered
-        }
-    }
 
     override fun onDestroyView() {
         selectionManager.clear()
