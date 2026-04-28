@@ -31,6 +31,24 @@ class TrashAdapter(
         return getItem(position).id
     }
 
+    /**
+     * 根据 position 获取 photo id (key)
+     */
+    fun getPhotoKey(position: Int): Long {
+        if (position < 0 || position >= itemCount) return RecyclerView.NO_ID
+        return getItemId(position)
+    }
+
+    /**
+     * 根据 photo id 获取 position
+     */
+    fun getPhotoPosition(photoId: Long): Int {
+        for (i in 0 until itemCount) {
+            if (getItemId(i) == photoId) return i
+        }
+        return RecyclerView.NO_POSITION
+    }
+
     fun updateItemSize(newSize: Int) {
         itemSize = newSize
         notifyDataSetChanged()

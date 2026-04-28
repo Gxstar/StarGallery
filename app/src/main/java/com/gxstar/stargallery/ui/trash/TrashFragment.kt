@@ -16,16 +16,13 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
-import androidx.recyclerview.selection.SelectionTracker
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.bumptech.glide.Glide
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.gxstar.stargallery.R
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.data.repository.MediaRepository
 import com.gxstar.stargallery.databinding.FragmentTrashBinding
-import com.gxstar.stargallery.databinding.ItemPhotoBinding
 import com.gxstar.stargallery.ui.photos.GridSpacingItemDecoration
 import com.gxstar.stargallery.ui.photos.PhotosFragment
 import dagger.hilt.android.AndroidEntryPoint
@@ -41,12 +38,11 @@ class TrashFragment : Fragment() {
     private val viewModel: TrashViewModel by viewModels()
     private lateinit var adapter: TrashAdapter
     private lateinit var gridLayoutManager: GridLayoutManager
-    private var selectionTracker: SelectionTracker<Long>? = null
+    private lateinit var selectionManager: TrashSelectionManager
 
     @Inject
     lateinit var mediaRepository: MediaRepository
 
-    private var isSelectionMode = false
     private var currentSpanCount = 4
     private var itemSize = 0
 
@@ -56,7 +52,7 @@ class TrashFragment : Fragment() {
             setFragmentResult(PhotosFragment.REQUEST_KEY_PHOTO_DELETED, Bundle.EMPTY)
             viewModel.loadTrashedPhotos()
         }
-        exitSelectionMode()
+        selectionManager.exitSelectionMode()
     }
 
     private val restoreRequestLauncher = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
@@ -65,7 +61,7 @@ class TrashFragment : Fragment() {
             setFragmentResult(PhotosFragment.REQUEST_KEY_PHOTO_DELETED, Bundle.EMPTY)
             viewModel.loadTrashedPhotos()
         }
-        exitSelectionMode()
+        selectionManager.exitSelectionMode()
     }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
@@ -100,18 +96,18 @@ class TrashFragment : Fragment() {
         adapter = TrashAdapter(
             itemSize = itemSize,
             onPhotoClick = { photo ->
-                if (isSelectionMode) {
-                    toggleSelection(photo.id)
+                if (selectionManager.isInSelectionMode()) {
+                    selectionManager.toggleSelection(photo)
                 } else {
                     showPhotoPreview(photo)
                 }
             },
             onPhotoLongClick = { _ ->
-                if (!isSelectionMode) enterSelectionMode()
+                if (!selectionManager.isInSelectionMode()) selectionManager.enterSelectionMode()
                 true
             },
-            isSelectionModeProvider = { isSelectionMode },
-            isSelectedProvider = { id -> selectionTracker?.isSelected(id) ?: false }
+            isSelectionModeProvider = { selectionManager.isInSelectionMode() },
+            isSelectedProvider = { id -> selectionManager.isSelected(id) }
         )
 
         gridLayoutManager = GridLayoutManager(requireContext(), currentSpanCount)
@@ -121,48 +117,31 @@ class TrashFragment : Fragment() {
         binding.rvPhotos.addItemDecoration(GridSpacingItemDecoration(currentSpanCount, dpToPx(2), true))
         binding.rvPhotos.setHasFixedSize(true)
 
-        // 初始化 SelectionTracker
-        selectionTracker = SelectionTracker.Builder(
-            "trash-selection",
-            binding.rvPhotos,
-            TrashItemKeyProvider(adapter),
-            TrashItemDetailsLookup(binding.rvPhotos),
-            androidx.recyclerview.selection.StorageStrategy.createLongStorage()
-        ).withSelectionPredicate(
-            object : SelectionTracker.SelectionPredicate<Long>() {
-                override fun canSetStateForKey(key: Long, nextState: Boolean): Boolean = true
-                override fun canSetStateAtPosition(position: Int, nextState: Boolean): Boolean = true
-                override fun canSelectMultiple(): Boolean = true
-            }
-        ).build().apply {
-            addObserver(object : SelectionTracker.SelectionObserver<Long>() {
-                override fun onSelectionChanged() {
-                    val count = selection?.size() ?: 0
-                    if (count == 0 && isSelectionMode) {
-                        exitSelectionMode()
-                    } else if (count > 0) {
-                        if (!isSelectionMode) {
-                            isSelectionMode = true
-                            binding.normalToolbar.visibility = View.GONE
-                            binding.selectionToolbar.visibility = View.VISIBLE
-                            binding.tvSelectionCount.text = getString(R.string.selected, 0)
-                        }
-                        binding.tvSelectionCount.text = getString(R.string.selected, count)
-                        binding.rvPhotos.post {
-                            if (_binding != null) refreshVisibleItems()
-                        }
-                    }
-                }
-            })
-        }
-    }
+        // 初始化 SelectionManager
+        selectionManager = TrashSelectionManager(binding.rvPhotos, adapter)
+        selectionManager.init()
 
-    private fun toggleSelection(photoId: Long) {
-        selectionTracker?.let {
-            if (it.isSelected(photoId)) {
-                it.deselect(photoId)
-            } else {
-                it.select(photoId)
+        // 观察选择状态变化
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                selectionManager.isSelectionMode.collect { isSelectionMode ->
+                    if (isSelectionMode) {
+                        binding.normalToolbar.visibility = View.GONE
+                        binding.selectionToolbar.visibility = View.VISIBLE
+                    } else {
+                        binding.normalToolbar.visibility = View.VISIBLE
+                        binding.selectionToolbar.visibility = View.GONE
+                    }
+                    refreshVisibleItems()
+                }
+            }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                selectionManager.selectedCount.collect { count ->
+                    binding.tvSelectionCount.text = getString(R.string.selected, count)
+                }
             }
         }
     }
@@ -173,7 +152,7 @@ class TrashFragment : Fragment() {
         }
 
         binding.btnCancel.setOnClickListener {
-            exitSelectionMode()
+            selectionManager.exitSelectionMode()
         }
 
         binding.btnRestore.setOnClickListener {
@@ -213,32 +192,12 @@ class TrashFragment : Fragment() {
         }
     }
 
-    private fun enterSelectionMode() {
-        isSelectionMode = true
-        binding.normalToolbar.visibility = View.GONE
-        binding.selectionToolbar.visibility = View.VISIBLE
-        binding.tvSelectionCount.text = getString(R.string.selected, 0)
-        binding.rvPhotos.post {
-            if (_binding != null) refreshVisibleItems()
-        }
-    }
-
-    private fun exitSelectionMode() {
-        isSelectionMode = false
-        selectionTracker?.clearSelection()
-        binding.normalToolbar.visibility = View.VISIBLE
-        binding.selectionToolbar.visibility = View.GONE
-        binding.rvPhotos.post {
-            if (_binding != null) refreshVisibleItems()
-        }
-    }
-
     private fun refreshVisibleItems() {
         val layoutManager = binding.rvPhotos.layoutManager as? GridLayoutManager ?: return
         val first = layoutManager.findFirstVisibleItemPosition()
         val last = layoutManager.findLastVisibleItemPosition()
         if (first != RecyclerView.NO_POSITION && last != RecyclerView.NO_POSITION) {
-            adapter.notifyItemRangeChanged(first, last - first + 1)
+            adapter.notifyItemRangeChanged(first, last - first + 1, TrashSelectionManager.PAYLOAD_SELECTION_CHANGED)
         }
     }
 
@@ -249,7 +208,7 @@ class TrashFragment : Fragment() {
     }
 
     private fun restoreSelectedPhotos() {
-        val selectedIds = selectionTracker?.selection?.toSet() ?: emptySet()
+        val selectedIds = selectionManager.selectedPhotoIds
         if (selectedIds.isEmpty()) return
 
         val photos = viewModel.photos.value.filter { selectedIds.contains(it.id) }
@@ -261,16 +220,16 @@ class TrashFragment : Fragment() {
             } catch (e: Exception) {
                 e.printStackTrace()
                 Toast.makeText(requireContext(), R.string.restore_failed, Toast.LENGTH_SHORT).show()
-                exitSelectionMode()
+                selectionManager.exitSelectionMode()
             }
         } ?: run {
             Toast.makeText(requireContext(), R.string.restore_failed, Toast.LENGTH_SHORT).show()
-            exitSelectionMode()
+            selectionManager.exitSelectionMode()
         }
     }
 
     private fun showDeleteConfirmDialog() {
-        val selectedIds = selectionTracker?.selection?.toSet() ?: emptySet()
+        val selectedIds = selectionManager.selectedPhotoIds
         if (selectedIds.isEmpty()) return
 
         MaterialAlertDialogBuilder(requireContext())
@@ -284,7 +243,7 @@ class TrashFragment : Fragment() {
     }
 
     private fun deleteSelectedPhotos() {
-        val selectedIds = selectionTracker?.selection?.toSet() ?: emptySet()
+        val selectedIds = selectionManager.selectedPhotoIds
         val photos = viewModel.photos.value.filter { selectedIds.contains(it.id) }
         if (photos.isEmpty()) return
 
@@ -294,15 +253,16 @@ class TrashFragment : Fragment() {
             } catch (e: Exception) {
                 e.printStackTrace()
                 Toast.makeText(requireContext(), R.string.delete_failed, Toast.LENGTH_SHORT).show()
-                exitSelectionMode()
+                selectionManager.exitSelectionMode()
             }
         } ?: run {
             Toast.makeText(requireContext(), R.string.delete_failed, Toast.LENGTH_SHORT).show()
-            exitSelectionMode()
+            selectionManager.exitSelectionMode()
         }
     }
 
     override fun onDestroyView() {
+        selectionManager.clear()
         binding.rvPhotos.adapter = null
         binding.rvPhotos.layoutManager = null
         _binding = null
