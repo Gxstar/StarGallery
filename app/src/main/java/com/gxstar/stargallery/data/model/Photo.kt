@@ -88,4 +88,19 @@ data class Photo(
             dateAdded > 0 -> dateAdded * 1000L
             else -> System.currentTimeMillis()
         }
+
+    companion object {
+        /**
+         * 从 MediaStore 原始字段规范化日期
+         * MediaStore 的 DATE_TAKEN 是毫秒级，DATE_MODIFIED 和 DATE_ADDED 是秒级
+         */
+        fun normalizeDateTaken(dateTaken: Long, dateModified: Long, dateAdded: Long): Long {
+            return when {
+                dateTaken > 0 -> dateTaken
+                dateModified > 0 -> dateModified * 1000L
+                dateAdded > 0 -> dateAdded * 1000L
+                else -> System.currentTimeMillis()
+            }
+        }
+    }
 }

@@ -142,12 +142,7 @@ class MediaStorePagingSource(
                 val dateTaken = cursor.getLong(dateTakenIndex)
                 val dateModified = cursor.getLong(dateModifiedIndex)
                 val dateAdded = cursor.getLong(dateAddedIndex)
-                val finalDateTaken = when {
-                    dateTaken > 0 -> dateTaken
-                    dateModified > 0 -> dateModified * 1000L  // date_modified 是秒级，转毫秒
-                    dateAdded > 0 -> dateAdded * 1000L         // date_added 也是秒级，转毫秒
-                    else -> System.currentTimeMillis()         // 保底
-                }
+                val finalDateTaken = Photo.normalizeDateTaken(dateTaken, dateModified, dateAdded)
 
                 photos.add(
                     Photo(

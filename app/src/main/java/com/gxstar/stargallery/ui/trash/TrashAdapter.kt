@@ -3,6 +3,8 @@ package com.gxstar.stargallery.ui.trash
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.selection.ItemDetailsLookup
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
@@ -19,33 +21,19 @@ class TrashAdapter(
     private val onPhotoLongClick: (Photo) -> Boolean,
     private val isSelectionModeProvider: () -> Boolean,
     private val isSelectedProvider: (Long) -> Boolean
-) : RecyclerView.Adapter<TrashAdapter.TrashViewHolder>() {
-
-    private val items = mutableListOf<Photo>()
+) : ListAdapter<Photo, TrashAdapter.TrashViewHolder>(TrashDiffCallback()) {
 
     init {
         setHasStableIds(true)
     }
 
-    fun submitList(photos: List<Photo>) {
-        items.clear()
-        items.addAll(photos)
-        notifyDataSetChanged()
+    override fun getItemId(position: Int): Long {
+        return getItem(position).id
     }
 
     fun updateItemSize(newSize: Int) {
         itemSize = newSize
         notifyDataSetChanged()
-    }
-
-    override fun getItemId(position: Int): Long {
-        return if (position in items.indices) items[position].id else RecyclerView.NO_ID
-    }
-
-    override fun getItemCount(): Int = items.size
-
-    fun getItem(position: Int): Photo? {
-        return if (position in items.indices) items[position] else null
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): TrashViewHolder {
@@ -54,7 +42,7 @@ class TrashAdapter(
     }
 
     override fun onBindViewHolder(holder: TrashViewHolder, position: Int) {
-        holder.bind(items[position])
+        holder.bind(getItem(position))
     }
 
     class TrashViewHolder(
@@ -67,7 +55,6 @@ class TrashAdapter(
     ) : RecyclerView.ViewHolder(binding.root) {
 
         private var currentPhoto: Photo? = null
-        private var isClickProcessing = false
 
         fun bind(photo: Photo) {
             currentPhoto = photo
@@ -98,15 +85,10 @@ class TrashAdapter(
             }
 
             binding.photoContainer.setOnClickListener {
-                if (isClickProcessing) {
-                    isClickProcessing = false
-                    return@setOnClickListener
-                }
                 onPhotoClick(photo)
             }
 
             binding.photoContainer.setOnLongClickListener {
-                isClickProcessing = true
                 onPhotoLongClick(photo)
             }
         }
@@ -114,11 +96,25 @@ class TrashAdapter(
         /**
          * Selection Library 的 ItemDetails 提供者
          */
-        fun getItemDetails(): ItemDetailsLookup.ItemDetails<Long> {
+        fun getItemDetails(): ItemDetailsLookup.ItemDetails<Long>? {
+            val position = bindingAdapterPosition
+            if (position == RecyclerView.NO_POSITION) {
+                return null
+            }
             return object : ItemDetailsLookup.ItemDetails<Long>() {
-                override fun getPosition(): Int = bindingAdapterPosition
+                override fun getPosition(): Int = position
                 override fun getSelectionKey(): Long? = currentPhoto?.id
             }
         }
+    }
+}
+
+class TrashDiffCallback : DiffUtil.ItemCallback<Photo>() {
+    override fun areItemsTheSame(oldItem: Photo, newItem: Photo): Boolean {
+        return oldItem.id == newItem.id
+    }
+
+    override fun areContentsTheSame(oldItem: Photo, newItem: Photo): Boolean {
+        return oldItem == newItem
     }
 }

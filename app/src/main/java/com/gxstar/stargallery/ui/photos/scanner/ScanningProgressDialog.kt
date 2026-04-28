@@ -15,7 +15,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.gxstar.stargallery.R
 import com.gxstar.stargallery.databinding.LayoutScanningProgressBinding
-import com.gxstar.stargallery.data.local.scanner.MetadataScanner
+import com.gxstar.stargallery.data.local.scanner.MediaScanner
 import kotlinx.coroutines.launch
 
 /**
@@ -76,20 +76,20 @@ class ScanningProgressDialog : DialogFragment() {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.scanState.collect { state ->
                     when (state) {
-                        is MetadataScanner.ScanState.Idle -> {
+                        is MediaScanner.ScanState.Idle -> {
                             // 空闲状态
                         }
-                        is MetadataScanner.ScanState.Scanning -> {
+                        is MediaScanner.ScanState.Scanning -> {
                             updateProgress(state.current, state.total, state.progress)
                         }
-                        is MetadataScanner.ScanState.Completed -> {
+                        is MediaScanner.ScanState.Completed -> {
                             showCompleted(state.totalScanned)
                             // 延迟关闭
                             binding.root.postDelayed({
                                 dismissAllowingStateLoss()
                             }, 1500)
                         }
-                        is MetadataScanner.ScanState.Error -> {
+                        is MediaScanner.ScanState.Error -> {
                             binding.tvTitle.text = getString(R.string.scanning_failed)
                             binding.tvDescription.text = state.message
                             binding.progressIndicator.visibility = View.GONE

@@ -3,7 +3,7 @@ package com.gxstar.stargallery.ui.photos.scanner
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.gxstar.stargallery.data.local.preferences.ScanPreferences
-import com.gxstar.stargallery.data.local.scanner.MetadataScanner
+import com.gxstar.stargallery.data.local.scanner.MediaScanner
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,12 +17,12 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class ScanViewModel @Inject constructor(
-    private val metadataScanner: MetadataScanner,
+    private val mediaScanner: MediaScanner,
     private val scanPreferences: ScanPreferences
 ) : ViewModel() {
 
-    private val _scanState = MutableStateFlow<MetadataScanner.ScanState>(MetadataScanner.ScanState.Idle)
-    val scanState: StateFlow<MetadataScanner.ScanState> = _scanState.asStateFlow()
+    private val _scanState = MutableStateFlow<MediaScanner.ScanState>(MediaScanner.ScanState.Idle)
+    val scanState: StateFlow<MediaScanner.ScanState> = _scanState.asStateFlow()
 
     private val _isInitialized = MutableStateFlow(false)
     val isInitialized: StateFlow<Boolean> = _isInitialized.asStateFlow()
@@ -37,9 +37,8 @@ class ScanViewModel @Inject constructor(
      */
     private fun checkInitialization() {
         viewModelScope.launch {
-            val needsScan = metadataScanner.needsScan()
             when {
-                needsScan -> {
+                !scanPreferences.isScanCompleted -> {
                     _isInitialized.value = false
                     startScan()
                 }
@@ -61,10 +60,10 @@ class ScanViewModel @Inject constructor(
      */
     private fun observeScanState() {
         viewModelScope.launch {
-            metadataScanner.scanState.collect { state ->
+            mediaScanner.scanState.collect { state ->
                 _scanState.value = state
 
-                if (state is MetadataScanner.ScanState.Completed) {
+                if (state is MediaScanner.ScanState.Completed) {
                     scanPreferences.isScanCompleted = true
                     scanPreferences.lastScanTime = System.currentTimeMillis()
                     _isInitialized.value = true
@@ -78,7 +77,7 @@ class ScanViewModel @Inject constructor(
      */
     fun startScan() {
         viewModelScope.launch {
-            metadataScanner.performFullScan()
+            mediaScanner.performFullScan()
         }
     }
 
@@ -87,7 +86,7 @@ class ScanViewModel @Inject constructor(
      */
     fun performIncrementalScan() {
         viewModelScope.launch {
-            metadataScanner.performIncrementalScan()
+            mediaScanner.performIncrementalScan()
         }
     }
 
@@ -96,7 +95,8 @@ class ScanViewModel @Inject constructor(
      */
     fun forceRescan() {
         viewModelScope.launch {
-            metadataScanner.performFullScan()
+            scanPreferences.isScanCompleted = false
+            mediaScanner.performFullScan()
         }
     }
 }

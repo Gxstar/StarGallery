@@ -2,7 +2,6 @@ package com.gxstar.stargallery.di
 
 import android.content.Context
 import com.gxstar.stargallery.data.local.preferences.ScanPreferences
-import com.gxstar.stargallery.data.local.scanner.MetadataScanner
 import com.gxstar.stargallery.data.repository.MediaRepository
 import dagger.Module
 import dagger.Provides
@@ -19,15 +18,6 @@ object AppModule {
     @Singleton
     fun provideMediaRepository(@ApplicationContext context: Context): MediaRepository {
         return MediaRepository(context)
-    }
-
-    @Provides
-    @Singleton
-    fun provideMetadataScanner(
-        @ApplicationContext context: Context,
-        scanPreferences: ScanPreferences
-    ): MetadataScanner {
-        return MetadataScanner(context, scanPreferences)
     }
 
     @Provides

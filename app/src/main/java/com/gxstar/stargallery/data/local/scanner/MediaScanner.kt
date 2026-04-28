@@ -11,6 +11,7 @@ import com.gxstar.stargallery.data.local.db.PhotoDao
 import com.gxstar.stargallery.data.local.db.PhotoEntity
 import com.gxstar.stargallery.data.local.exif.ExifExtractor
 import com.gxstar.stargallery.data.local.preferences.ScanPreferences
+import com.gxstar.stargallery.data.model.Photo
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -342,13 +343,7 @@ class MediaScanner @Inject constructor(
                 val dateModified = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_MODIFIED))
                 val dateAdded = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_ADDED))
 
-                // Fallback 逻辑
-                val finalDateTaken = when {
-                    dateTaken > 0 -> dateTaken
-                    dateModified > 0 -> dateModified * 1000L
-                    dateAdded > 0 -> dateAdded * 1000L
-                    else -> System.currentTimeMillis()
-                }
+                val finalDateTaken = Photo.normalizeDateTaken(dateTaken, dateModified, dateAdded)
 
                 items.add(
                     MediaStoreItem(
@@ -417,12 +412,7 @@ class MediaScanner @Inject constructor(
                 val dateModified = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_MODIFIED))
                 val dateAdded = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_ADDED))
 
-                val finalDateTaken = when {
-                    dateTaken > 0 -> dateTaken
-                    dateModified > 0 -> dateModified * 1000L
-                    dateAdded > 0 -> dateAdded * 1000L
-                    else -> System.currentTimeMillis()
-                }
+                val finalDateTaken = Photo.normalizeDateTaken(dateTaken, dateModified, dateAdded)
 
                 items.add(
                     MediaStoreItem(

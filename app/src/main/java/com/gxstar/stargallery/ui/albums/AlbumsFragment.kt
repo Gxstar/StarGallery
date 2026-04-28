@@ -12,7 +12,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
+import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.gxstar.stargallery.data.model.Album
@@ -90,15 +92,7 @@ class AlbumsFragment : Fragment() {
 
 class AlbumAdapter(
     private val onAlbumClick: (Album) -> Unit
-) : RecyclerView.Adapter<AlbumAdapter.AlbumViewHolder>() {
-
-    private val items = mutableListOf<Album>()
-
-    fun submitList(albums: List<Album>) {
-        items.clear()
-        items.addAll(albums)
-        notifyDataSetChanged()
-    }
+) : ListAdapter<Album, AlbumAdapter.AlbumViewHolder>(AlbumDiffCallback()) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): AlbumViewHolder {
         return AlbumViewHolder(
@@ -107,22 +101,30 @@ class AlbumAdapter(
     }
 
     override fun onBindViewHolder(holder: AlbumViewHolder, position: Int) {
-        holder.bind(items[position], onAlbumClick)
+        holder.bind(getItem(position), onAlbumClick)
     }
-
-    override fun getItemCount(): Int = items.size
 
     class AlbumViewHolder(private val binding: ItemAlbumBinding) : RecyclerView.ViewHolder(binding.root) {
         fun bind(album: Album, onClick: (Album) -> Unit) {
             binding.tvName.text = album.name
             binding.tvCount.text = "${album.photoCount}张"
-            
+
             Glide.with(binding.root)
                 .load(album.coverUri)
                 .centerCrop()
                 .into(binding.ivCover)
-            
+
             binding.root.setOnClickListener { onClick(album) }
         }
+    }
+}
+
+class AlbumDiffCallback : DiffUtil.ItemCallback<Album>() {
+    override fun areItemsTheSame(oldItem: Album, newItem: Album): Boolean {
+        return oldItem.id == newItem.id
+    }
+
+    override fun areContentsTheSame(oldItem: Album, newItem: Album): Boolean {
+        return oldItem == newItem
     }
 }

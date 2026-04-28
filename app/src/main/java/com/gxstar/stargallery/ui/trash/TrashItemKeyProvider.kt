@@ -16,7 +16,7 @@ class TrashItemKeyProvider(
 
     override fun getPosition(key: Long): Int {
         for (i in 0 until adapter.itemCount) {
-            val photo = adapter.getItem(i)
+            val photo = adapter.currentList.getOrNull(i)
             if (photo?.id == key) {
                 return i
             }

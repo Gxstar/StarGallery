@@ -430,7 +430,7 @@ class MediaRepository @Inject constructor(
         val dateTakenRaw = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_TAKEN))
         val dateModified = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_MODIFIED))
         val dateAdded = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_ADDED))
-        return if (dateTakenRaw > 0) dateTakenRaw else (if (dateModified > 0) dateModified else dateAdded) * 1000L
+        return Photo.normalizeDateTaken(dateTakenRaw, dateModified, dateAdded)
     }
 
     private fun Cursor.toMediaPhoto(): Photo {
