@@ -18,7 +18,9 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.setupWithNavController
 import com.gxstar.stargallery.databinding.ActivityMainBinding
+import com.gxstar.stargallery.ui.albums.AlbumDetailFragment
 import com.gxstar.stargallery.ui.photos.PhotosFragment
+import com.gxstar.stargallery.ui.trash.TrashFragment
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -119,14 +121,12 @@ class MainActivity : AppCompatActivity() {
                 val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as? NavHostFragment
                 val currentFragment = navHostFragment?.childFragmentManager?.fragments?.firstOrNull()
 
-                if (currentFragment is PhotosFragment) {
-                    // PhotosFragment 自己的 backPressedCallback 会处理选择模式
-                    // 这里只需委托给系统处理默认返回行为
+                if (currentFragment is PhotosFragment || currentFragment is AlbumDetailFragment || currentFragment is TrashFragment) {
+                    // 这些 Fragment 有自己的 onBackPressed 处理选择模式
                     isEnabled = false
                     onBackPressedDispatcher.onBackPressed()
                     isEnabled = true
                 } else {
-                    // 对于其他 Fragment，委托给系统处理（返回）
                     isEnabled = false
                     onBackPressedDispatcher.onBackPressed()
                     isEnabled = true

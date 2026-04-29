@@ -13,6 +13,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.PopupMenu
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
@@ -77,6 +78,12 @@ class AlbumDetailFragment : Fragment() {
 
     private var isSelectionMode = false
 
+    private val backPressedCallback = object : OnBackPressedCallback(false) {
+        override fun handleOnBackPressed() {
+            exitSelectionMode()
+        }
+    }
+
     private val deleteRequestLauncher = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             Toast.makeText(requireContext(), R.string.deleted, Toast.LENGTH_SHORT).show()
@@ -114,6 +121,7 @@ class AlbumDetailFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        requireActivity().onBackPressedDispatcher.addCallback(this, backPressedCallback)
         loadSpanCount()
         calculateItemSize()
         loadSortType()
@@ -332,17 +340,9 @@ class AlbumDetailFragment : Fragment() {
             .show()
     }
 
-    fun onBackPressed(): Boolean {
-        return if (isSelectionMode) {
-            exitSelectionMode()
-            true
-        } else {
-            false
-        }
-    }
-
     private fun enterSelectionMode() {
         isSelectionMode = true
+        backPressedCallback.isEnabled = true
         binding.normalToolbar.visibility = View.GONE
         binding.selectionToolbar.visibility = View.VISIBLE
         binding.tvSelectionCount.text = getString(R.string.selected, 0)
@@ -352,6 +352,7 @@ class AlbumDetailFragment : Fragment() {
 
     private fun exitSelectionMode() {
         isSelectionMode = false
+        backPressedCallback.isEnabled = false
         selectionTracker?.clearSelection()
         binding.normalToolbar.visibility = View.VISIBLE
         binding.selectionToolbar.visibility = View.GONE
