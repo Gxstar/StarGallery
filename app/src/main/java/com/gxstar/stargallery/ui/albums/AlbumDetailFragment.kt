@@ -645,6 +645,18 @@ class AlbumDetailFragment : Fragment() {
     override fun onDestroyView() {
         pagingDataJob?.cancel()
         pagingDataJob = null
+        // 清理 SelectionTracker 的观察者，防止内存泄漏
+        selectionTracker?.let { tracker ->
+            try {
+                val observersField = tracker.javaClass.getDeclaredField("mObservers")
+                observersField.isAccessible = true
+                @Suppress("UNCHECKED_CAST")
+                (observersField.get(tracker) as? java.util.ArrayList<*>)?.clear()
+            } catch (e: Exception) {
+                // 忽略无法访问的字段
+            }
+        }
+        selectionTracker = null
         binding.rvPhotos.adapter = null
         binding.rvPhotos.layoutManager = null
         gridLayoutManager.spanSizeLookup = null

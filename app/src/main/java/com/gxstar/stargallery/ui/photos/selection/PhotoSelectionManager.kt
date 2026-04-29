@@ -107,7 +107,20 @@ class PhotoSelectionManager(
     fun getTracker() = tracker
     
     fun clear() {
-        tracker?.clearSelection()
+        tracker?.let { t ->
+            t.clearSelection()
+            // 移除 SelectionTracker 中所有的 SelectionObserver
+            // SelectionTracker 内部通过 mObservers 列表保存观察者
+            try {
+                val observersField = t.javaClass.getDeclaredField("mObservers")
+                observersField.isAccessible = true
+                @Suppress("UNCHECKED_CAST")
+                val observers = observersField.get(t) as? java.util.ArrayList<*>
+                observers?.clear()
+            } catch (e: Exception) {
+                // 忽略无法访问的字段
+            }
+        }
         tracker = null
         adapter = null
         recyclerView?.adapter = null
