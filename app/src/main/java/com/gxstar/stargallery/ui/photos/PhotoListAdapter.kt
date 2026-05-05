@@ -11,73 +11,31 @@ import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.gxstar.stargallery.R
 import com.gxstar.stargallery.data.model.Photo
+import com.gxstar.stargallery.data.repository.MediaRepository
 import com.gxstar.stargallery.databinding.ItemDateHeaderBinding
 import com.gxstar.stargallery.databinding.ItemPhotoBinding
-import me.zhanghai.android.fastscroll.PopupTextProvider
-import android.content.Context
-import com.gxstar.stargallery.data.repository.MediaRepository
-import com.gxstar.stargallery.ui.util.DateUtils
+import com.gxstar.stargallery.ui.photos.model.PhotoModel
 
-// ==================== UI 模型 ====================
-
-/**
- * 用于RecyclerView的UI模型
- * 支持照片项和日期分隔符两种类型
- */
-sealed class PhotoModel {
-    /** 照片项 */
-    data class PhotoItem(val photo: Photo) : PhotoModel()
-    /** 日期分隔符 */
-    data class SeparatorItem(val dateText: String) : PhotoModel()
-}
-
-// ==================== 适配器 ====================
-
-/**
- * Paging 3 照片适配器
- * 使用Paging 3官方推荐的insertSeparators方式
- * 支持日期header占据整行
- * 优化：缓存照片数量和分隔符位置，减少遍历开销
- */
-class PhotoPagingAdapter(
+class PhotoListAdapter(
     private var itemSize: Int,
-    private var spanCount: Int,
     private val onPhotoClick: (Photo) -> Unit,
     private val isSelectionModeProvider: () -> Boolean = { false },
     private val isSelectedProvider: (Long) -> Boolean = { false }
-) : PagingDataAdapter<PhotoModel, RecyclerView.ViewHolder>(PHOTO_DIFF_CALLBACK),
-    PopupTextProvider {
-
-    private var cachedPhotoCount = -1
+) : PagingDataAdapter<PhotoModel, RecyclerView.ViewHolder>(PHOTO_DIFF_CALLBACK) {
 
     private var currentSortType = MediaRepository.SortType.DATE_TAKEN
     private var currentGroupType = GroupType.DAY
 
-
-
-    /**
-     * 更新配置（列数和图片大小）
-     * 用于动态切换列数时避免重建整个 RecyclerView
-     */
-    fun updateConfig(newItemSize: Int, newSpanCount: Int) {
-        if (itemSize != newItemSize || spanCount != newSpanCount) {
+    fun updateItemSize(newItemSize: Int) {
+        if (itemSize != newItemSize) {
             itemSize = newItemSize
-            spanCount = newSpanCount
-            // 通知所有照片项更新（不包含 header）
             notifyItemRangeChanged(0, itemCount)
         }
     }
 
-    /**
-     * 更新排序和分组设置，确保快速滑动时的日期显示准确
-     */
     fun updateSortAndGroupType(sortType: MediaRepository.SortType, groupType: GroupType) {
         currentSortType = sortType
         currentGroupType = groupType
-    }
-
-    fun onPagesUpdated() {
-        cachedPhotoCount = -1
     }
 
     companion object {
@@ -88,9 +46,9 @@ class PhotoPagingAdapter(
         private val PHOTO_DIFF_CALLBACK = object : DiffUtil.ItemCallback<PhotoModel>() {
             override fun areItemsTheSame(oldItem: PhotoModel, newItem: PhotoModel): Boolean {
                 return when {
-                    oldItem is PhotoModel.PhotoItem && newItem is PhotoModel.PhotoItem -> 
+                    oldItem is PhotoModel.PhotoItem && newItem is PhotoModel.PhotoItem ->
                         oldItem.photo.id == newItem.photo.id
-                    oldItem is PhotoModel.SeparatorItem && newItem is PhotoModel.SeparatorItem -> 
+                    oldItem is PhotoModel.SeparatorItem && newItem is PhotoModel.SeparatorItem ->
                         oldItem.dateText == newItem.dateText
                     else -> false
                 }
@@ -111,9 +69,6 @@ class PhotoPagingAdapter(
         }
     }
 
-    /**
-     * 公开方法供 KeyProvider 使用
-     */
     fun getPhotoKey(position: Int): Long {
         val item = getItem(position) ?: return RecyclerView.NO_ID
         return when (item) {
@@ -122,15 +77,10 @@ class PhotoPagingAdapter(
         }
     }
 
-    /**
-     * 根据 photo id 获取位置
-     */
     fun getPhotoPosition(photoId: Long): Int {
-        val snapshot = snapshot()
-        for (i in 0 until snapshot.size) {
-            val item = snapshot[i]
+        snapshot().toList().forEachIndexed { index, item ->
             if (item is PhotoModel.PhotoItem && item.photo.id == photoId) {
-                return i
+                return index
             }
         }
         return RecyclerView.NO_POSITION
@@ -152,7 +102,6 @@ class PhotoPagingAdapter(
                     parent,
                     false
                 )
-                // 传入获取 itemSize 的函数，支持动态更新
                 PhotoViewHolder(binding, { itemSize }, onPhotoClick, isSelectionModeProvider, isSelectedProvider)
             }
         }
@@ -186,7 +135,6 @@ class PhotoPagingAdapter(
 
     override fun onViewAttachedToWindow(holder: RecyclerView.ViewHolder) {
         super.onViewAttachedToWindow(holder)
-        // ViewHolder 从缓存恢复时更新选择状态
         if (holder is PhotoViewHolder) {
             val position = holder.bindingAdapterPosition
             if (position != RecyclerView.NO_POSITION) {
@@ -197,41 +145,7 @@ class PhotoPagingAdapter(
             }
         }
     }
-
-    fun getDateText(context: Context, position: Int): String {
-        if (position < 0 || position >= itemCount) return ""
-        val item = getItem(position) ?: return ""
-        
-        return when (item) {
-            is PhotoModel.SeparatorItem -> item.dateText
-            is PhotoModel.PhotoItem -> DateUtils.formatDateText(context, item.photo, currentSortType, currentGroupType)
-        }
-    }
-
-    // ========== PopupTextProvider ==========
-    override fun getPopupText(view: View, position: Int): CharSequence {
-        return getDateText(view.context, position)
-    }
-
-    /**
-     * 获取实际照片数量（不含header）
-     * 使用缓存优化，避免每次遍历
-     */
-    fun getPhotoCount(): Int {
-        // 如果缓存有效，直接返回
-        if (cachedPhotoCount >= 0) return cachedPhotoCount
-        
-        // 计算并缓存
-        var count = 0
-        for (i in 0 until itemCount) {
-            if (getItem(i) is PhotoModel.PhotoItem) count++
-        }
-        cachedPhotoCount = count
-        return count
-    }
 }
-
-// ==================== ViewHolder ====================
 
 class HeaderViewHolder(
     private val binding: ItemDateHeaderBinding
@@ -275,9 +189,6 @@ class PhotoViewHolder(
         }
     }
 
-    /**
-     * Selection Library 的 ItemDetails 提供者
-     */
     fun getItemDetails(): ItemDetailsLookup.ItemDetails<Long> {
         return object : ItemDetailsLookup.ItemDetails<Long>() {
             override fun getPosition(): Int = bindingAdapterPosition
@@ -285,9 +196,6 @@ class PhotoViewHolder(
         }
     }
 
-    /**
-     * 仅更新选择状态，不重新加载图片（使用 payload 时调用）
-     */
     fun updateSelectionState(photo: Photo) {
         val isSelectionMode = isSelectionModeProvider()
         val isSelected = isSelectedProvider(photo.id)
@@ -329,7 +237,6 @@ class PhotoViewHolder(
             binding.ivPhoto.alpha = 1.0f
             binding.ivFavorite.visibility = if (photo.isFavorite) View.VISIBLE else View.GONE
             binding.ivVideoIndicator.visibility = if (photo.isVideo) View.VISIBLE else View.GONE
-            // RAW 格式标签
             if (photo.isRaw) {
                 binding.tvFormatTag.visibility = View.VISIBLE
                 binding.tvFormatTag.text = "RAW"

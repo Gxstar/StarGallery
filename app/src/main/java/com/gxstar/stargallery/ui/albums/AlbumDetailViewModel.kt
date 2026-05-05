@@ -3,42 +3,26 @@ package com.gxstar.stargallery.ui.albums
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.paging.Pager
-import androidx.paging.PagingConfig
-import androidx.paging.PagingData
-import androidx.paging.cachedIn
-import androidx.paging.insertSeparators
-import androidx.paging.map
 import com.gxstar.stargallery.data.model.Photo
-import com.gxstar.stargallery.data.paging.InMemoryPhotoPagingSource
 import com.gxstar.stargallery.data.repository.MediaRepository
 import com.gxstar.stargallery.ui.photos.GroupType
-import com.gxstar.stargallery.ui.photos.PhotoModel
+import com.gxstar.stargallery.ui.photos.model.PhotoModel
 import com.gxstar.stargallery.ui.util.DateUtils
 import com.gxstar.stargallery.ui.util.SortUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class AlbumDetailViewModel @Inject constructor(
     private val mediaRepository: MediaRepository,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
-
-    companion object {
-        private const val PAGE_SIZE = 60
-    }
 
     private val _albumId = MutableStateFlow(-1L)
     val albumId: StateFlow<Long> = _albumId.asStateFlow()
@@ -55,6 +39,46 @@ class AlbumDetailViewModel @Inject constructor(
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    private val _photoList = MutableStateFlow<List<PhotoModel>>(emptyList())
+    val photoListFlow: StateFlow<List<PhotoModel>> = _photoList.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            combine(
+                _photos,
+                _currentSortType,
+                _currentGroupType
+            ) { photos, sortType, groupType ->
+                buildPhotoModelList(photos, sortType, groupType)
+            }.collect { list ->
+                _photoList.value = list
+            }
+        }
+    }
+
+    private fun buildPhotoModelList(
+        photos: List<Photo>,
+        sortType: MediaRepository.SortType,
+        groupType: GroupType
+    ): List<PhotoModel> {
+        if (photos.isEmpty()) return emptyList()
+
+        val sortedPhotos = SortUtils.sortPhotos(photos, sortType)
+        val result = mutableListOf<PhotoModel>()
+        var lastDateText: String? = null
+
+        for (photo in sortedPhotos) {
+            val dateText = DateUtils.formatDateText(context, photo, sortType, groupType)
+            if (dateText != lastDateText) {
+                result.add(PhotoModel.SeparatorItem(dateText))
+                lastDateText = dateText
+            }
+            result.add(PhotoModel.PhotoItem(photo))
+        }
+
+        return result
+    }
 
     fun setAlbumId(albumId: Long) {
         if (_albumId.value != albumId) {
@@ -92,72 +116,6 @@ class AlbumDetailViewModel @Inject constructor(
             }
         }
     }
-
-    /**
-     * 基础照片数据流（排序后，但不包含分组逻辑）
-     * 只有当照片数据或排序方式变化时才会重新加载
-     */
-    private val basePhotoPagingFlow: Flow<PagingData<PhotoModel.PhotoItem>> = combine(
-        _photos,
-        _currentSortType
-    ) { photos, sortType ->
-        Pair(photos, sortType)
-    }.flatMapLatest { (photos, sortType) ->
-        // 排序
-        val sortedPhotos = if (photos.isEmpty()) {
-            emptyList()
-        } else {
-            SortUtils.sortPhotos(photos, sortType)
-        }
-
-        val totalSize = sortedPhotos.size
-
-        Pager(
-            config = PagingConfig(
-                pageSize = PAGE_SIZE,
-                enablePlaceholders = false,
-                initialLoadSize = if (totalSize > 0) totalSize else PAGE_SIZE * 2,
-                prefetchDistance = 30
-            ),
-            pagingSourceFactory = {
-                InMemoryPhotoPagingSource(sortedPhotos)
-            }
-        ).flow
-            .map { pagingData ->
-                pagingData.map { photo -> PhotoModel.PhotoItem(photo) }
-            }
-            .cachedIn(viewModelScope)
-    }
-
-    /**
-     * 带日期分组的照片数据流
-     * 分组模式切换时只重新计算分隔符，不重新加载照片数据
-     */
-    val photoPagingFlow: Flow<PagingData<PhotoModel>> = combine(
-        basePhotoPagingFlow,
-        _currentSortType,
-        _currentGroupType
-    ) { pagingData, sortType, groupType ->
-        Triple(pagingData, sortType, groupType)
-    }.flatMapLatest { (pagingData, sortType, groupType) ->
-        kotlinx.coroutines.flow.flowOf(
-            pagingData.insertSeparators { before, after ->
-                if (after == null) {
-                    null
-                } else if (before == null) {
-                    PhotoModel.SeparatorItem(DateUtils.formatDateText(context, after.photo, sortType, groupType))
-                } else {
-                    val beforeDate = DateUtils.formatDateText(context, before.photo, sortType, groupType)
-                    val afterDate = DateUtils.formatDateText(context, after.photo, sortType, groupType)
-                    if (beforeDate != afterDate) {
-                        PhotoModel.SeparatorItem(afterDate)
-                    } else {
-                        null
-                    }
-                }
-            }
-        )
-    }.cachedIn(viewModelScope)
 
     fun refresh() {
         loadPhotos()

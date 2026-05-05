@@ -15,6 +15,7 @@ import com.gxstar.stargallery.data.local.scanner.MediaScanner
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.data.paging.RoomPagingSource
 import com.gxstar.stargallery.data.repository.MediaRepository
+import com.gxstar.stargallery.ui.photos.model.PhotoModel
 import com.gxstar.stargallery.ui.util.DateUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext

@@ -96,9 +96,6 @@ dependencies {
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.ui)
 
-    // 快速滚动
-    implementation(libs.android.fastscroll)
-
     // AndroidX Selection Library (用于拖动多选功能)
     implementation(libs.androidx.recyclerview.selection)
 

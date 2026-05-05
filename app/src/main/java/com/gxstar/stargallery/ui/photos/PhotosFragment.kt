@@ -31,16 +31,17 @@ import com.gxstar.stargallery.R
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.data.repository.MediaRepository
 import com.gxstar.stargallery.databinding.FragmentPhotosBinding
+import com.gxstar.stargallery.ui.common.GridSpanCalculator
 import com.gxstar.stargallery.ui.photos.action.BatchActionHandler
 import com.gxstar.stargallery.ui.photos.animation.PhotoItemAnimator
 import com.gxstar.stargallery.ui.photos.launcher.IntentSenderManager
+import com.gxstar.stargallery.ui.photos.model.PhotoModel
 import com.gxstar.stargallery.ui.photos.refresh.MediaChangeDetector
 import com.gxstar.stargallery.ui.photos.selection.PhotoSelectionManager
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
-import me.zhanghai.android.fastscroll.FastScrollerBuilder
 import javax.inject.Inject
 
 /**
@@ -63,7 +64,7 @@ class PhotosFragment : Fragment() {
     private lateinit var mediaChangeDetector: MediaChangeDetector
 
     // UI 组件
-    private lateinit var photoAdapter: PhotoPagingAdapter
+    private lateinit var photoAdapter: PhotoListAdapter
     private lateinit var gridLayoutManager: GridLayoutManager
 
     @Inject
@@ -73,7 +74,7 @@ class PhotosFragment : Fragment() {
     lateinit var mediaRepository: MediaRepository
 
     // 状态
-    private var currentSpanCount = MIN_SPAN_COUNT
+    private var currentSpanCount = GridSpanCalculator.MIN_SPAN_COUNT
     private var itemSize = 0
     private var savedScrollPosition = -1
     private var savedScrollOffset = 0
@@ -125,9 +126,8 @@ class PhotosFragment : Fragment() {
      * 初始化 Adapter
      */
     private fun initAdapter() {
-        photoAdapter = PhotoPagingAdapter(
+        photoAdapter = PhotoListAdapter(
             itemSize = itemSize,
-            spanCount = currentSpanCount,
             onPhotoClick = { photo -> handlePhotoClick(photo) },
             isSelectionModeProvider = { isSelectionModeProvider() },
             isSelectedProvider = { id -> isSelectedProvider(id) }
@@ -183,10 +183,7 @@ class PhotosFragment : Fragment() {
     }
 
     private fun calculateOptimalSpanCount(): Int {
-        val displayMetrics = resources.displayMetrics
-        val screenWidthDp = displayMetrics.widthPixels / displayMetrics.density
-        val spanCount = (screenWidthDp / MIN_CELL_WIDTH_DP).toInt()
-        return spanCount.coerceIn(MIN_SPAN_COUNT, MAX_SPAN_COUNT)
+        return GridSpanCalculator.calculateOptimalSpanCount(resources.displayMetrics)
     }
 
     private fun setupRecyclerView() {
@@ -210,7 +207,7 @@ class PhotosFragment : Fragment() {
             setHasFixedSize(true)
             setItemViewCacheSize(ITEM_VIEW_CACHE_SIZE)
             itemAnimator = PhotoItemAnimator()
-            addItemDecoration(GridSpacingItemDecoration(currentSpanCount, dpToPx(2), true))
+            addItemDecoration(GridSpacingItemDecoration(currentSpanCount, GridSpanCalculator.dpToPx(2, resources.displayMetrics), true))
             // 注意：不需要手动添加 ItemTouchListener，SelectionTracker 会自动处理
         }
 
@@ -220,11 +217,6 @@ class PhotosFragment : Fragment() {
         bindSelectionProviders()
 
         setupGlidePreloader()
-        setupFastScroller()
-
-        photoAdapter.addOnPagesUpdatedListener {
-            photoAdapter.onPagesUpdated()
-        }
     }
 
     private fun setupGlidePreloader() {
@@ -232,27 +224,15 @@ class PhotosFragment : Fragment() {
         val preloadSizeProvider = ViewPreloadSizeProvider<Uri>()
         val preloader = RecyclerViewPreloader(
             glideRequest,
-            PhotoPreloadModelProvider(glideRequest, photoAdapter, itemSize),
+            PhotoPreloadModelProvider(
+                glideRequest,
+                { position -> photoAdapter.snapshot().getOrNull(position) as? PhotoModel.PhotoItem },
+                itemSize
+            ),
             preloadSizeProvider,
             PRELOAD_ITEM_COUNT
         )
         binding.rvPhotos.addOnScrollListener(preloader)
-    }
-
-    private fun setupFastScroller() {
-        val thumbDrawable = requireContext().getDrawable(R.drawable.fastscroll_thumb_material)!!
-        val trackDrawable = requireContext().getDrawable(R.drawable.fastscroll_track_material)!!
-
-        FastScrollerBuilder(binding.rvPhotos)
-            .setThumbDrawable(thumbDrawable)
-            .setTrackDrawable(trackDrawable)
-            .setPopupStyle { popupView ->
-                popupView.setTextSize(18f)
-                popupView.setTextColor(requireContext().getColor(R.color.white))
-                popupView.setBackgroundColor(requireContext().getColor(R.color.fastscroll_thumb))
-                popupView.setPadding(28, 18, 28, 18)
-            }
-            .build()
     }
 
     private fun setupClickListeners() {
@@ -690,12 +670,12 @@ class PhotosFragment : Fragment() {
 
         calculateItemSize()
         gridLayoutManager.spanCount = newSpanCount
-        photoAdapter.updateConfig(itemSize, newSpanCount)
+        photoAdapter.updateItemSize(itemSize)
 
         while (binding.rvPhotos.itemDecorationCount > 0) {
             binding.rvPhotos.removeItemDecorationAt(0)
         }
-        binding.rvPhotos.addItemDecoration(GridSpacingItemDecoration(newSpanCount, dpToPx(2), true))
+        binding.rvPhotos.addItemDecoration(GridSpacingItemDecoration(newSpanCount, GridSpanCalculator.dpToPx(2, resources.displayMetrics), true))
     }
 
     /**
@@ -746,7 +726,7 @@ class PhotosFragment : Fragment() {
         val first = gridLayoutManager.findFirstVisibleItemPosition()
         val last = gridLayoutManager.findLastVisibleItemPosition()
         if (first != RecyclerView.NO_POSITION && last != RecyclerView.NO_POSITION) {
-            photoAdapter.notifyItemRangeChanged(first, last - first + 1, PhotoPagingAdapter.PAYLOAD_SELECTION_CHANGED)
+            photoAdapter.notifyItemRangeChanged(first, last - first + 1, PhotoListAdapter.PAYLOAD_SELECTION_CHANGED)
         }
     }
 
@@ -829,18 +809,18 @@ class PhotosFragment : Fragment() {
             updateSpanCount(optimalSpanCount)
         } else {
             calculateItemSize()
-            photoAdapter.updateConfig(itemSize, currentSpanCount)
+            photoAdapter.updateItemSize(itemSize)
         }
     }
 
     private fun calculateItemSize() {
-        val displayMetrics = resources.displayMetrics
-        val screenWidth = displayMetrics.widthPixels
-        val itemSpacing = dpToPx(2) * (currentSpanCount + 1)
-        itemSize = (screenWidth - itemSpacing) / currentSpanCount
+        val spacingPx = GridSpanCalculator.dpToPx(2, resources.displayMetrics)
+        itemSize = GridSpanCalculator.calculateItemSize(
+            resources.displayMetrics.widthPixels,
+            currentSpanCount,
+            spacingPx
+        )
     }
-
-    private fun dpToPx(dp: Int): Int = (dp * resources.displayMetrics.density).toInt()
 
     override fun onDestroyView() {
         selectionManager.clear()
@@ -852,10 +832,6 @@ class PhotosFragment : Fragment() {
     }
 
     companion object {
-        private const val MIN_CELL_WIDTH_DP = 80
-        private const val MIN_SPAN_COUNT = 3
-        private const val MAX_SPAN_COUNT = 10
-
         private const val ITEM_VIEW_CACHE_SIZE = 24
         private const val PRELOAD_ITEM_COUNT = 6
         private const val PREFETCH_ITEM_COUNT = 12

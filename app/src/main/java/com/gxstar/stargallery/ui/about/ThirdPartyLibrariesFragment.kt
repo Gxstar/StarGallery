@@ -29,7 +29,6 @@ class ThirdPartyLibrariesFragment : Fragment() {
         Library("Navigation Component", "页面导航", "https://developer.android.com/guide/navigation", "Apache-2.0"),
         Library("drag-select-recyclerview", "拖动多选", "https://github.com/afollestad/drag-select-recyclerview", "Apache-2.0"),
         Library("PermissionX", "权限管理", "https://github.com/guolindev/PermissionX", "Apache-2.0"),
-        Library("FastScroller", "快速滚动条", "https://github.com/zhanghai/AndroidFastScroll", "Apache-2.0"),
         Library("LeakCanary", "内存泄漏检测", "https://github.com/square/leakcanary", "Apache-2.0")
     )
 
