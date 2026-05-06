@@ -1,6 +1,6 @@
 [versions]
 # AGP 和 Kotlin
-agp = "9.2.0"
+agp = "9.2.1"
 kotlin = "2.3.20"
 kotlinParcelize = "2.3.20"
 ksp = "2.3.6"
@@ -19,9 +19,6 @@ lifecycleViewmodelKtx = "2.9.2"
 # 图片加载
 glide = "4.16.0"
 glideRecyclerview = "4.16.0"
-subsamplingScaleImageView = "3.10.0"
-gestureViews = "2.8.3"
-photoview = "2.12.0"
 zoomimage = "1.4.0"
 
 # 依赖注入
@@ -43,14 +40,11 @@ room = "2.8.4"
 # 权限
 permissionx = "1.7.1"
 
-# EXIF
-exifinterface = "1.3.7"
+# 元数据提取
+metadataExtractor = "2.20.0"
 
 # 视频播放
 media3 = "1.9.1"
-
-# 快速滚动
-androidFastScroll = "1.3.0"
 
 # AndroidX Selection Library
 recyclerviewSelection = "1.2.0"
@@ -60,7 +54,6 @@ leakcanary = "2.14"
 
 # 协程
 coroutines = "1.10.1"
-metadataExtractor = "2.20.0"
 
 # 测试
 junit = "4.13.2"
@@ -83,9 +76,6 @@ androidx-lifecycle-viewmodel-ktx = { group = "androidx.lifecycle", name = "lifec
 glide = { group = "com.github.bumptech.glide", name = "glide", version.ref = "glide" }
 glide-compiler = { group = "com.github.bumptech.glide", name = "compiler", version.ref = "glide" }
 glide-recyclerview = { group = "com.github.bumptech.glide", name = "recyclerview-integration", version.ref = "glideRecyclerview" }
-subsampling-scale-image-view = { group = "com.davemorrissey.labs", name = "subsampling-scale-image-view-androidx", version.ref = "subsamplingScaleImageView" }
-gesture-views = { group = "com.alexvasilkov", name = "gesture-views", version.ref = "gestureViews" }
-photoview = { group = "com.github.chrisbanes", name = "photoview", version.ref = "photoview" }
 zoomimage-view = { group = "io.github.panpf.zoomimage", name = "zoomimage-view", version.ref = "zoomimage" }
 zoomimage-view-glide = { group = "io.github.panpf.zoomimage", name = "zoomimage-view-glide", version.ref = "zoomimage" }
 
@@ -114,15 +104,12 @@ androidx-room-compiler = { group = "androidx.room", name = "room-compiler", vers
 # 权限
 permissionx = { group = "com.guolindev.permissionx", name = "permissionx", version.ref = "permissionx" }
 
-# EXIF
-androidx-exifinterface = { group = "androidx.exifinterface", name = "exifinterface", version.ref = "exifinterface" }
+# 元数据提取
+metadata-extractor = { group = "com.drewnoakes", name = "metadata-extractor", version.ref = "metadataExtractor" }
 
 # 视频播放
 androidx-media3-exoplayer = { group = "androidx.media3", name = "media3-exoplayer", version.ref = "media3" }
 androidx-media3-ui = { group = "androidx.media3", name = "media3-ui", version.ref = "media3" }
-
-# 快速滚动
-android-fastscroll = { group = "me.zhanghai.android.fastscroll", name = "library", version.ref = "androidFastScroll" }
 
 # AndroidX Selection Library
 androidx-recyclerview-selection = { group = "androidx.recyclerview", name = "recyclerview-selection", version.ref = "recyclerviewSelection" }
@@ -132,7 +119,6 @@ leakcanary = { group = "com.squareup.leakcanary", name = "leakcanary-android", v
 
 # 协程
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
-metadata-extractor = { group = "com.drewnoakes", name = "metadata-extractor", version.ref = "metadataExtractor" }
 
 # 测试
 junit = { group = "junit", name = "junit", version.ref = "junit" }

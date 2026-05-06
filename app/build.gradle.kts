@@ -88,8 +88,7 @@ dependencies {
     // 权限 - PermissionX
     implementation(libs.permissionx)
 
-    // EXIF 信息
-    implementation(libs.androidx.exifinterface)
+    // 元数据提取
     implementation(libs.metadata.extractor)
 
     // 视频播放 - Media3 (ExoPlayer)
