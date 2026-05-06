@@ -24,7 +24,8 @@
       "Bash(./gradlew.bat assembleDebug --refresh-dependencies)",
       "Bash(./gradlew.bat compileDebugKotlin)",
       "Bash(./gradlew assembleDebug --no-daemon)",
-      "Bash(./gradlew --version)"
+      "Bash(./gradlew --version)",
+      "Bash(./gradlew assembleDebug)"
     ]
   }
 }

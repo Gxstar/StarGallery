@@ -27,8 +27,7 @@ class ThirdPartyLibrariesFragment : Fragment() {
         Library("Paging 3", "分页加载", "https://developer.android.com/kotlin/coroutines#paging", "Apache-2.0"),
         Library("Hilt", "依赖注入", "https://developer.android.com/training/dependency-injection/hilt-android", "Apache-2.0"),
         Library("Navigation Component", "页面导航", "https://developer.android.com/guide/navigation", "Apache-2.0"),
-        Library("drag-select-recyclerview", "拖动多选", "https://github.com/afollestad/drag-select-recyclerview", "Apache-2.0"),
-        Library("PermissionX", "权限管理", "https://github.com/guolindev/PermissionX", "Apache-2.0"),
+        Library("RecyclerView Selection", "拖动多选", "https://developer.android.com/guide/topics/ui/accessibility/auto-selection", "Apache-2.0"),
         Library("LeakCanary", "内存泄漏检测", "https://github.com/square/leakcanary", "Apache-2.0")
     )
 

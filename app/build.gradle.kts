@@ -85,9 +85,6 @@ dependencies {
     // implementation(libs.groupie)
     // implementation(libs.groupie.viewbinding)
 
-    // 权限 - PermissionX
-    implementation(libs.permissionx)
-
     // 元数据提取
     implementation(libs.metadata.extractor)
 

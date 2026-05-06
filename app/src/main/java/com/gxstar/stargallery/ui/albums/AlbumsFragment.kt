@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
@@ -20,7 +21,6 @@ import com.bumptech.glide.Glide
 import com.gxstar.stargallery.data.model.Album
 import com.gxstar.stargallery.databinding.FragmentAlbumsBinding
 import com.gxstar.stargallery.databinding.ItemAlbumBinding
-import com.permissionx.guolindev.PermissionX
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 
@@ -32,6 +32,14 @@ class AlbumsFragment : Fragment() {
 
     private val viewModel: AlbumsViewModel by viewModels()
     private lateinit var adapter: AlbumAdapter
+
+    private val permissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { results ->
+        if (results.values.all { it }) {
+            viewModel.loadAlbums()
+        }
+    }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentAlbumsBinding.inflate(inflater, container, false)
@@ -53,14 +61,7 @@ class AlbumsFragment : Fragment() {
         } else {
             arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
         }
-
-        PermissionX.init(this)
-            .permissions(*permissions)
-            .request { allGranted, _, _ ->
-                if (allGranted) {
-                    viewModel.loadAlbums()
-                }
-            }
+        permissionLauncher.launch(permissions)
     }
 
     private fun setupRecyclerView() {

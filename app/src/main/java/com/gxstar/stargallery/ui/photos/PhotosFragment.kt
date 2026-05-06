@@ -13,6 +13,7 @@ import android.view.ViewGroup
 import android.widget.PopupMenu
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.setFragmentResultListener
 import androidx.fragment.app.viewModels
@@ -89,6 +90,14 @@ class PhotosFragment : Fragment() {
     private val backPressedCallback = object : OnBackPressedCallback(false) {
         override fun handleOnBackPressed() {
             selectionManager.exitSelectionMode()
+        }
+    }
+
+    private val permissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { results ->
+        if (results.values.all { it }) {
+            viewModel.rescanAfterPermissionGranted()
         }
     }
 
@@ -530,15 +539,7 @@ class PhotosFragment : Fragment() {
             }
             else -> arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
         }
-
-        com.permissionx.guolindev.PermissionX.init(this)
-            .permissions(*permissions)
-            .request { allGranted, _, _ ->
-                if (allGranted) {
-                    // 权限获取后重新扫描媒体库
-                    viewModel.rescanAfterPermissionGranted()
-                }
-            }
+        permissionLauncher.launch(permissions)
     }
 
     private fun showPopupMenu(view: View) {

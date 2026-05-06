@@ -37,8 +37,8 @@ room = "2.8.4"
 # 列表分组 (未使用)
 # groupie = "2.10.1"
 
-# 权限
-permissionx = "1.7.1"
+# 权限 (使用官方 ActivityResultContracts)
+# permissionx = { group = "com.guolindev.permissionx", name = "permissionx", version.ref = "permissionx" }
 
 # 元数据提取
 metadataExtractor = "2.20.0"
@@ -101,8 +101,8 @@ androidx-room-compiler = { group = "androidx.room", name = "room-compiler", vers
 # groupie = { group = "com.github.lisawray.groupie", name = "groupie", version.ref = "groupie" }
 # groupie-viewbinding = { group = "com.github.lisawray.groupie", name = "groupie-viewbinding", version.ref = "groupie" }
 
-# 权限
-permissionx = { group = "com.guolindev.permissionx", name = "permissionx", version.ref = "permissionx" }
+# 权限 (使用官方 ActivityResultContracts)
+# permissionx = { group = "com.guolindev.permissionx", name = "permissionx", version.ref = "permissionx" }
 
 # 元数据提取
 metadata-extractor = { group = "com.drewnoakes", name = "metadata-extractor", version.ref = "metadataExtractor" }

@@ -40,7 +40,6 @@ import com.gxstar.stargallery.ui.photos.GridSpacingItemDecoration
 import com.gxstar.stargallery.ui.photos.GroupType
 import com.gxstar.stargallery.ui.photos.model.PhotoModel
 import com.gxstar.stargallery.ui.photos.PhotoPreloadModelProvider
-import com.permissionx.guolindev.PermissionX
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
@@ -75,6 +74,15 @@ class AlbumDetailFragment : Fragment() {
     private val backPressedCallback = object : OnBackPressedCallback(false) {
         override fun handleOnBackPressed() {
             selectionTracker.exitSelectionMode()
+        }
+    }
+
+    private val permissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { results ->
+        if (results.values.all { it }) {
+            viewModel.setAlbumId(args.bucketId)
+            observePhotoList()
         }
     }
 
@@ -186,15 +194,7 @@ class AlbumDetailFragment : Fragment() {
         } else {
             arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
         }
-
-        PermissionX.init(this)
-            .permissions(*permissions)
-            .request { allGranted, _, _ ->
-                if (allGranted) {
-                    viewModel.setAlbumId(args.bucketId)
-                    observePhotoList()
-                }
-            }
+        permissionLauncher.launch(permissions)
     }
 
     private fun setupClickListeners() {

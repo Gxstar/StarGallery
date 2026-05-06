@@ -106,7 +106,7 @@ Pager(config = PagingConfig(pageSize = 30, prefetchDistance = 10),
 
 ---
 
-## 7. PermissionX (权限管理)
+## 7. ActivityResultContracts (权限管理)
 
 **功能：** 运行时权限请求（媒体访问）
 
@@ -116,9 +116,18 @@ Pager(config = PagingConfig(pageSize = 30, prefetchDistance = 10),
 
 **使用方式：**
 ```kotlin
-PermissionX.init(this)
-    .permissions(*permissions)
-    .request { allGranted, _, _ -> }
+private val permissionLauncher = registerForActivityResult(
+    ActivityResultContracts.RequestMultiplePermissions()
+) { results ->
+    if (results.values.all { it }) {
+        viewModel.loadAlbums()
+    }
+}
+
+permissionLauncher.launch(arrayOf(
+    Manifest.permission.READ_MEDIA_IMAGES,
+    Manifest.permission.READ_MEDIA_VIDEO
+))
 ```
 
 ---
@@ -200,7 +209,7 @@ suspend fun extractExif(uri: Uri) = withContext(Dispatchers.IO) { }
 | Navigation | 2.9.7 | 导航 |
 | Paging 3 | 3.4.2 | 分页 |
 | Room | 2.8.4 | 数据库 |
-| PermissionX | 1.7.1 | 权限 |
+| ActivityResultContracts | AndroidX | 权限 |
 | metadata-extractor | 2.20.0 | EXIF |
 | Media3 | 1.9.1 | 视频播放 |
 | recyclerview-selection | 1.2.0 | 选择 |
