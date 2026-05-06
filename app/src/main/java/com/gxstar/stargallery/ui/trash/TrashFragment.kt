@@ -110,12 +110,9 @@ class TrashFragment : Fragment() {
                     showPhotoPreview(photo)
                 }
             },
-            onPhotoLongClick = { _ ->
-                if (!selectionManager.isInSelectionMode()) selectionManager.enterSelectionMode()
-                true
-            },
+            onPhotoLongClick = { position -> selectionManager.startDragSelection(position) },
             isSelectionModeProvider = { selectionManager.isInSelectionMode() },
-            isSelectedProvider = { id -> selectionManager.isSelected(id) }
+            isSelectedProvider = { position -> selectionManager.isSelectedPosition(position) }
         )
 
         gridLayoutManager = GridLayoutManager(requireContext(), currentSpanCount)

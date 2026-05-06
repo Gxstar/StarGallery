@@ -99,7 +99,7 @@ class MediaChangeDetector(
         }
     }
 
-    private fun destroy() {
+    fun destroy() {
         unregisterObserver()
         debounceJob?.cancel()
         lifecycleOwner.lifecycle.removeObserver(this)

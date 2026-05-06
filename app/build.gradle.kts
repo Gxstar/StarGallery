@@ -92,8 +92,8 @@ dependencies {
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.ui)
 
-    // AndroidX Selection Library (用于拖动多选功能)
-    implementation(libs.androidx.recyclerview.selection)
+    // 拖动多选功能
+    implementation(libs.drag.select)
 
     // 协程
     implementation(libs.kotlinx.coroutines.android)

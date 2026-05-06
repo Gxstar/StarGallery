@@ -65,8 +65,8 @@ class PhotosFragment : Fragment() {
     private lateinit var mediaChangeDetector: MediaChangeDetector
 
     // UI 组件
-    private lateinit var photoAdapter: PhotoListAdapter
-    private lateinit var gridLayoutManager: GridLayoutManager
+    private var photoAdapter: PhotoListAdapter? = null
+    private var gridLayoutManager: GridLayoutManager? = null
 
     @Inject
     lateinit var sharedPreferences: SharedPreferences
@@ -85,7 +85,7 @@ class PhotosFragment : Fragment() {
 
     // Adapter provider
     private var isSelectionModeProvider: () -> Boolean = { false }
-    private var isSelectedProvider: (Long) -> Boolean = { false }
+    private var isSelectedProvider: (Int) -> Boolean = { false }
 
     private val backPressedCallback = object : OnBackPressedCallback(false) {
         override fun handleOnBackPressed() {
@@ -138,8 +138,9 @@ class PhotosFragment : Fragment() {
         photoAdapter = PhotoListAdapter(
             itemSize = itemSize,
             onPhotoClick = { photo -> handlePhotoClick(photo) },
+            onPhotoLongClick = { position -> selectionManager.startDragSelection(position) },
             isSelectionModeProvider = { isSelectionModeProvider() },
-            isSelectedProvider = { id -> isSelectedProvider(id) }
+            isSelectedProvider = { position -> isSelectedProvider(position) }
         ).apply {
             stateRestorationPolicy = RecyclerView.Adapter.StateRestorationPolicy.PREVENT_WHEN_EMPTY
         }
@@ -147,7 +148,7 @@ class PhotosFragment : Fragment() {
 
     private fun bindSelectionProviders() {
         isSelectionModeProvider = { selectionManager.isInSelectionMode() }
-        isSelectedProvider = { id -> selectionManager.isSelected(id) }
+        isSelectedProvider = { position -> selectionManager.isSelectedPosition(position) }
     }
 
     private fun initManagers() {
@@ -196,11 +197,12 @@ class PhotosFragment : Fragment() {
     }
 
     private fun setupRecyclerView() {
+        val photoListAdapter = photoAdapter ?: return
         gridLayoutManager = GridLayoutManager(requireContext(), currentSpanCount).apply {
             spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
                 override fun getSpanSize(position: Int): Int {
-                    if (position < 0 || position >= photoAdapter.itemCount) return 1
-                    return if (photoAdapter.getItemViewType(position) == 0) currentSpanCount else 1
+                    if (position < 0 || position >= photoListAdapter.itemCount) return 1
+                    return if (photoListAdapter.getItemViewType(position) == 0) currentSpanCount else 1
                 }
             }.apply {
                 isSpanIndexCacheEnabled = true
@@ -212,16 +214,14 @@ class PhotosFragment : Fragment() {
 
         binding.rvPhotos.apply {
             layoutManager = gridLayoutManager
-            adapter = photoAdapter
+            adapter = photoListAdapter
             setHasFixedSize(true)
             setItemViewCacheSize(ITEM_VIEW_CACHE_SIZE)
             itemAnimator = PhotoItemAnimator()
             addItemDecoration(GridSpacingItemDecoration(currentSpanCount, GridSpanCalculator.dpToPx(2, resources.displayMetrics), true))
-            // 注意：不需要手动添加 ItemTouchListener，SelectionTracker 会自动处理
         }
 
-        // 初始化选择管理器（必须在设置好 adapter 之后）
-        selectionManager = PhotoSelectionManager(binding.rvPhotos, photoAdapter)
+        selectionManager = PhotoSelectionManager(binding.rvPhotos, photoListAdapter)
         selectionManager.init()
         bindSelectionProviders()
 
@@ -229,13 +229,14 @@ class PhotosFragment : Fragment() {
     }
 
     private fun setupGlidePreloader() {
+        val adapter = photoAdapter ?: return
         val glideRequest = Glide.with(this)
         val preloadSizeProvider = ViewPreloadSizeProvider<Uri>()
         val preloader = RecyclerViewPreloader(
             glideRequest,
             PhotoPreloadModelProvider(
                 glideRequest,
-                { position -> photoAdapter.snapshot().getOrNull(position) as? PhotoModel.PhotoItem },
+                { position -> adapter.snapshot().getOrNull(position) as? PhotoModel.PhotoItem },
                 itemSize
             ),
             preloadSizeProvider,
@@ -293,7 +294,7 @@ class PhotosFragment : Fragment() {
      * 根据照片 ID 找到其在 RecyclerView 中的位置
      */
     private fun findPhotoPosition(photoId: Long): Int {
-        val snapshot = photoAdapter.snapshot()
+        val snapshot = photoAdapter?.snapshot() ?: return RecyclerView.NO_POSITION
         for (i in 0 until snapshot.size) {
             val item = snapshot[i]
             if (item is PhotoModel.PhotoItem && item.photo.id == photoId) {
@@ -339,7 +340,7 @@ class PhotosFragment : Fragment() {
                         viewModel.updateFavoriteMixed(toFavorite, toUnfavorite)
                     }
                 }
-                photoAdapter.refresh()
+                photoAdapter?.refresh()
             }
             pendingFavoriteAction = BatchActionHandler.FAVORITE_ACTION_NONE
         }
@@ -365,9 +366,8 @@ class PhotosFragment : Fragment() {
             if (success) {
                 Toast.makeText(requireContext(), R.string.moved_to_trash, Toast.LENGTH_SHORT).show()
                 selectionManager.exitSelectionMode()
-                // 更新数据库并刷新列表
                 viewModel.deletePhotos(selectedIds)
-                photoAdapter.refresh()
+                photoAdapter?.refresh()
             }
         }
 
@@ -375,9 +375,8 @@ class PhotosFragment : Fragment() {
             if (success) {
                 Toast.makeText(requireContext(), R.string.deleted, Toast.LENGTH_SHORT).show()
                 selectionManager.exitSelectionMode()
-                // 更新数据库并刷新列表
                 viewModel.deletePhotos(selectedIds)
-                photoAdapter.refresh()
+                photoAdapter?.refresh()
             }
         }
 
@@ -416,7 +415,7 @@ class PhotosFragment : Fragment() {
     }
 
     private fun findPhotoById(id: Long): Photo? {
-        val snapshot = photoAdapter.snapshot()
+        val snapshot = photoAdapter?.snapshot() ?: return null
         for (i in 0 until snapshot.size) {
             val item = snapshot[i]
             if (item is PhotoModel.PhotoItem && item.photo.id == id) {
@@ -436,22 +435,20 @@ class PhotosFragment : Fragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.photoPagingFlow.collectLatest { pagingData ->
-                    photoAdapter.submitData(pagingData)
+                    photoAdapter?.submitData(pagingData)
                 }
             }
         }
 
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                photoAdapter.loadStateFlow.collect { loadStates ->
+                photoAdapter?.loadStateFlow?.collect { loadStates ->
                     val isRefreshing = loadStates.refresh is LoadState.Loading
-                    val isEmpty = loadStates.refresh is LoadState.NotLoading && photoAdapter.itemCount == 0
+                    val isEmpty = loadStates.refresh is LoadState.NotLoading && photoAdapter?.itemCount == 0
                     val hasError = loadStates.refresh is LoadState.Error
 
-                    // 只有首次加载（无数据）时显示进度条，刷新时保持列表可见
-                    binding.progressBar.visibility = if (isRefreshing && photoAdapter.itemCount == 0) View.VISIBLE else View.GONE
+                    binding.progressBar.visibility = if (isRefreshing && photoAdapter?.itemCount == 0) View.VISIBLE else View.GONE
                     binding.emptyStateView.visibility = if (isEmpty) View.VISIBLE else View.GONE
-                    // 刷新时保持旧数据可见，只有错误时隐藏列表
                     binding.rvPhotos.visibility = if (hasError) View.GONE else View.VISIBLE
                 }
             }
@@ -490,7 +487,7 @@ class PhotosFragment : Fragment() {
                     viewModel.currentGroupType
                 ) { sortType, groupType -> Pair(sortType, groupType) }
                     .collect { (sortType, groupType) ->
-                        photoAdapter.updateSortAndGroupType(sortType, groupType)
+                        photoAdapter?.updateSortAndGroupType(sortType, groupType)
                     }
             }
         }
@@ -670,8 +667,8 @@ class PhotosFragment : Fragment() {
         sharedPreferences.edit().putInt(KEY_SPAN_COUNT, newSpanCount).apply()
 
         calculateItemSize()
-        gridLayoutManager.spanCount = newSpanCount
-        photoAdapter.updateItemSize(itemSize)
+        gridLayoutManager?.spanCount = newSpanCount
+        photoAdapter?.updateItemSize(itemSize)
 
         while (binding.rvPhotos.itemDecorationCount > 0) {
             binding.rvPhotos.removeItemDecorationAt(0)
@@ -689,14 +686,15 @@ class PhotosFragment : Fragment() {
     }
 
     private fun smoothRefreshItems(photoIds: Set<Long>) {
-        val firstVisible = gridLayoutManager.findFirstVisibleItemPosition()
-        val lastVisible = gridLayoutManager.findLastVisibleItemPosition()
+        val adapter = photoAdapter ?: return
+        val firstVisible = gridLayoutManager?.findFirstVisibleItemPosition() ?: RecyclerView.NO_POSITION
+        val lastVisible = gridLayoutManager?.findLastVisibleItemPosition() ?: RecyclerView.NO_POSITION
 
         if (firstVisible == RecyclerView.NO_POSITION) return
 
         val positions = mutableListOf<Int>()
-        val searchEnd = minOf(lastVisible + 10, photoAdapter.itemCount - 1)
-        val snapshot = photoAdapter.snapshot()
+        val searchEnd = minOf(lastVisible + 10, adapter.itemCount - 1)
+        val snapshot = adapter.snapshot()
 
         for (i in maxOf(0, firstVisible - 10)..searchEnd) {
             val item = snapshot.getOrNull(i)
@@ -712,7 +710,7 @@ class PhotosFragment : Fragment() {
                     ?.alpha(0.7f)
                     ?.setDuration(150)
                     ?.withEndAction {
-                        photoAdapter.notifyItemChanged(position)
+                        adapter.notifyItemChanged(position)
                         holder.itemView.animate()
                             ?.alpha(1f)
                             ?.setDuration(150)
@@ -724,10 +722,10 @@ class PhotosFragment : Fragment() {
     }
 
     private fun refreshVisibleItems() {
-        val first = gridLayoutManager.findFirstVisibleItemPosition()
-        val last = gridLayoutManager.findLastVisibleItemPosition()
+        val first = gridLayoutManager?.findFirstVisibleItemPosition() ?: RecyclerView.NO_POSITION
+        val last = gridLayoutManager?.findLastVisibleItemPosition() ?: RecyclerView.NO_POSITION
         if (first != RecyclerView.NO_POSITION && last != RecyclerView.NO_POSITION) {
-            photoAdapter.notifyItemRangeChanged(first, last - first + 1, PhotoListAdapter.PAYLOAD_SELECTION_CHANGED)
+            photoAdapter?.notifyItemRangeChanged(first, last - first + 1, PhotoListAdapter.PAYLOAD_SELECTION_CHANGED)
         }
     }
 
@@ -754,9 +752,9 @@ class PhotosFragment : Fragment() {
      * 保存当前滚动位置
      */
     private fun saveScrollPosition(): Int {
-        val position = gridLayoutManager.findFirstVisibleItemPosition()
+        val position = gridLayoutManager?.findFirstVisibleItemPosition() ?: RecyclerView.NO_POSITION
         if (position != RecyclerView.NO_POSITION) {
-            val firstVisibleView = gridLayoutManager.findViewByPosition(position)
+            val firstVisibleView = gridLayoutManager?.findViewByPosition(position)
             savedScrollOffset = firstVisibleView?.top ?: 0
         }
         savedScrollPosition = position
@@ -770,7 +768,7 @@ class PhotosFragment : Fragment() {
         if (savedScrollPosition >= 0) {
             binding.rvPhotos.post {
                 try {
-                    gridLayoutManager.scrollToPositionWithOffset(savedScrollPosition, savedScrollOffset)
+                    gridLayoutManager?.scrollToPositionWithOffset(savedScrollPosition, savedScrollOffset)
                 } catch (e: Exception) {
                     // 忽略
                 }
@@ -810,7 +808,7 @@ class PhotosFragment : Fragment() {
             updateSpanCount(optimalSpanCount)
         } else {
             calculateItemSize()
-            photoAdapter.updateItemSize(itemSize)
+            photoAdapter?.updateItemSize(itemSize)
         }
     }
 
@@ -824,10 +822,12 @@ class PhotosFragment : Fragment() {
     }
 
     override fun onDestroyView() {
+        mediaChangeDetector.destroy()
         selectionManager.clear()
-        binding.rvPhotos.adapter = null
+        gridLayoutManager?.spanSizeLookup = null
+        gridLayoutManager = null
         binding.rvPhotos.layoutManager = null
-        gridLayoutManager.spanSizeLookup = null
+        binding.rvPhotos.adapter = null
         _binding = null
         super.onDestroyView()
     }

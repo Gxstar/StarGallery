@@ -4,7 +4,6 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.paging.PagingDataAdapter
-import androidx.recyclerview.selection.ItemDetailsLookup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
@@ -19,8 +18,9 @@ import com.gxstar.stargallery.ui.photos.model.PhotoModel
 class PhotoListAdapter(
     private var itemSize: Int,
     private val onPhotoClick: (Photo) -> Unit,
+    private val onPhotoLongClick: (Int) -> Unit,
     private val isSelectionModeProvider: () -> Boolean = { false },
-    private val isSelectedProvider: (Long) -> Boolean = { false }
+    private val isSelectedProvider: (Int) -> Boolean = { false }
 ) : PagingDataAdapter<PhotoModel, RecyclerView.ViewHolder>(PHOTO_DIFF_CALLBACK) {
 
     private var currentSortType = MediaRepository.SortType.DATE_TAKEN
@@ -69,23 +69,6 @@ class PhotoListAdapter(
         }
     }
 
-    fun getPhotoKey(position: Int): Long {
-        val item = getItem(position) ?: return RecyclerView.NO_ID
-        return when (item) {
-            is PhotoModel.PhotoItem -> item.photo.id
-            is PhotoModel.SeparatorItem -> item.dateText.hashCode().toLong()
-        }
-    }
-
-    fun getPhotoPosition(photoId: Long): Int {
-        snapshot().toList().forEachIndexed { index, item ->
-            if (item is PhotoModel.PhotoItem && item.photo.id == photoId) {
-                return index
-            }
-        }
-        return RecyclerView.NO_POSITION
-    }
-
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
         return when (viewType) {
             TYPE_HEADER -> {
@@ -102,7 +85,14 @@ class PhotoListAdapter(
                     parent,
                     false
                 )
-                PhotoViewHolder(binding, { itemSize }, onPhotoClick, isSelectionModeProvider, isSelectedProvider)
+                PhotoViewHolder(
+                    binding,
+                    { itemSize },
+                    onPhotoClick,
+                    onPhotoLongClick,
+                    isSelectionModeProvider,
+                    isSelectedProvider
+                )
             }
         }
     }
@@ -114,7 +104,7 @@ class PhotoListAdapter(
                 holder.bind(item.dateText)
             }
             holder is PhotoViewHolder && item is PhotoModel.PhotoItem ->
-                holder.bind(item.photo)
+                holder.bind(item.photo, position)
         }
     }
 
@@ -128,8 +118,7 @@ class PhotoListAdapter(
             return
         }
         if (holder is PhotoViewHolder) {
-            val item = getItem(position) as? PhotoModel.PhotoItem ?: return
-            holder.updateSelectionState(item.photo)
+            holder.updateSelectionState(position)
         }
     }
 
@@ -138,10 +127,7 @@ class PhotoListAdapter(
         if (holder is PhotoViewHolder) {
             val position = holder.bindingAdapterPosition
             if (position != RecyclerView.NO_POSITION) {
-                val item = getItem(position) as? PhotoModel.PhotoItem
-                if (item != null) {
-                    holder.updateSelectionState(item.photo)
-                }
+                holder.updateSelectionState(position)
             }
         }
     }
@@ -160,17 +146,18 @@ class PhotoViewHolder(
     private val binding: ItemPhotoBinding,
     private val itemSizeProvider: () -> Int,
     private val onPhotoClick: (Photo) -> Unit,
+    private val onPhotoLongClick: (Int) -> Unit,
     private val isSelectionModeProvider: () -> Boolean,
-    private val isSelectedProvider: (Long) -> Boolean
+    private val isSelectedProvider: (Int) -> Boolean
 ) : RecyclerView.ViewHolder(binding.root) {
 
     private var currentPhoto: Photo? = null
     private var isClickProcessing = false
 
-    fun bind(photo: Photo) {
+    fun bind(photo: Photo, position: Int) {
         currentPhoto = photo
         val isSelectionMode = isSelectionModeProvider()
-        val isSelected = isSelectedProvider(photo.id)
+        val isSelected = isSelectedProvider(position)
 
         loadImage(photo)
         updateSelectionUI(isSelectionMode, isSelected, photo)
@@ -185,21 +172,15 @@ class PhotoViewHolder(
 
         binding.photoContainer.setOnLongClickListener {
             isClickProcessing = true
-            false
+            onPhotoLongClick(position)
+            true
         }
     }
 
-    fun getItemDetails(): ItemDetailsLookup.ItemDetails<Long> {
-        return object : ItemDetailsLookup.ItemDetails<Long>() {
-            override fun getPosition(): Int = bindingAdapterPosition
-            override fun getSelectionKey(): Long? = currentPhoto?.id
-        }
-    }
-
-    fun updateSelectionState(photo: Photo) {
+    fun updateSelectionState(position: Int) {
         val isSelectionMode = isSelectionModeProvider()
-        val isSelected = isSelectedProvider(photo.id)
-        updateSelectionUI(isSelectionMode, isSelected, photo)
+        val isSelected = isSelectedProvider(position)
+        currentPhoto?.let { updateSelectionUI(isSelectionMode, isSelected, it) }
     }
 
     private fun loadImage(photo: Photo) {

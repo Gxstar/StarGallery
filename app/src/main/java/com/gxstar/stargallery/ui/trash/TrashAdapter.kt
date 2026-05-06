@@ -5,22 +5,18 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
-import androidx.recyclerview.selection.ItemDetailsLookup
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.gxstar.stargallery.R
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.databinding.ItemPhotoBinding
 
-/**
- * 回收站列表适配器
- */
 class TrashAdapter(
     private var itemSize: Int,
     private val onPhotoClick: (Photo) -> Unit,
-    private val onPhotoLongClick: (Photo) -> Boolean,
+    private val onPhotoLongClick: (Int) -> Unit,
     private val isSelectionModeProvider: () -> Boolean,
-    private val isSelectedProvider: (Long) -> Boolean
+    private val isSelectedProvider: (Int) -> Boolean
 ) : ListAdapter<Photo, TrashAdapter.TrashViewHolder>(TrashDiffCallback()) {
 
     init {
@@ -29,24 +25,6 @@ class TrashAdapter(
 
     override fun getItemId(position: Int): Long {
         return getItem(position).id
-    }
-
-    /**
-     * 根据 position 获取 photo id (key)
-     */
-    fun getPhotoKey(position: Int): Long {
-        if (position < 0 || position >= itemCount) return RecyclerView.NO_ID
-        return getItemId(position)
-    }
-
-    /**
-     * 根据 photo id 获取 position
-     */
-    fun getPhotoPosition(photoId: Long): Int {
-        for (i in 0 until itemCount) {
-            if (getItemId(i) == photoId) return i
-        }
-        return RecyclerView.NO_POSITION
     }
 
     fun updateItemSize(newSize: Int) {
@@ -60,24 +38,32 @@ class TrashAdapter(
     }
 
     override fun onBindViewHolder(holder: TrashViewHolder, position: Int) {
-        holder.bind(getItem(position))
+        holder.bind(getItem(position), position)
+    }
+
+    override fun onBindViewHolder(holder: TrashViewHolder, position: Int, payloads: MutableList<Any>) {
+        if (payloads.isEmpty()) {
+            super.onBindViewHolder(holder, position, payloads)
+            return
+        }
+        holder.updateSelectionState(position)
     }
 
     class TrashViewHolder(
         private val binding: ItemPhotoBinding,
         private val itemSize: Int,
         private val onPhotoClick: (Photo) -> Unit,
-        private val onPhotoLongClick: (Photo) -> Boolean,
+        private val onPhotoLongClick: (Int) -> Unit,
         private val isSelectionModeProvider: () -> Boolean,
-        private val isSelectedProvider: (Long) -> Boolean
+        private val isSelectedProvider: (Int) -> Boolean
     ) : RecyclerView.ViewHolder(binding.root) {
 
         private var currentPhoto: Photo? = null
 
-        fun bind(photo: Photo) {
+        fun bind(photo: Photo, position: Int) {
             currentPhoto = photo
             val isSelectionMode = isSelectionModeProvider()
-            val isSelected = isSelectedProvider(photo.id)
+            val isSelected = isSelectedProvider(position)
 
             binding.root.layoutParams.width = itemSize
             binding.root.layoutParams.height = itemSize
@@ -107,21 +93,25 @@ class TrashAdapter(
             }
 
             binding.photoContainer.setOnLongClickListener {
-                onPhotoLongClick(photo)
+                onPhotoLongClick(position)
+                true
             }
         }
 
-        /**
-         * Selection Library 的 ItemDetails 提供者
-         */
-        fun getItemDetails(): ItemDetailsLookup.ItemDetails<Long>? {
-            val position = bindingAdapterPosition
-            if (position == RecyclerView.NO_POSITION) {
-                return null
-            }
-            return object : ItemDetailsLookup.ItemDetails<Long>() {
-                override fun getPosition(): Int = position
-                override fun getSelectionKey(): Long? = currentPhoto?.id
+        fun updateSelectionState(position: Int) {
+            val isSelectionMode = isSelectionModeProvider()
+            val isSelected = isSelectedProvider(position)
+            if (isSelectionMode) {
+                binding.ivSelected.visibility = View.VISIBLE
+                binding.selectionOverlay.visibility = if (isSelected) View.VISIBLE else View.GONE
+                binding.ivSelected.setImageResource(
+                    if (isSelected) R.drawable.ic_selected_filled else R.drawable.ic_selected
+                )
+                binding.ivPhoto.alpha = if (isSelected) 0.7f else 1.0f
+            } else {
+                binding.ivSelected.visibility = View.GONE
+                binding.selectionOverlay.visibility = View.GONE
+                binding.ivPhoto.alpha = 1.0f
             }
         }
     }

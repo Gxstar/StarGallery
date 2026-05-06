@@ -46,8 +46,8 @@ metadataExtractor = "2.20.0"
 # 视频播放
 media3 = "1.9.1"
 
-# AndroidX Selection Library
-recyclerviewSelection = "1.2.0"
+# 拖动选择
+dragSelect = "2.4.0"
 
 # 内存泄漏检测
 leakcanary = "2.14"
@@ -111,8 +111,8 @@ metadata-extractor = { group = "com.drewnoakes", name = "metadata-extractor", ve
 androidx-media3-exoplayer = { group = "androidx.media3", name = "media3-exoplayer", version.ref = "media3" }
 androidx-media3-ui = { group = "androidx.media3", name = "media3-ui", version.ref = "media3" }
 
-# AndroidX Selection Library
-androidx-recyclerview-selection = { group = "androidx.recyclerview", name = "recyclerview-selection", version.ref = "recyclerviewSelection" }
+# 拖动选择
+drag-select = { group = "com.afollestad", name = "drag-select-recyclerview", version.ref = "dragSelect" }
 
 # 内存泄漏检测
 leakcanary = { group = "com.squareup.leakcanary", name = "leakcanary-android", version.ref = "leakcanary" }
