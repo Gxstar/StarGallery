@@ -35,7 +35,6 @@ import com.gxstar.stargallery.data.repository.MediaRepository
 import com.gxstar.stargallery.databinding.FragmentPhotosBinding
 import com.gxstar.stargallery.ui.common.DeleteOptionsBottomSheet
 import com.gxstar.stargallery.ui.common.GridSpanCalculator
-import com.gxstar.stargallery.ui.common.PhotoSelectionTracker
 import com.gxstar.stargallery.ui.photos.GridSpacingItemDecoration
 import com.gxstar.stargallery.ui.photos.GroupType
 import com.gxstar.stargallery.ui.photos.model.PhotoModel
@@ -56,9 +55,9 @@ class AlbumDetailFragment : Fragment() {
     private val args: AlbumDetailFragmentArgs by navArgs()
     private val viewModel: AlbumDetailViewModel by viewModels()
 
-    private lateinit var photoAdapter: AlbumDetailAdapter
-    private lateinit var gridLayoutManager: GridLayoutManager
-    private lateinit var selectionTracker: PhotoSelectionTracker
+    private var photoAdapter: AlbumDetailAdapter? = null
+    private var gridLayoutManager: GridLayoutManager? = null
+    private lateinit var selectionManager: AlbumSelectionManager
 
     private var pagingDataJob: Job? = null
 
@@ -73,7 +72,7 @@ class AlbumDetailFragment : Fragment() {
 
     private val backPressedCallback = object : OnBackPressedCallback(false) {
         override fun handleOnBackPressed() {
-            selectionTracker.exitSelectionMode()
+            selectionManager.exitSelectionMode()
         }
     }
 
@@ -139,7 +138,7 @@ class AlbumDetailFragment : Fragment() {
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         calculateItemSize()
-        photoAdapter.updateItemSize(itemSize)
+        photoAdapter?.updateItemSize(itemSize)
     }
 
     private fun loadSpanCount() {
@@ -208,15 +207,11 @@ class AlbumDetailFragment : Fragment() {
     }
 
     private fun shareSelectedPhotos() {
-        val selectedIds = selectionTracker.selectedIds
-        if (selectedIds.isEmpty()) return
+        val photos = selectionManager.getSelectedPhotos()
+        if (photos.isEmpty()) return
 
         val uris = ArrayList<Uri>()
-        selectedIds.forEach { id ->
-            findPhotoById(id)?.uri?.let { uris.add(it) }
-        }
-
-        if (uris.isEmpty()) return
+        photos.forEach { photo -> uris.add(photo.uri) }
 
         val intent = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
             type = "image/*"
@@ -228,17 +223,15 @@ class AlbumDetailFragment : Fragment() {
     }
 
     private fun favoriteSelectedPhotos() {
-        val selectedIds = selectionTracker.selectedIds
-        if (selectedIds.isEmpty()) return
+        val photos = selectionManager.getSelectedPhotos()
+        if (photos.isEmpty()) return
 
         val photosToFavorite = mutableListOf<Photo>()
         val photosToUnfavorite = mutableListOf<Photo>()
 
-        selectedIds.forEach { id ->
-            findPhotoById(id)?.let { photo ->
-                if (photo.isFavorite) photosToUnfavorite.add(photo)
-                else photosToFavorite.add(photo)
-            }
+        photos.forEach { photo ->
+            if (photo.isFavorite) photosToUnfavorite.add(photo)
+            else photosToFavorite.add(photo)
         }
 
         val hasFavorite = photosToFavorite.isNotEmpty()
@@ -283,14 +276,7 @@ class AlbumDetailFragment : Fragment() {
     }
 
     private fun deleteSelectedPhotos() {
-        val selectedIds = selectionTracker.selectedIds
-        if (selectedIds.isEmpty()) return
-
-        val photos = mutableListOf<Photo>()
-        selectedIds.forEach { id ->
-            findPhotoById(id)?.let { photos.add(it) }
-        }
-
+        val photos = selectionManager.getSelectedPhotos()
         if (photos.isEmpty()) return
 
         DeleteOptionsBottomSheet.newInstance(
@@ -336,17 +322,8 @@ class AlbumDetailFragment : Fragment() {
             .show()
     }
 
-    private fun enterSelectionMode() {
-        selectionTracker.enterSelectionMode()
-        backPressedCallback.isEnabled = true
-        binding.normalToolbar.visibility = View.GONE
-        binding.selectionToolbar.visibility = View.VISIBLE
-        binding.tvSelectionCount.text = getString(R.string.selected, 0)
-        refreshVisibleItems()
-    }
-
     private fun exitSelectionMode() {
-        selectionTracker.exitSelectionMode()
+        selectionManager.exitSelectionMode()
         backPressedCallback.isEnabled = false
         binding.normalToolbar.visibility = View.VISIBLE
         binding.selectionToolbar.visibility = View.GONE
@@ -354,55 +331,82 @@ class AlbumDetailFragment : Fragment() {
     }
 
     private fun refreshVisibleItems() {
-        val first = gridLayoutManager.findFirstVisibleItemPosition()
-        val last = gridLayoutManager.findLastVisibleItemPosition()
+        val first = gridLayoutManager?.findFirstVisibleItemPosition() ?: RecyclerView.NO_POSITION
+        val last = gridLayoutManager?.findLastVisibleItemPosition() ?: RecyclerView.NO_POSITION
         if (first != RecyclerView.NO_POSITION && last != RecyclerView.NO_POSITION) {
-            photoAdapter.notifyItemRangeChanged(first, last - first + 1)
+            photoAdapter?.notifyItemRangeChanged(first, last - first + 1, AlbumDetailAdapter.PAYLOAD_SELECTION_CHANGED)
         }
     }
 
-    private fun togglePhotoSelection(photoId: Long) {
-        selectionTracker.toggleSelection(photoId)
-        binding.tvSelectionCount.text = getString(R.string.selected, selectionTracker.selectedCountFlow.value)
-        if (selectionTracker.selectedCountFlow.value == 0) {
+    private fun togglePhotoSelection(position: Int) {
+        selectionManager.toggleSelection(position)
+        binding.tvSelectionCount.text = getString(R.string.selected, selectionManager.selectedCount.value)
+        if (selectionManager.selectedCount.value == 0) {
             exitSelectionMode()
         }
-    }
-
-    private fun findPhotoById(id: Long): Photo? {
-        return photoAdapter.currentList.filterIsInstance<PhotoModel.PhotoItem>()
-            .find { it.photo.id == id }?.photo
     }
 
     private fun setupRecyclerView() {
         photoAdapter = AlbumDetailAdapter(
             itemSize = itemSize,
             onPhotoClick = { photo ->
-                if (selectionTracker.isSelectionMode.value) togglePhotoSelection(photo.id)
-                else navigateToDetail(photo)
+                val position = photoAdapter?.getPhotoPosition(photo.id) ?: RecyclerView.NO_POSITION
+                if (position != RecyclerView.NO_POSITION && selectionManager.isInSelectionMode()) {
+                    togglePhotoSelection(position)
+                } else {
+                    navigateToDetail(photo)
+                }
             },
-            isSelectionModeProvider = { selectionTracker.isSelectionMode.value },
-            isSelectedProvider = { id -> selectionTracker.isSelected(id) }
+            onPhotoLongClick = { position -> selectionManager.startDragSelection(position) },
+            isSelectionModeProvider = { selectionManager.isInSelectionMode() },
+            isSelectedProvider = { position -> selectionManager.isSelectedPosition(position) }
         )
 
-        gridLayoutManager = GridLayoutManager(requireContext(), currentSpanCount)
-        gridLayoutManager.spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
-            override fun getSpanSize(position: Int): Int {
-                return if (photoAdapter.getItemViewType(position) == 0) currentSpanCount else 1
+        gridLayoutManager = GridLayoutManager(requireContext(), currentSpanCount).apply {
+            spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
+                override fun getSpanSize(position: Int): Int {
+                    return if (photoAdapter?.getItemViewType(position) == 0) currentSpanCount else 1
+                }
+            }.apply {
+                isSpanIndexCacheEnabled = true
             }
-        }.apply {
-            isSpanIndexCacheEnabled = true
         }
 
-        binding.rvPhotos.layoutManager = gridLayoutManager
-        binding.rvPhotos.adapter = photoAdapter
-        binding.rvPhotos.addItemDecoration(GridSpacingItemDecoration(currentSpanCount, GridSpanCalculator.dpToPx(2, resources.displayMetrics), true))
-        binding.rvPhotos.setHasFixedSize(true)
-        binding.rvPhotos.setItemViewCacheSize(24)
-        binding.rvPhotos.isNestedScrollingEnabled = false
+        binding.rvPhotos.apply {
+            layoutManager = gridLayoutManager
+            adapter = photoAdapter
+            addItemDecoration(GridSpacingItemDecoration(currentSpanCount, GridSpanCalculator.dpToPx(2, resources.displayMetrics), true))
+            setHasFixedSize(true)
+            setItemViewCacheSize(24)
+            isNestedScrollingEnabled = false
+        }
 
-        // 初始化 SelectionTracker
-        selectionTracker = PhotoSelectionTracker()
+        selectionManager = AlbumSelectionManager(binding.rvPhotos, photoAdapter)
+        selectionManager.init()
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                selectionManager.isSelectionMode.collect { isSelectionMode ->
+                    if (isSelectionMode) {
+                        binding.normalToolbar.visibility = View.GONE
+                        binding.selectionToolbar.visibility = View.VISIBLE
+                    } else {
+                        binding.normalToolbar.visibility = View.VISIBLE
+                        binding.selectionToolbar.visibility = View.GONE
+                    }
+                    backPressedCallback.isEnabled = isSelectionMode
+                    refreshVisibleItems()
+                }
+            }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                selectionManager.selectedCount.collect { count ->
+                    binding.tvSelectionCount.text = getString(R.string.selected, count)
+                }
+            }
+        }
 
         val glideRequest = Glide.with(this)
         val preloadSizeProvider = ViewPreloadSizeProvider<Uri>()
@@ -410,17 +414,13 @@ class AlbumDetailFragment : Fragment() {
             glideRequest,
             PhotoPreloadModelProvider(
                 glideRequest,
-                { position -> photoAdapter.currentList.getOrNull(position) as? PhotoModel.PhotoItem },
+                { position -> photoAdapter?.currentList?.getOrNull(position) as? PhotoModel.PhotoItem },
                 itemSize
             ),
             preloadSizeProvider,
             20
         )
         binding.rvPhotos.addOnScrollListener(preloader)
-    }
-
-    private fun findPhotoPosition(photoId: Long): Int {
-        return photoAdapter.getPhotoPosition(photoId)
     }
 
     private fun observeData() {
@@ -440,7 +440,6 @@ class AlbumDetailFragment : Fragment() {
             }
         }
 
-        // 观察排序和分组状态并同步到适配器，用于快速滑动时的日期显示
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 combine(
@@ -448,7 +447,7 @@ class AlbumDetailFragment : Fragment() {
                     viewModel.currentGroupType
                 ) { sortType, groupType -> Pair(sortType, groupType) }
                     .collect { (sortType, groupType) ->
-                        photoAdapter.updateSortAndGroupType(sortType, groupType)
+                        photoAdapter?.updateSortAndGroupType(sortType, groupType)
                     }
             }
         }
@@ -459,7 +458,7 @@ class AlbumDetailFragment : Fragment() {
         pagingDataJob = viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.photoListFlow.collectLatest { list ->
-                    photoAdapter.submitList(list)
+                    photoAdapter?.submitList(list)
                 }
             }
         }
@@ -532,7 +531,8 @@ class AlbumDetailFragment : Fragment() {
                 val newGroupType = when (which) {
                     0 -> GroupType.DAY
                     1 -> GroupType.MONTH
-                    else -> GroupType.YEAR
+                    2 -> GroupType.YEAR
+                    else -> GroupType.DAY
                 }
                 if (newGroupType != currentGroupType) {
                     viewModel.setGroupType(newGroupType)
@@ -546,54 +546,50 @@ class AlbumDetailFragment : Fragment() {
     }
 
     private fun showColumnsDialog() {
-        val options = arrayOf("3", "4", "5")
-        val checkedItem = when (currentSpanCount) {
-            3 -> 0
-            4 -> 1
-            else -> 2
-        }
+        val options = arrayOf("3", "4", "5", "6", "7", "8")
+        val checkedItem = currentSpanCount - 3
 
         MaterialAlertDialogBuilder(requireContext())
             .setTitle(R.string.select_columns)
             .setSingleChoiceItems(options, checkedItem) { dialog, which ->
-                val newSpanCount = when (which) {
-                    0 -> 3
-                    1 -> 4
-                    else -> 5
+                val newSpan = which + 3
+                if (newSpan != currentSpanCount) {
+                    updateSpanCount(newSpan)
                 }
-                if (newSpanCount != currentSpanCount) {
-                    currentSpanCount = newSpanCount
-                    sharedPreferences.edit().putInt(KEY_SPAN_COUNT, newSpanCount).apply()
-
-                    gridLayoutManager.spanCount = newSpanCount
-                    calculateItemSize()
-                    photoAdapter.updateItemSize(itemSize)
-
-                    while (binding.rvPhotos.itemDecorationCount > 0) {
-                        binding.rvPhotos.removeItemDecorationAt(0)
-                    }
-                    binding.rvPhotos.addItemDecoration(GridSpacingItemDecoration(newSpanCount, GridSpanCalculator.dpToPx(2, resources.displayMetrics), true))
-                }
-                dialog?.dismiss()
+                dialog.dismiss()
             }
             .setNegativeButton(R.string.cancel, null)
             .show()
     }
 
+    private fun updateSpanCount(newSpanCount: Int) {
+        currentSpanCount = newSpanCount
+        sharedPreferences.edit().putInt(KEY_SPAN_COUNT, newSpanCount).apply()
+
+        calculateItemSize()
+        gridLayoutManager?.spanCount = newSpanCount
+        photoAdapter?.updateItemSize(itemSize)
+
+        while (binding.rvPhotos.itemDecorationCount > 0) {
+            binding.rvPhotos.removeItemDecorationAt(0)
+        }
+        binding.rvPhotos.addItemDecoration(GridSpacingItemDecoration(newSpanCount, GridSpanCalculator.dpToPx(2, resources.displayMetrics), true))
+    }
+
     override fun onDestroyView() {
-        pagingDataJob?.cancel()
-        pagingDataJob = null
-        selectionTracker.clear()
-        binding.rvPhotos.adapter = null
+        selectionManager.clear()
+        gridLayoutManager?.spanSizeLookup = null
+        gridLayoutManager = null
         binding.rvPhotos.layoutManager = null
-        gridLayoutManager.spanSizeLookup = null
+        binding.rvPhotos.adapter = null
+        photoAdapter = null
         _binding = null
         super.onDestroyView()
     }
 
     companion object {
-        private const val KEY_SPAN_COUNT = "span_count"
-        private const val KEY_SORT_TYPE_ALBUM = "sort_type_album"
-        private const val KEY_GROUP_TYPE_ALBUM = "group_type_album"
+        private const val KEY_SPAN_COUNT = "album_span_count"
+        private const val KEY_SORT_TYPE_ALBUM = "album_sort_type"
+        private const val KEY_GROUP_TYPE_ALBUM = "album_group_type"
     }
 }

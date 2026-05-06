@@ -19,8 +19,9 @@ import com.gxstar.stargallery.ui.photos.model.PhotoModel
 class AlbumDetailAdapter(
     private var itemSize: Int,
     private val onPhotoClick: (Photo) -> Unit,
+    private val onPhotoLongClick: (Int) -> Unit = {},
     private val isSelectionModeProvider: () -> Boolean = { false },
-    private val isSelectedProvider: (Long) -> Boolean = { false }
+    private val isSelectedProvider: (Int) -> Boolean = { false }
 ) : ListAdapter<PhotoModel, RecyclerView.ViewHolder>(PHOTO_DIFF_CALLBACK) {
 
     private var currentSortType = MediaRepository.SortType.DATE_TAKEN
@@ -94,7 +95,7 @@ class AlbumDetailAdapter(
                     parent,
                     false
                 )
-                AlbumPhotoViewHolder(binding, { itemSize }, onPhotoClick, isSelectionModeProvider, isSelectedProvider)
+                AlbumPhotoViewHolder(binding, { itemSize }, onPhotoClick, onPhotoLongClick, isSelectionModeProvider, isSelectedProvider)
             }
         }
     }
@@ -106,7 +107,7 @@ class AlbumDetailAdapter(
                 holder.bind(item.dateText)
             }
             holder is AlbumPhotoViewHolder && item is PhotoModel.PhotoItem ->
-                holder.bind(item.photo)
+                holder.bind(item.photo, position)
         }
     }
 
@@ -120,8 +121,7 @@ class AlbumDetailAdapter(
             return
         }
         if (holder is AlbumPhotoViewHolder) {
-            val item = getItem(position) as? PhotoModel.PhotoItem ?: return
-            holder.updateSelectionState(item.photo)
+            holder.updateSelectionState(position)
         }
     }
 
@@ -130,10 +130,7 @@ class AlbumDetailAdapter(
         if (holder is AlbumPhotoViewHolder) {
             val position = holder.bindingAdapterPosition
             if (position != RecyclerView.NO_POSITION) {
-                val item = getItem(position) as? PhotoModel.PhotoItem
-                if (item != null) {
-                    holder.updateSelectionState(item.photo)
-                }
+                holder.updateSelectionState(position)
             }
         }
     }
@@ -152,17 +149,18 @@ class AlbumPhotoViewHolder(
     private val binding: ItemPhotoBinding,
     private val itemSizeProvider: () -> Int,
     private val onPhotoClick: (Photo) -> Unit,
+    private val onPhotoLongClick: (Int) -> Unit,
     private val isSelectionModeProvider: () -> Boolean,
-    private val isSelectedProvider: (Long) -> Boolean
+    private val isSelectedProvider: (Int) -> Boolean
 ) : RecyclerView.ViewHolder(binding.root) {
 
     private var currentPhoto: Photo? = null
     private var isClickProcessing = false
 
-    fun bind(photo: Photo) {
+    fun bind(photo: Photo, position: Int) {
         currentPhoto = photo
         val isSelectionMode = isSelectionModeProvider()
-        val isSelected = isSelectedProvider(photo.id)
+        val isSelected = isSelectedProvider(position)
 
         loadImage(photo)
         updateSelectionUI(isSelectionMode, isSelected, photo)
@@ -177,13 +175,15 @@ class AlbumPhotoViewHolder(
 
         binding.photoContainer.setOnLongClickListener {
             isClickProcessing = true
-            false
+            onPhotoLongClick(position)
+            true
         }
     }
 
-    fun updateSelectionState(photo: Photo) {
+    fun updateSelectionState(position: Int) {
         val isSelectionMode = isSelectionModeProvider()
-        val isSelected = isSelectedProvider(photo.id)
+        val isSelected = isSelectedProvider(position)
+        val photo = currentPhoto ?: return
         updateSelectionUI(isSelectionMode, isSelected, photo)
     }
 
