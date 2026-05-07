@@ -842,8 +842,10 @@ class PhotosFragment : Fragment() {
         selectionManager.clear()
         gridLayoutManager?.spanSizeLookup = null
         gridLayoutManager = null
+        binding.rvPhotos.itemAnimator = null
         binding.rvPhotos.layoutManager = null
         binding.rvPhotos.adapter = null
+        photoItemAnimator = null
         _binding = null
         super.onDestroyView()
     }
