@@ -7,11 +7,13 @@ import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
+import com.gxstar.stargallery.data.local.db.AppDatabase
 import com.gxstar.stargallery.data.local.db.PhotoDao
 import com.gxstar.stargallery.data.local.db.PhotoEntity
 import com.gxstar.stargallery.data.local.exif.ExifExtractor
 import com.gxstar.stargallery.data.local.preferences.ScanPreferences
 import com.gxstar.stargallery.data.model.Photo
+import androidx.room.withTransaction
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -36,7 +38,8 @@ class MediaScanner @Inject constructor(
     @ApplicationContext private val context: Context,
     private val photoDao: PhotoDao,
     private val scanPreferences: ScanPreferences,
-    private val exifExtractor: ExifExtractor
+    private val exifExtractor: ExifExtractor,
+    private val appDatabase: AppDatabase
 ) {
     companion object {
         private const val TAG = "MediaScanner"
@@ -90,34 +93,40 @@ class MediaScanner @Inject constructor(
 
             // 2. 批量写入 Room
             var processedCount = 0
-            val batchSize = 50
+            val batchSize = 100 // 增加批处理大小
             val batches = allMedia.chunked(batchSize)
 
-            for (batch in batches) {
-                val entities = batch.map { item ->
-                    PhotoEntity(
-                        id = item.id,
-                        uri = item.uri,
-                        dateTaken = item.dateTaken,
-                        dateModified = item.dateModified,
-                        dateAdded = item.dateAdded,
-                        mimeType = item.mimeType,
-                        width = item.width,
-                        height = item.height,
-                        size = item.size,
-                        bucketId = item.bucketId,
-                        bucketName = item.bucketName,
-                        latitude = null,
-                        longitude = null,
-                        orientation = item.orientation,
-                        isFavorite = item.isFavorite
-                    )
-                }
-                photoDao.insertAll(entities)
+            appDatabase.withTransaction {
+                for (batch in batches) {
+                    val entities = batch.map { item ->
+                        PhotoEntity(
+                            id = item.id,
+                            uri = item.uri,
+                            dateTaken = item.dateTaken,
+                            dateModified = item.dateModified,
+                            dateAdded = item.dateAdded,
+                            mimeType = item.mimeType,
+                            width = item.width,
+                            height = item.height,
+                            size = item.size,
+                            bucketId = item.bucketId,
+                            bucketName = item.bucketName,
+                            latitude = null,
+                            longitude = null,
+                            orientation = item.orientation,
+                            isFavorite = item.isFavorite
+                        )
+                    }
+                    photoDao.insertAll(entities)
 
-                processedCount += batch.size
-                val progress = processedCount.toFloat() / total
-                _scanState.emit(ScanState.Scanning(processedCount, total, progress))
+                    processedCount += batch.size
+                    val progress = processedCount.toFloat() / total
+                    _scanState.emit(ScanState.Scanning(processedCount, total, progress))
+                }
+
+                // 全量扫描完成后，删除已不存在于 MediaStore 的记录
+                val validIds = allMedia.map { it.id }
+                photoDao.deleteRemovedPhotos(validIds)
             }
 
             val duration = System.currentTimeMillis() - startTime

@@ -13,7 +13,6 @@ import com.gxstar.stargallery.data.local.db.PhotoDao
 import com.gxstar.stargallery.data.local.db.PhotoEntity
 import com.gxstar.stargallery.data.local.scanner.MediaScanner
 import com.gxstar.stargallery.data.model.Photo
-import com.gxstar.stargallery.data.paging.RoomPagingSource
 import com.gxstar.stargallery.data.repository.MediaRepository
 import com.gxstar.stargallery.ui.photos.model.PhotoModel
 import com.gxstar.stargallery.ui.util.DateUtils
@@ -43,8 +42,8 @@ class PhotosViewModel @Inject constructor(
 ) : ViewModel() {
 
     companion object {
-        private const val PAGE_SIZE = 20
-        private const val PREFETCH_DISTANCE = 10
+        private const val PAGE_SIZE = 50
+        private const val PREFETCH_DISTANCE = 20
     }
 
     private val _currentSortType = MutableStateFlow(MediaRepository.SortType.DATE_TAKEN)
@@ -176,63 +175,75 @@ class PhotosViewModel @Inject constructor(
     }
 
     /**
-     * 基础照片数据流（从 Room 数据库读取）
-     * 当 _refreshTrigger 变化时重新创建 PagingSource（实现数据刷新）
+     * 带日期分组的照片数据流
+     * 使用 flatMapLatest 确保当排序或过滤条件变化时重新创建 Pager
+     * 启用 placeholders 以提高滚动稳定性
      */
-    private val basePhotoPagingFlow: Flow<PagingData<PhotoModel.PhotoItem>> = combine(
+    val photoPagingFlow: Flow<PagingData<PhotoModel>> = combine(
         _currentSortType,
         _showFavoritesOnly,
         _searchQuery,
-        _refreshTrigger
-    ) { sortType, showFavoritesOnly, searchQuery, _ ->
-        Triple(sortType, showFavoritesOnly, searchQuery)
-    }.flatMapLatest { (sortType, showFavoritesOnly, searchQuery) ->
-        // 目前搜索功能暂不支持（需要 Room 支持全文搜索），先忽略 searchQuery
+        _currentGroupType
+    ) { sortType, showFavoritesOnly, searchQuery, groupType ->
+        DataConfig(sortType, showFavoritesOnly, searchQuery, groupType)
+    }.flatMapLatest { config ->
         Pager(
             config = PagingConfig(
                 pageSize = PAGE_SIZE,
-                enablePlaceholders = false,
-                initialLoadSize = PAGE_SIZE,
+                enablePlaceholders = false, // 禁用占位符，占位符与动态高度的分隔符结合会导致严重的滚动跳变
+                initialLoadSize = PAGE_SIZE * 3,
                 prefetchDistance = PREFETCH_DISTANCE
             ),
             pagingSourceFactory = {
-                RoomPagingSource(
-                    photoDao = photoDao,
-                    sortType = sortType,
-                    showFavoritesOnly = showFavoritesOnly
-                )
+                if (config.showFavoritesOnly) {
+                    if (config.sortType == MediaRepository.SortType.DATE_TAKEN) {
+                        photoDao.pagingFavoritePhotosByDateTaken()
+                    } else {
+                        photoDao.pagingFavoritePhotosByDateAdded()
+                    }
+                } else {
+                    if (config.sortType == MediaRepository.SortType.DATE_TAKEN) {
+                        photoDao.pagingPhotosByDateTaken()
+                    } else {
+                        photoDao.pagingPhotosByDateAdded()
+                    }
+                }
             }
         ).flow
             .map { pagingData ->
-                pagingData.map { entity -> PhotoModel.PhotoItem(entity.toPhoto()) }
+                // 先转换为 UI 模型
+                pagingData.map { entity -> PhotoModel.PhotoItem(entity.toPhoto()) as PhotoModel }
+            }
+            .map { pagingData ->
+                // 插入日期分隔符
+                pagingData.insertSeparators { before, after ->
+                    if (after == null) {
+                        null
+                    } else if (before == null) {
+                        if (after is PhotoModel.PhotoItem) {
+                            PhotoModel.SeparatorItem(DateUtils.formatDateText(context, after.photo, config.sortType, config.groupType))
+                        } else null
+                    } else {
+                        if (before is PhotoModel.PhotoItem && after is PhotoModel.PhotoItem) {
+                            val beforeDate = DateUtils.formatDateText(context, before.photo, config.sortType, config.groupType)
+                            val afterDate = DateUtils.formatDateText(context, after.photo, config.sortType, config.groupType)
+                            if (beforeDate != afterDate) {
+                                PhotoModel.SeparatorItem(afterDate)
+                            } else {
+                                null
+                            }
+                        } else null
+                    }
+                }
             }
     }.cachedIn(viewModelScope)
 
-    /**
-     * 带日期分组的照片数据流
-     */
-    val photoPagingFlow: Flow<PagingData<PhotoModel>> = combine(
-        basePhotoPagingFlow,
-        _currentSortType,
-        _currentGroupType
-    ) { pagingData, sortType, groupType ->
-        // 插入日期分隔符
-        pagingData.insertSeparators { before, after ->
-            if (after == null) {
-                null
-            } else if (before == null) {
-                PhotoModel.SeparatorItem(DateUtils.formatDateText(context, after.photo, sortType, groupType))
-            } else {
-                val beforeDate = DateUtils.formatDateText(context, before.photo, sortType, groupType)
-                val afterDate = DateUtils.formatDateText(context, after.photo, sortType, groupType)
-                if (beforeDate != afterDate) {
-                    PhotoModel.SeparatorItem(afterDate)
-                } else {
-                    null
-                }
-            }
-        }
-    }.cachedIn(viewModelScope)
+    private data class DataConfig(
+        val sortType: MediaRepository.SortType,
+        val showFavoritesOnly: Boolean,
+        val searchQuery: String?,
+        val groupType: GroupType
+    )
 
     fun refresh() {
         loadCounts()

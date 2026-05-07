@@ -96,7 +96,8 @@ class PhotoListAdapter(
     }
 
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
-        val item = getItem(position) ?: return
+        val item = getItem(position)
+        if (item == null) return
         when {
             holder is HeaderViewHolder && item is PhotoModel.SeparatorItem -> {
                 holder.bind(item.dateText)

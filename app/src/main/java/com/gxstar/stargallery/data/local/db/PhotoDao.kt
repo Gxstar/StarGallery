@@ -70,7 +70,7 @@ interface PhotoDao {
     @Query("SELECT * FROM photos WHERE isFavorite = 1 ORDER BY dateAdded DESC")
     fun pagingFavoritePhotosByDateAdded(): PagingSource<Int, PhotoEntity>
 
-    // ==================== 手动分页查询（RoomPagingSource 使用） ====================
+    // ==================== 手动分页查询 ====================
 
     @Query("SELECT * FROM photos ORDER BY dateTaken DESC LIMIT :limit OFFSET :offset")
     suspend fun getPhotosByDateTakenPaged(offset: Int, limit: Int): List<PhotoEntity>

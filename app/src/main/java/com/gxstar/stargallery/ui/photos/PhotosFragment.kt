@@ -2,6 +2,7 @@ package com.gxstar.stargallery.ui.photos
 
 import android.Manifest
 import android.content.SharedPreferences
+import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.net.Uri
 import android.os.Build
@@ -14,6 +15,7 @@ import android.widget.PopupMenu
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.setFragmentResultListener
 import androidx.fragment.app.viewModels
@@ -67,6 +69,7 @@ class PhotosFragment : Fragment() {
     // UI 组件
     private var photoAdapter: PhotoListAdapter? = null
     private var gridLayoutManager: GridLayoutManager? = null
+    private var photoItemAnimator: PhotoItemAnimator? = null
 
     @Inject
     lateinit var sharedPreferences: SharedPreferences
@@ -216,8 +219,11 @@ class PhotosFragment : Fragment() {
             layoutManager = gridLayoutManager
             adapter = photoListAdapter
             setHasFixedSize(true)
-            setItemViewCacheSize(ITEM_VIEW_CACHE_SIZE)
-            itemAnimator = PhotoItemAnimator()
+            setItemViewCacheSize(8) // 减小缓存，避免快速刷新时出现复用残留
+            photoItemAnimator = PhotoItemAnimator().apply {
+                supportsChangeAnimations = false // 彻底禁用变更动画，消除残影
+            }
+            itemAnimator = photoItemAnimator
             addItemDecoration(GridSpacingItemDecoration(currentSpanCount, GridSpanCalculator.dpToPx(2, resources.displayMetrics), true))
         }
 
@@ -459,6 +465,9 @@ class PhotosFragment : Fragment() {
                 viewModel.isScanning.collect { isScanning ->
                     binding.scanningView.visibility = if (isScanning) View.VISIBLE else View.GONE
                     binding.progressBar.visibility = if (isScanning) View.GONE else binding.progressBar.visibility
+                    
+                    // 扫描时禁用动画，避免数据快速刷新导致界面乱跳和残影
+                    binding.rvPhotos.itemAnimator = if (isScanning) null else photoItemAnimator
                 }
             }
         }
@@ -536,7 +545,14 @@ class PhotosFragment : Fragment() {
             }
             else -> arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
         }
-        permissionLauncher.launch(permissions)
+
+        val allGranted = permissions.all {
+            ContextCompat.checkSelfPermission(requireContext(), it) == PackageManager.PERMISSION_GRANTED
+        }
+
+        if (!allGranted) {
+            permissionLauncher.launch(permissions)
+        }
     }
 
     private fun showPopupMenu(view: View) {
