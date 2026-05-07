@@ -6,13 +6,11 @@ import android.view.ViewGroup
 import androidx.paging.PagingDataAdapter
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
-import com.bumptech.glide.Glide
-import com.bumptech.glide.load.engine.DiskCacheStrategy
-import com.gxstar.stargallery.R
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.data.repository.MediaRepository
 import com.gxstar.stargallery.databinding.ItemDateHeaderBinding
 import com.gxstar.stargallery.databinding.ItemPhotoBinding
+import com.gxstar.stargallery.ui.common.PhotoGridViewHolder
 import com.gxstar.stargallery.ui.photos.model.PhotoModel
 
 class PhotoListAdapter(
@@ -85,7 +83,7 @@ class PhotoListAdapter(
                     parent,
                     false
                 )
-                PhotoViewHolder(
+                PhotoGridViewHolder(
                     binding,
                     { itemSize },
                     onPhotoClick,
@@ -103,7 +101,7 @@ class PhotoListAdapter(
             holder is HeaderViewHolder && item is PhotoModel.SeparatorItem -> {
                 holder.bind(item.dateText)
             }
-            holder is PhotoViewHolder && item is PhotoModel.PhotoItem ->
+            holder is PhotoGridViewHolder && item is PhotoModel.PhotoItem ->
                 holder.bind(item.photo, position)
         }
     }
@@ -117,14 +115,14 @@ class PhotoListAdapter(
             super.onBindViewHolder(holder, position, payloads)
             return
         }
-        if (holder is PhotoViewHolder) {
+        if (holder is PhotoGridViewHolder) {
             holder.updateSelectionState(position)
         }
     }
 
     override fun onViewAttachedToWindow(holder: RecyclerView.ViewHolder) {
         super.onViewAttachedToWindow(holder)
-        if (holder is PhotoViewHolder) {
+        if (holder is PhotoGridViewHolder) {
             val position = holder.bindingAdapterPosition
             if (position != RecyclerView.NO_POSITION) {
                 holder.updateSelectionState(position)
@@ -139,91 +137,5 @@ class HeaderViewHolder(
 
     fun bind(dateText: String) {
         binding.tvDate.text = dateText
-    }
-}
-
-class PhotoViewHolder(
-    private val binding: ItemPhotoBinding,
-    private val itemSizeProvider: () -> Int,
-    private val onPhotoClick: (Photo) -> Unit,
-    private val onPhotoLongClick: (Int) -> Unit,
-    private val isSelectionModeProvider: () -> Boolean,
-    private val isSelectedProvider: (Int) -> Boolean
-) : RecyclerView.ViewHolder(binding.root) {
-
-    private var currentPhoto: Photo? = null
-    private var isClickProcessing = false
-
-    fun bind(photo: Photo, position: Int) {
-        currentPhoto = photo
-        val isSelectionMode = isSelectionModeProvider()
-        val isSelected = isSelectedProvider(position)
-
-        loadImage(photo)
-        updateSelectionUI(isSelectionMode, isSelected, photo)
-
-        binding.photoContainer.setOnClickListener {
-            if (isClickProcessing) {
-                isClickProcessing = false
-                return@setOnClickListener
-            }
-            onPhotoClick(photo)
-        }
-
-        binding.photoContainer.setOnLongClickListener {
-            isClickProcessing = true
-            onPhotoLongClick(position)
-            true
-        }
-    }
-
-    fun updateSelectionState(position: Int) {
-        val isSelectionMode = isSelectionModeProvider()
-        val isSelected = isSelectedProvider(position)
-        currentPhoto?.let { updateSelectionUI(isSelectionMode, isSelected, it) }
-    }
-
-    private fun loadImage(photo: Photo) {
-        val itemSize = itemSizeProvider()
-        val requestBuilder = Glide.with(binding.ivPhoto.context)
-            .load(photo.uri)
-            .placeholder(R.drawable.ic_photo_placeholder)
-            .error(R.drawable.ic_photo_error)
-            .centerCrop()
-            .diskCacheStrategy(DiskCacheStrategy.RESOURCE)
-            .skipMemoryCache(false)
-            .dontAnimate()
-
-        if (itemSize > 0) {
-            requestBuilder.override(itemSize, itemSize)
-        }
-
-        requestBuilder.into(binding.ivPhoto)
-    }
-
-    private fun updateSelectionUI(isSelectionMode: Boolean, isSelected: Boolean, photo: Photo) {
-        if (isSelectionMode) {
-            binding.ivSelected.visibility = View.VISIBLE
-            binding.selectionOverlay.visibility = if (isSelected) View.VISIBLE else View.GONE
-            binding.ivSelected.setImageResource(
-                if (isSelected) R.drawable.ic_selected_filled else R.drawable.ic_selected
-            )
-            binding.ivFavorite.visibility = View.GONE
-            binding.ivVideoIndicator.visibility = View.GONE
-            binding.tvFormatTag.visibility = View.GONE
-            binding.ivPhoto.alpha = if (isSelected) 0.7f else 1.0f
-        } else {
-            binding.ivSelected.visibility = View.GONE
-            binding.selectionOverlay.visibility = View.GONE
-            binding.ivPhoto.alpha = 1.0f
-            binding.ivFavorite.visibility = if (photo.isFavorite) View.VISIBLE else View.GONE
-            binding.ivVideoIndicator.visibility = if (photo.isVideo) View.VISIBLE else View.GONE
-            if (photo.isRaw) {
-                binding.tvFormatTag.visibility = View.VISIBLE
-                binding.tvFormatTag.text = "RAW"
-            } else {
-                binding.tvFormatTag.visibility = View.GONE
-            }
-        }
     }
 }
