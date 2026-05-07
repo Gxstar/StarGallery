@@ -26,6 +26,7 @@ import com.gxstar.stargallery.data.repository.MediaRepository
 import com.gxstar.stargallery.databinding.FragmentTrashBinding
 import com.gxstar.stargallery.ui.photos.GridSpacingItemDecoration
 import com.gxstar.stargallery.ui.photos.PhotosFragment
+import com.gxstar.stargallery.ui.common.BaseSelectionManager
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -203,7 +204,7 @@ class TrashFragment : Fragment() {
         val first = layoutManager.findFirstVisibleItemPosition()
         val last = layoutManager.findLastVisibleItemPosition()
         if (first != RecyclerView.NO_POSITION && last != RecyclerView.NO_POSITION) {
-            adapter.notifyItemRangeChanged(first, last - first + 1, TrashSelectionManager.PAYLOAD_SELECTION_CHANGED)
+            adapter.notifyItemRangeChanged(first, last - first + 1, BaseSelectionManager.PAYLOAD_SELECTION_CHANGED)
         }
     }
 
