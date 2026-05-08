@@ -14,7 +14,7 @@ import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.os.bundleOf
+
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -59,19 +59,28 @@ class PhotoDetailFragment : Fragment() {
 
     // 是否已设置过初始位置（用于避免删除后重置位置）
     private var hasInitialPositionBeenSet = false
-    
+
+    // 待操作的照片 ID，用于删除/回收站操作后将 ID 传回 PhotosFragment
+    private var pendingActionPhotoId: Long? = null
+
     private val deleteRequestLauncher = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             Toast.makeText(requireContext(), R.string.deleted, Toast.LENGTH_SHORT).show()
-            setFragmentResult(PhotosFragment.REQUEST_KEY_PHOTO_DELETED, bundleOf())
+            setFragmentResult(PhotosFragment.REQUEST_KEY_PHOTO_DELETED, Bundle().apply {
+                putLongArray("photo_ids", pendingActionPhotoId?.let { longArrayOf(it) })
+                putBoolean("is_remove", true)
+            })
             handlePhotoDeleted()
         }
     }
-    
+
     private val trashRequestLauncher = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             Toast.makeText(requireContext(), R.string.moved_to_trash, Toast.LENGTH_SHORT).show()
-            setFragmentResult(PhotosFragment.REQUEST_KEY_PHOTO_DELETED, bundleOf())
+            setFragmentResult(PhotosFragment.REQUEST_KEY_PHOTO_DELETED, Bundle().apply {
+                putLongArray("photo_ids", pendingActionPhotoId?.let { longArrayOf(it) })
+                putBoolean("is_remove", true)
+            })
             handlePhotoDeleted()
         }
     }
@@ -219,6 +228,7 @@ class PhotoDetailFragment : Fragment() {
         viewModel.currentPhoto.value?.let { photo ->
             mediaRepository.trashPhoto(photo)?.let { intentSender ->
                 try {
+                    pendingActionPhotoId = photo.id
                     trashRequestLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
                 } catch (e: Exception) {
                     Toast.makeText(requireContext(), R.string.move_to_trash_failed, Toast.LENGTH_SHORT).show()
@@ -231,6 +241,7 @@ class PhotoDetailFragment : Fragment() {
         viewModel.deletePhoto { intentSender ->
             if (intentSender != null) {
                 try {
+                    pendingActionPhotoId = viewModel.currentPhoto.value?.id
                     deleteRequestLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
                 } catch (e: Exception) {
                     Toast.makeText(requireContext(), R.string.delete_failed, Toast.LENGTH_SHORT).show()

@@ -67,6 +67,10 @@ class PhotosViewModel @Inject constructor(
     private val _isScanning = MutableStateFlow(false)
     val isScanning: StateFlow<Boolean> = _isScanning.asStateFlow()
 
+    // 用于触发 Pager 重建的刷新信号
+    private val _refreshTrigger = MutableStateFlow(0L)
+    val refreshTrigger: StateFlow<Long> = _refreshTrigger.asStateFlow()
+
     val isSearching: Flow<Boolean> = _searchQuery.map { !it.isNullOrBlank() }
 
     init {
@@ -115,11 +119,13 @@ class PhotosViewModel @Inject constructor(
             mediaScanner.performFullScan()
             loadCounts()
             _isScanning.value = false
+            _refreshTrigger.value = System.currentTimeMillis()
         }
     }
 
     /**
      * 触发增量扫描（由 ContentObserver 调用）
+     * 无论是否有数据变化都触发 Pager 重建，确保 UI 及时响应
      */
     fun requestIncrementalScan() {
         viewModelScope.launch {
@@ -127,6 +133,21 @@ class PhotosViewModel @Inject constructor(
             mediaScanner.performIncrementalScan()
             loadCounts()
             _isScanning.value = false
+            // 强制触发 Pager 重建，确保新照片能立即显示
+            _refreshTrigger.value = System.currentTimeMillis()
+        }
+    }
+
+    /**
+     * 从 MediaStore 精确同步指定 ID 的照片到 Room
+     * 用于回收站恢复后回写，不依赖时间戳
+     */
+    fun syncPhotosFromMediaStore(photoIds: List<Long>) {
+        if (photoIds.isEmpty()) return
+        viewModelScope.launch {
+            mediaScanner.syncSpecificPhotos(photoIds)
+            loadCounts()
+            _refreshTrigger.value = System.currentTimeMillis()
         }
     }
 
@@ -137,6 +158,7 @@ class PhotosViewModel @Inject constructor(
         viewModelScope.launch {
             mediaScanner.updateFavorite(photoIds, isFavorite)
             loadCounts()
+            _refreshTrigger.value = System.currentTimeMillis()
         }
     }
 
@@ -152,6 +174,7 @@ class PhotosViewModel @Inject constructor(
                 mediaScanner.updateFavorite(toUnfavorite, false)
             }
             loadCounts()
+            _refreshTrigger.value = System.currentTimeMillis()
         }
     }
 
@@ -162,6 +185,7 @@ class PhotosViewModel @Inject constructor(
         viewModelScope.launch {
             photoIds.forEach { mediaScanner.deletePhoto(it) }
             loadCounts()
+            _refreshTrigger.value = System.currentTimeMillis()
         }
     }
 
@@ -169,12 +193,15 @@ class PhotosViewModel @Inject constructor(
      * 带日期分组的照片数据流
      * 使用 flatMapLatest 确保当排序或过滤条件变化时重新创建 Pager
      * 启用 placeholders 以提高滚动稳定性
+     * _refreshTrigger 用于触发 Pager 重建（如删除、恢复操作后）
+     * 注意：不使用 cachedIn()，由 Fragment 的 lifecycle 管理 Flow 生命周期
      */
     val photoPagingFlow: Flow<PagingData<PhotoModel>> = combine(
         _currentSortType,
         _showFavoritesOnly,
-        _currentGroupType
-    ) { sortType, showFavoritesOnly, groupType ->
+        _currentGroupType,
+        _refreshTrigger
+    ) { sortType, showFavoritesOnly, groupType, _ ->
         DataConfig(sortType, showFavoritesOnly, groupType)
     }.flatMapLatest { config ->
         Pager(
@@ -226,7 +253,7 @@ class PhotosViewModel @Inject constructor(
                     }
                 }
             }
-    }.cachedIn(viewModelScope)
+    }
 
     private data class DataConfig(
         val sortType: MediaRepository.SortType,

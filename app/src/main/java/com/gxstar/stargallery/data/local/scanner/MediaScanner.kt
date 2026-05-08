@@ -133,7 +133,7 @@ class MediaScanner @Inject constructor(
             Log.i(TAG, "Full scan completed: $total media in ${duration}ms")
 
             _scanState.emit(ScanState.Completed(total, duration))
-            scanPreferences.lastScanTime = System.currentTimeMillis()
+            scanPreferences.lastScanTime = System.currentTimeMillis() / 1000
 
             // 3.5 全量扫描完成后，后台提取 EXIF 信息
             extractExifForAllPhotos()
@@ -247,8 +247,8 @@ class MediaScanner @Inject constructor(
             // 立即为新增的照片提取 EXIF 信息
             extractExifForPhotos(changedMedia.map { it.id })
 
-            // 更新最后扫描时间
-            scanPreferences.lastScanTime = System.currentTimeMillis()
+            // 更新最后扫描时间（秒级，与 MediaStore DATE_MODIFIED 一致）
+            scanPreferences.lastScanTime = System.currentTimeMillis() / 1000
 
             val duration = System.currentTimeMillis() - startTime
             Log.i(TAG, "Incremental scan completed: ${changedMedia.size} media in ${duration}ms")
@@ -262,6 +262,38 @@ class MediaScanner @Inject constructor(
         } finally {
             isScanning = false
         }
+    }
+
+    /**
+     * 根据 ID 列表从 MediaStore 精确同步指定照片到 Room
+     * 用于恢复/外部变更后精确回写，不依赖时间戳
+     */
+    suspend fun syncSpecificPhotos(photoIds: List<Long>) = withContext(Dispatchers.IO) {
+        if (photoIds.isEmpty()) return@withContext
+
+        val items = queryMediaByIds(photoIds)
+        if (items.isEmpty()) return@withContext
+
+        val entities = items.map { item ->
+            PhotoEntity(
+                id = item.id,
+                uri = item.uri,
+                dateTaken = item.dateTaken,
+                dateModified = item.dateModified,
+                dateAdded = item.dateAdded,
+                mimeType = item.mimeType,
+                width = item.width,
+                height = item.height,
+                size = item.size,
+                bucketId = item.bucketId,
+                bucketName = item.bucketName,
+                latitude = null,
+                longitude = null,
+                orientation = item.orientation,
+                isFavorite = item.isFavorite
+            )
+        }
+        photoDao.insertAll(entities)
     }
 
     /**
@@ -384,8 +416,7 @@ class MediaScanner @Inject constructor(
 
         val selection = "(${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE} " +
                 "OR ${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO}) " +
-                "AND ${MediaStore.Files.FileColumns.DATE_MODIFIED} > ?"
-        val selectionArgs = arrayOf(modifiedAfter.toString())
+                "AND ${MediaStore.Files.FileColumns.DATE_MODIFIED} > $modifiedAfter"
 
         val projection = arrayOf(
             MediaStore.Files.FileColumns._ID,
@@ -403,7 +434,82 @@ class MediaScanner @Inject constructor(
             MediaStore.Files.FileColumns.MEDIA_TYPE
         )
 
-        context.contentResolver.query(uri, projection, selection, selectionArgs, null)?.use { cursor ->
+        val bundle = Bundle().apply {
+            putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, MediaStore.MATCH_EXCLUDE)
+            putString(ContentResolver.QUERY_ARG_SQL_SELECTION, selection)
+        }
+
+        context.contentResolver.query(uri, projection, bundle, null)?.use { cursor ->
+            while (cursor.moveToNext()) {
+                val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns._ID))
+                val mediaType = cursor.getInt(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.MEDIA_TYPE))
+                val mimeType = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.MIME_TYPE)) ?: continue
+
+                val isVideo = mediaType == MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO
+
+                val photoUri: Uri = if (isVideo) {
+                    ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id)
+                } else {
+                    ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id)
+                }
+
+                val dateTaken = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_TAKEN))
+                val dateModified = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_MODIFIED))
+                val dateAdded = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_ADDED))
+
+                val finalDateTaken = Photo.normalizeDateTaken(dateTaken, dateModified, dateAdded)
+
+                items.add(
+                    MediaStoreItem(
+                        id = id,
+                        uri = photoUri.toString(),
+                        mimeType = mimeType,
+                        dateTaken = finalDateTaken,
+                        dateModified = dateModified,
+                        dateAdded = dateAdded,
+                        width = cursor.getInt(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.WIDTH)),
+                        height = cursor.getInt(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.HEIGHT)),
+                        size = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.SIZE)),
+                        bucketId = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.BUCKET_ID)),
+                        bucketName = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.BUCKET_DISPLAY_NAME)) ?: "Unknown",
+                        orientation = cursor.getInt(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.ORIENTATION)),
+                        isFavorite = cursor.getInt(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.IS_FAVORITE)) == 1,
+                        isVideo = isVideo
+                    )
+                )
+            }
+        }
+
+        return items
+    }
+
+    private fun queryMediaByIds(photoIds: List<Long>): List<MediaStoreItem> {
+        val items = mutableListOf<MediaStoreItem>()
+        val uri = MediaStore.Files.getContentUri("external")
+
+        val idList = photoIds.joinToString(",")
+        val selection = "(${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE} " +
+                "OR ${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO}) " +
+                "AND ${MediaStore.Files.FileColumns._ID} IN ($idList) " +
+                "AND ${MediaStore.MediaColumns.IS_TRASHED} = 0"
+
+        val projection = arrayOf(
+            MediaStore.Files.FileColumns._ID,
+            MediaStore.Files.FileColumns.MIME_TYPE,
+            MediaStore.Files.FileColumns.DATE_TAKEN,
+            MediaStore.Files.FileColumns.DATE_MODIFIED,
+            MediaStore.Files.FileColumns.DATE_ADDED,
+            MediaStore.Files.FileColumns.WIDTH,
+            MediaStore.Files.FileColumns.HEIGHT,
+            MediaStore.Files.FileColumns.SIZE,
+            MediaStore.Files.FileColumns.BUCKET_ID,
+            MediaStore.Files.FileColumns.BUCKET_DISPLAY_NAME,
+            MediaStore.Files.FileColumns.ORIENTATION,
+            MediaStore.Files.FileColumns.IS_FAVORITE,
+            MediaStore.Files.FileColumns.MEDIA_TYPE
+        )
+
+        context.contentResolver.query(uri, projection, selection, null, null)?.use { cursor ->
             while (cursor.moveToNext()) {
                 val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns._ID))
                 val mediaType = cursor.getInt(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.MEDIA_TYPE))

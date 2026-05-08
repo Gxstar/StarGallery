@@ -32,7 +32,7 @@ class ScanPreferences @Inject constructor(
         set(value) = prefs.edit().putBoolean(KEY_SCAN_COMPLETED, value).apply()
 
     /**
-     * 最后扫描时间（毫秒时间戳）
+     * 最后扫描时间（秒级 Unix 时间戳，与 MediaStore DATE_MODIFIED 单位一致）
      */
     var lastScanTime: Long
         get() = prefs.getLong(KEY_LAST_SCAN_TIME, 0L)

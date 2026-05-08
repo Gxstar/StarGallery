@@ -432,7 +432,18 @@ class PhotosFragment : Fragment() {
     }
 
     private fun setupFragmentResultListener() {
-        setFragmentResultListener(REQUEST_KEY_PHOTO_DELETED) { _, _ ->
+        setFragmentResultListener(REQUEST_KEY_PHOTO_DELETED) { _, bundle ->
+            val photoIds = bundle.getLongArray("photo_ids")?.toList() ?: emptyList()
+            if (photoIds.isNotEmpty()) {
+                if (bundle.getBoolean("is_remove", false)) {
+                    // 删除/回收站操作：直接从 Room 移除
+                    viewModel.deletePhotos(photoIds)
+                } else {
+                    // 恢复操作：从 MediaStore 精确回写到 Room
+                    viewModel.syncPhotosFromMediaStore(photoIds)
+                }
+            }
+            // 同时触发增量扫描，处理其他可能的变化
             refreshData()
         }
     }
@@ -807,11 +818,13 @@ class PhotosFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
-        // 从详情页返回时恢复位置，不刷新数据
-        // 从后台恢复时由 MediaChangeDetector 触发刷新
         if (savedScrollPosition >= 0) {
+            // 从详情页或回收站返回时恢复滚动位置
             restoreScrollPosition()
-            savedScrollPosition = -1  // 重置，避免再次恢复
+            savedScrollPosition = -1
+        } else {
+            // 从后台恢复（相机拍照等）：ContentObserver 可能会漏掉变更，主动触发增量扫描
+            refreshData()
         }
     }
 

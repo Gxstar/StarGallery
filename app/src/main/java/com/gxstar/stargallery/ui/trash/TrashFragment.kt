@@ -48,6 +48,8 @@ class TrashFragment : Fragment() {
     private var currentSpanCount = 4
     private var itemSize = 0
 
+    private var pendingActionResultIds: LongArray? = null
+
     private val backPressedCallback = object : OnBackPressedCallback(false) {
         override fun handleOnBackPressed() {
             selectionManager.exitSelectionMode()
@@ -57,7 +59,9 @@ class TrashFragment : Fragment() {
     private val deleteRequestLauncher = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             Toast.makeText(requireContext(), R.string.deleted, Toast.LENGTH_SHORT).show()
-            setFragmentResult(PhotosFragment.REQUEST_KEY_PHOTO_DELETED, Bundle.EMPTY)
+            setFragmentResult(PhotosFragment.REQUEST_KEY_PHOTO_DELETED, Bundle().apply {
+                putLongArray("photo_ids", pendingActionResultIds)
+            })
             viewModel.loadTrashedPhotos()
         }
         selectionManager.exitSelectionMode()
@@ -66,7 +70,9 @@ class TrashFragment : Fragment() {
     private val restoreRequestLauncher = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             Toast.makeText(requireContext(), R.string.restored, Toast.LENGTH_SHORT).show()
-            setFragmentResult(PhotosFragment.REQUEST_KEY_PHOTO_DELETED, Bundle.EMPTY)
+            setFragmentResult(PhotosFragment.REQUEST_KEY_PHOTO_DELETED, Bundle().apply {
+                putLongArray("photo_ids", pendingActionResultIds)
+            })
             viewModel.loadTrashedPhotos()
         }
         selectionManager.exitSelectionMode()
@@ -223,6 +229,7 @@ class TrashFragment : Fragment() {
 
         mediaRepository.restorePhotos(photos)?.let { intentSender ->
             try {
+                pendingActionResultIds = selectedIds.toLongArray()
                 restoreRequestLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -256,6 +263,7 @@ class TrashFragment : Fragment() {
 
         mediaRepository.deletePhotos(photos)?.let { intentSender ->
             try {
+                pendingActionResultIds = selectedIds.toLongArray()
                 deleteRequestLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
             } catch (e: Exception) {
                 e.printStackTrace()
