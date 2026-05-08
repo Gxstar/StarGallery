@@ -152,6 +152,7 @@ class MediaScanner @Inject constructor(
     /**
      * 后台批量提取 EXIF 信息
      * 在全量扫描完成后异步执行
+     * 批量写入数据库，避免逐条 update 触发 PagingSource 频繁失效
      */
     private fun extractExifForAllPhotos() {
         CoroutineScope(Dispatchers.IO).launch {
@@ -159,39 +160,37 @@ class MediaScanner @Inject constructor(
                 val allPhotoIds = photoDao.getAllPhotoIds()
                 Log.i(TAG, "Starting EXIF extraction for ${allPhotoIds.size} photos")
 
+                var totalUpdated = 0
                 allPhotoIds.chunked(EXIF_BATCH_SIZE).forEachIndexed { batchIndex, ids ->
-                    Log.d(TAG, "Processing EXIF batch $batchIndex, photos: ${ids.size}")
+                    val batchUpdates = mutableListOf<PhotoEntity>()
+
                     ids.forEach { id ->
                         val photo = photoDao.getPhotoById(id)
                         if (photo == null) {
-                            Log.w(TAG, "Photo $id not found in database")
                             return@forEach
                         }
                         if (photo.cameraMake != null || photo.cameraModel != null) {
-                            // 已有 EXIF 信息，跳过
-                            Log.d(TAG, "Photo $id already has EXIF, skipping")
                             return@forEach
                         }
 
                         val uri = try {
                             android.net.Uri.parse(photo.uri)
                         } catch (e: Exception) {
-                            Log.e(TAG, "Invalid URI for photo $id: ${photo.uri}")
                             return@forEach
                         }
 
                         val exifData = exifExtractor.extractExif(uri)
                         if (exifData != null) {
-                            val updatedEntity = ExifExtractor.applyToEntity(photo, exifData)
-                            photoDao.update(updatedEntity)
-                            Log.d(TAG, "Photo $id EXIF extracted: make=${exifData.cameraMake}, model=${exifData.cameraModel}")
-                        } else {
-                            Log.d(TAG, "Photo $id no EXIF data extracted")
+                            batchUpdates.add(ExifExtractor.applyToEntity(photo, exifData))
                         }
                     }
-                    Log.d(TAG, "EXIF extraction batch $batchIndex/${(allPhotoIds.size / EXIF_BATCH_SIZE) + 1} completed")
+
+                    if (batchUpdates.isNotEmpty()) {
+                        photoDao.updateAll(batchUpdates)
+                        totalUpdated += batchUpdates.size
+                    }
                 }
-                Log.i(TAG, "EXIF extraction completed")
+                Log.i(TAG, "EXIF extraction completed: $totalUpdated photos updated")
             } catch (e: Exception) {
                 Log.e(TAG, "EXIF extraction failed", e)
             }
@@ -283,16 +282,17 @@ class MediaScanner @Inject constructor(
      * 为指定照片批量提取 EXIF 信息
      */
     private suspend fun extractExifForPhotos(photoIds: List<Long>) = withContext(Dispatchers.IO) {
-        Log.d(TAG, "Extracting EXIF for ${photoIds.size} photos")
+        val batchUpdates = mutableListOf<PhotoEntity>()
         photoIds.forEach { id ->
             val photo = photoDao.getPhotoById(id) ?: return@forEach
             val uri = android.net.Uri.parse(photo.uri)
             val exifData = exifExtractor.extractExif(uri)
             if (exifData != null) {
-                val updatedEntity = ExifExtractor.applyToEntity(photo, exifData)
-                photoDao.update(updatedEntity)
-                Log.d(TAG, "Photo $id EXIF extracted: make=${exifData.cameraMake}")
+                batchUpdates.add(ExifExtractor.applyToEntity(photo, exifData))
             }
+        }
+        if (batchUpdates.isNotEmpty()) {
+            photoDao.updateAll(batchUpdates)
         }
     }
 

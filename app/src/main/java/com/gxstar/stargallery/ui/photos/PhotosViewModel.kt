@@ -43,7 +43,7 @@ class PhotosViewModel @Inject constructor(
 
     companion object {
         private const val PAGE_SIZE = 50
-        private const val PREFETCH_DISTANCE = 20
+        private const val PREFETCH_DISTANCE = 50
     }
 
     private val _currentSortType = MutableStateFlow(MediaRepository.SortType.DATE_TAKEN)
@@ -67,10 +67,6 @@ class PhotosViewModel @Inject constructor(
     private val _isScanning = MutableStateFlow(false)
     val isScanning: StateFlow<Boolean> = _isScanning.asStateFlow()
 
-    // 扫描完成后递增，触发 PagingSource 重新加载
-    private val _refreshTrigger = MutableStateFlow(0L)
-    val refreshTrigger: StateFlow<Long> = _refreshTrigger.asStateFlow()
-
     val isSearching: Flow<Boolean> = _searchQuery.map { !it.isNullOrBlank() }
 
     init {
@@ -80,7 +76,6 @@ class PhotosViewModel @Inject constructor(
             mediaScanner.performFullScan()
             loadCounts()
             _isScanning.value = false
-            _refreshTrigger.value++  // 扫描完成后触发刷新
         }
     }
 
@@ -120,7 +115,6 @@ class PhotosViewModel @Inject constructor(
             mediaScanner.performFullScan()
             loadCounts()
             _isScanning.value = false
-            _refreshTrigger.value++
         }
     }
 
@@ -130,12 +124,9 @@ class PhotosViewModel @Inject constructor(
     fun requestIncrementalScan() {
         viewModelScope.launch {
             _isScanning.value = true
-            val changed = mediaScanner.performIncrementalScan()
+            mediaScanner.performIncrementalScan()
             loadCounts()
             _isScanning.value = false
-            if (changed) {
-                _refreshTrigger.value++
-            }
         }
     }
 
@@ -182,15 +173,14 @@ class PhotosViewModel @Inject constructor(
     val photoPagingFlow: Flow<PagingData<PhotoModel>> = combine(
         _currentSortType,
         _showFavoritesOnly,
-        _searchQuery,
         _currentGroupType
-    ) { sortType, showFavoritesOnly, searchQuery, groupType ->
-        DataConfig(sortType, showFavoritesOnly, searchQuery, groupType)
+    ) { sortType, showFavoritesOnly, groupType ->
+        DataConfig(sortType, showFavoritesOnly, groupType)
     }.flatMapLatest { config ->
         Pager(
             config = PagingConfig(
                 pageSize = PAGE_SIZE,
-                enablePlaceholders = false, // 禁用占位符，占位符与动态高度的分隔符结合会导致严重的滚动跳变
+                enablePlaceholders = true,
                 initialLoadSize = PAGE_SIZE * 3,
                 prefetchDistance = PREFETCH_DISTANCE
             ),
@@ -241,7 +231,6 @@ class PhotosViewModel @Inject constructor(
     private data class DataConfig(
         val sortType: MediaRepository.SortType,
         val showFavoritesOnly: Boolean,
-        val searchQuery: String?,
         val groupType: GroupType
     )
 

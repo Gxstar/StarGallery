@@ -242,7 +242,7 @@ class PhotosFragment : Fragment() {
             glideRequest,
             PhotoPreloadModelProvider(
                 glideRequest,
-                { position -> adapter.snapshot().getOrNull(position) as? PhotoModel.PhotoItem },
+                { position -> adapter.peek(position) as? PhotoModel.PhotoItem },
                 itemSize
             ),
             preloadSizeProvider,
@@ -694,7 +694,7 @@ class PhotosFragment : Fragment() {
 
     /**
      * 刷新数据
-     * 先触发增量扫描将 MediaStore 变化同步到 Room，_refreshTrigger 自动触发 Paging 刷新
+     * 触发增量扫描将 MediaStore 变化同步到 Room，Room 自动失效 PagingSource 触发刷新
      */
     private fun refreshData() {
         lastExplicitRefreshTime = System.currentTimeMillis()

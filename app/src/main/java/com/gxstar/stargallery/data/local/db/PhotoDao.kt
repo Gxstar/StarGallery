@@ -25,6 +25,9 @@ interface PhotoDao {
     @Update
     suspend fun update(photo: PhotoEntity)
 
+    @Update
+    suspend fun updateAll(photos: List<PhotoEntity>)
+
     @Query("DELETE FROM photos WHERE id = :photoId")
     suspend fun deleteById(photoId: Long)
 
