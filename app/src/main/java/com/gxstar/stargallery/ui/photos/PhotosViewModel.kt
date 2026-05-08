@@ -141,13 +141,13 @@ class PhotosViewModel @Inject constructor(
     /**
      * 从 MediaStore 精确同步指定 ID 的照片到 Room
      * 用于回收站恢复后回写，不依赖时间戳
+     * Room 的 invalidationTracker 会自动失效 PagingSource，无需 _refreshTrigger
      */
     fun syncPhotosFromMediaStore(photoIds: List<Long>) {
         if (photoIds.isEmpty()) return
         viewModelScope.launch {
             mediaScanner.syncSpecificPhotos(photoIds)
             loadCounts()
-            _refreshTrigger.value = System.currentTimeMillis()
         }
     }
 
@@ -180,12 +180,12 @@ class PhotosViewModel @Inject constructor(
 
     /**
      * 删除照片
+     * Room 的 invalidationTracker 会自动失效 PagingSource，无需 _refreshTrigger
      */
     fun deletePhotos(photoIds: List<Long>) {
         viewModelScope.launch {
             photoIds.forEach { mediaScanner.deletePhoto(it) }
             loadCounts()
-            _refreshTrigger.value = System.currentTimeMillis()
         }
     }
 

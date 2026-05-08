@@ -8,6 +8,7 @@ import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.data.repository.MediaRepository
 import com.gxstar.stargallery.ui.util.DateUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -77,6 +78,10 @@ class PhotoDetailViewModel @Inject constructor(
             } else {
                 mediaRepository.getAllMedia(sortType)
             }
+
+            // 延迟提交等待导航动画（300ms slide）完成，避免动画期间
+            // DiffUtil 在主线程同步计算导致掉帧
+            delay(400)
 
             if (allPhotos.isNotEmpty()) {
                 val initialPos = allPhotos.indexOfFirst { it.id == initialPhotoId }.takeIf { it >= 0 } ?: 0

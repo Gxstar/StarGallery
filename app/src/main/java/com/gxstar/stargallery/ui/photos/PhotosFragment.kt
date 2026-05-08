@@ -436,15 +436,16 @@ class PhotosFragment : Fragment() {
             val photoIds = bundle.getLongArray("photo_ids")?.toList() ?: emptyList()
             if (photoIds.isNotEmpty()) {
                 if (bundle.getBoolean("is_remove", false)) {
-                    // 删除/回收站操作：直接从 Room 移除
+                    // 删除/回收站操作：直接从 Room 移除，Room 会自动失效 PagingSource
                     viewModel.deletePhotos(photoIds)
                 } else {
                     // 恢复操作：从 MediaStore 精确回写到 Room
                     viewModel.syncPhotosFromMediaStore(photoIds)
                 }
+            } else {
+                // 无精确 ID 时兜底触发增量扫描
+                refreshData()
             }
-            // 同时触发增量扫描，处理其他可能的变化
-            refreshData()
         }
     }
 
@@ -792,16 +793,18 @@ class PhotosFragment : Fragment() {
      * 恢复滚动位置
      */
     private fun restoreScrollPosition() {
-        if (savedScrollPosition >= 0) {
+        val position = savedScrollPosition
+        val offset = savedScrollOffset
+        savedScrollPosition = -1
+        if (position >= 0) {
             binding.rvPhotos.post {
                 try {
-                    gridLayoutManager?.scrollToPositionWithOffset(savedScrollPosition, savedScrollOffset)
+                    gridLayoutManager?.scrollToPositionWithOffset(position, offset)
                 } catch (e: Exception) {
                     // 忽略
                 }
             }
         }
-        savedScrollPosition = -1
     }
 
     private fun navigateToTrash() {
@@ -819,9 +822,8 @@ class PhotosFragment : Fragment() {
     override fun onResume() {
         super.onResume()
         if (savedScrollPosition >= 0) {
-            // 从详情页或回收站返回时恢复滚动位置
+            // 从详情页或回收站返回时恢复滚动位置（restoreScrollPosition 内部会重置 savedScrollPosition）
             restoreScrollPosition()
-            savedScrollPosition = -1
         } else {
             // 从后台恢复（相机拍照等）：ContentObserver 可能会漏掉变更，主动触发增量扫描
             refreshData()
