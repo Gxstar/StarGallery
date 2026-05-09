@@ -817,13 +817,16 @@ class PhotosFragment : Fragment() {
         findNavController().navigate(action)
     }
 
+    override fun onPause() {
+        super.onPause()
+        saveScrollPosition()
+    }
+
     override fun onResume() {
         super.onResume()
         if (savedScrollPosition >= 0) {
-            // 从详情页或回收站返回时恢复滚动位置（restoreScrollPosition 内部会重置 savedScrollPosition）
             restoreScrollPosition()
         } else {
-            // 从后台恢复（相机拍照等）：ContentObserver 可能会漏掉变更，主动触发增量扫描
             refreshData()
         }
     }
