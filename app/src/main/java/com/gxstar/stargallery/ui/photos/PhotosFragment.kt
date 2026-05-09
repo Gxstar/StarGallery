@@ -451,10 +451,8 @@ class PhotosFragment : Fragment() {
 
     private fun observeData() {
         viewLifecycleOwner.lifecycleScope.launch {
-            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.photoPagingFlow.collectLatest { pagingData ->
-                    photoAdapter?.submitData(pagingData)
-                }
+            viewModel.photoPagingFlow.collectLatest { pagingData ->
+                photoAdapter?.submitData(pagingData)
             }
         }
 

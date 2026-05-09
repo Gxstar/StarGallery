@@ -192,9 +192,9 @@ class PhotosViewModel @Inject constructor(
     /**
      * 带日期分组的照片数据流
      * 使用 flatMapLatest 确保当排序或过滤条件变化时重新创建 Pager
-     * 启用 placeholders 以提高滚动稳定性
+     * 禁用 placeholders 避免 insertSeparators 在占位符间隙处错误插入日期分隔符
      * _refreshTrigger 用于触发 Pager 重建（如删除、恢复操作后）
-     * 注意：不使用 cachedIn()，由 Fragment 的 lifecycle 管理 Flow 生命周期
+     * 使用 cachedIn() 缓存数据，避免 Fragment 返回时重复创建 Pager
      */
     val photoPagingFlow: Flow<PagingData<PhotoModel>> = combine(
         _currentSortType,
@@ -207,7 +207,7 @@ class PhotosViewModel @Inject constructor(
         Pager(
             config = PagingConfig(
                 pageSize = PAGE_SIZE,
-                enablePlaceholders = true,
+                enablePlaceholders = false,
                 initialLoadSize = PAGE_SIZE * 3,
                 prefetchDistance = PREFETCH_DISTANCE
             ),
@@ -253,7 +253,7 @@ class PhotosViewModel @Inject constructor(
                     }
                 }
             }
-    }
+    }.cachedIn(viewModelScope)
 
     private data class DataConfig(
         val sortType: MediaRepository.SortType,

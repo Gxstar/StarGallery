@@ -21,17 +21,21 @@ class GridSpacingItemDecoration(
             return
         }
 
+        val rowStart = position - spanIndex
+        val isFirstRow = rowStart == 0 ||
+            (rowStart > 0 && parent.adapter?.getItemViewType(rowStart - 1) == 0)
+
         if (includeEdge) {
             outRect.left = spacing - spanIndex * spacing / spanCount
             outRect.right = (spanIndex + 1) * spacing / spanCount
-            if (position < spanCount) {
+            if (isFirstRow) {
                 outRect.top = spacing
             }
             outRect.bottom = spacing
         } else {
             outRect.left = spanIndex * spacing / spanCount
             outRect.right = spacing - (spanIndex + 1) * spacing / spanCount
-            if (position >= spanCount) {
+            if (!isFirstRow) {
                 outRect.top = spacing
             }
         }
