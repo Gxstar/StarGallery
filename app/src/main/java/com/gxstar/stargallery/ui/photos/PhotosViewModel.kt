@@ -204,6 +204,8 @@ class PhotosViewModel @Inject constructor(
     ) { sortType, showFavoritesOnly, groupType, _ ->
         DataConfig(sortType, showFavoritesOnly, groupType)
     }.flatMapLatest { config ->
+        // 提取局部变量避免 lambda 捕获 this 导致 ViewModel 泄漏
+        val dao = photoDao
         Pager(
             config = PagingConfig(
                 pageSize = PAGE_SIZE,
@@ -214,15 +216,15 @@ class PhotosViewModel @Inject constructor(
             pagingSourceFactory = {
                 if (config.showFavoritesOnly) {
                     if (config.sortType == MediaRepository.SortType.DATE_TAKEN) {
-                        photoDao.pagingFavoritePhotosByDateTaken()
+                        dao.pagingFavoritePhotosByDateTaken()
                     } else {
-                        photoDao.pagingFavoritePhotosByDateAdded()
+                        dao.pagingFavoritePhotosByDateAdded()
                     }
                 } else {
                     if (config.sortType == MediaRepository.SortType.DATE_TAKEN) {
-                        photoDao.pagingPhotosByDateTaken()
+                        dao.pagingPhotosByDateTaken()
                     } else {
-                        photoDao.pagingPhotosByDateAdded()
+                        dao.pagingPhotosByDateAdded()
                     }
                 }
             }
