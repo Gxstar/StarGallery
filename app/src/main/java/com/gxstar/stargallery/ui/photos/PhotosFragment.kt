@@ -332,7 +332,7 @@ class PhotosFragment : Fragment() {
                 }
                 message?.let { Toast.makeText(requireContext(), it, Toast.LENGTH_SHORT).show() }
                 selectionManager.exitSelectionMode()
-                // 更新数据库并刷新列表
+                // ViewModel 通过 _refreshTrigger 或 Room invalidationTracker 自动触发列表刷新
                 when (pendingFavoriteAction) {
                     BatchActionHandler.FAVORITE_ACTION_ADD -> {
                         viewModel.updateFavorite(selectedIds, true)
@@ -346,7 +346,6 @@ class PhotosFragment : Fragment() {
                         viewModel.updateFavoriteMixed(toFavorite, toUnfavorite)
                     }
                 }
-                photoAdapter?.refresh()
             }
             pendingFavoriteAction = BatchActionHandler.FAVORITE_ACTION_NONE
         }
@@ -374,6 +373,8 @@ class PhotosFragment : Fragment() {
                 selectionManager.exitSelectionMode()
                 viewModel.deletePhotos(selectedIds)
                 photoAdapter?.refresh()
+                // 抑制 ContentObserver 延迟 500ms 后的重复刷新
+                lastExplicitRefreshTime = System.currentTimeMillis()
             }
         }
 
@@ -383,6 +384,8 @@ class PhotosFragment : Fragment() {
                 selectionManager.exitSelectionMode()
                 viewModel.deletePhotos(selectedIds)
                 photoAdapter?.refresh()
+                // 抑制 ContentObserver 延迟 500ms 后的重复刷新
+                lastExplicitRefreshTime = System.currentTimeMillis()
             }
         }
 
