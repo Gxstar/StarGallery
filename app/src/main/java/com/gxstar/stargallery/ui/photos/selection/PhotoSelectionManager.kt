@@ -16,12 +16,12 @@ class PhotoSelectionManager(
     override fun getItemCount(): Int = photoAdapter?.itemCount ?: 0
 
     override fun getPhotoAtPosition(position: Int): Photo? {
-        val item = photoAdapter?.snapshot()?.getOrNull(position)
+        val item = photoAdapter?.currentList?.getOrNull(position)
         return (item as? PhotoModel.PhotoItem)?.photo
     }
 
     override fun isPositionSelectable(position: Int): Boolean {
-        val item = photoAdapter?.snapshot()?.getOrNull(position)
+        val item = photoAdapter?.currentList?.getOrNull(position)
         return item is PhotoModel.PhotoItem
     }
 

@@ -152,7 +152,7 @@ class MediaScanner @Inject constructor(
     /**
      * 后台批量提取 EXIF 信息
      * 在全量扫描完成后异步执行
-     * 批量写入数据库，避免逐条 update 触发 PagingSource 频繁失效
+     * 批量写入数据库，避免逐条 update 触发 Room 频繁失效
      */
     private fun extractExifForAllPhotos() {
         CoroutineScope(Dispatchers.IO).launch {

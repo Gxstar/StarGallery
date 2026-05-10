@@ -1,6 +1,5 @@
 package com.gxstar.stargallery.data.local.db
 
-import androidx.paging.PagingSource
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
@@ -59,19 +58,10 @@ interface PhotoDao {
     @Query("SELECT COUNT(*) FROM photos WHERE isFavorite = 1")
     suspend fun getFavoriteCount(): Int
 
-    // ==================== Paging 3 分页查询 ====================
+    // ==================== 全量 Flow 查询 ====================
 
     @Query("SELECT * FROM photos ORDER BY dateTaken DESC")
-    fun pagingPhotosByDateTaken(): PagingSource<Int, PhotoEntity>
-
-    @Query("SELECT * FROM photos ORDER BY dateAdded DESC")
-    fun pagingPhotosByDateAdded(): PagingSource<Int, PhotoEntity>
-
-    @Query("SELECT * FROM photos WHERE isFavorite = 1 ORDER BY dateTaken DESC")
-    fun pagingFavoritePhotosByDateTaken(): PagingSource<Int, PhotoEntity>
-
-    @Query("SELECT * FROM photos WHERE isFavorite = 1 ORDER BY dateAdded DESC")
-    fun pagingFavoritePhotosByDateAdded(): PagingSource<Int, PhotoEntity>
+    fun getAllPhotosFlow(): Flow<List<PhotoEntity>>
 
     // ==================== 手动分页查询 ====================
 
@@ -88,12 +78,6 @@ interface PhotoDao {
     suspend fun getFavoritePhotosByDateAddedPaged(offset: Int, limit: Int): List<PhotoEntity>
 
     // ==================== 相册/bucket 查询 ====================
-
-    @Query("SELECT * FROM photos WHERE bucketId = :bucketId ORDER BY dateTaken DESC")
-    fun pagingPhotosByBucket(bucketId: Long): PagingSource<Int, PhotoEntity>
-
-    @Query("SELECT * FROM photos WHERE bucketId = :bucketId ORDER BY dateAdded DESC")
-    fun pagingPhotosByBucketDateAdded(bucketId: Long): PagingSource<Int, PhotoEntity>
 
     // ==================== 批量操作 ====================
 

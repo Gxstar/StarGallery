@@ -23,7 +23,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
-import androidx.paging.LoadState
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
@@ -42,7 +41,6 @@ import com.gxstar.stargallery.ui.photos.model.PhotoModel
 import com.gxstar.stargallery.ui.photos.refresh.MediaChangeDetector
 import com.gxstar.stargallery.ui.photos.selection.PhotoSelectionManager
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -168,7 +166,6 @@ class PhotosFragment : Fragment() {
             lifecycleOwner = viewLifecycleOwner,
             context = requireContext(),
             onChangeDetected = {
-                // MediaStore 是实时数据源，直接刷新 PagingSource 即可
                 refreshData()
             },
             shouldSkipRefresh = {
@@ -242,7 +239,7 @@ class PhotosFragment : Fragment() {
             glideRequest,
             PhotoPreloadModelProvider(
                 glideRequest,
-                { position -> adapter.peek(position) as? PhotoModel.PhotoItem },
+                { position -> photoAdapter?.currentList?.getOrNull(position) as? PhotoModel.PhotoItem },
                 itemSize
             ),
             preloadSizeProvider,
@@ -300,7 +297,7 @@ class PhotosFragment : Fragment() {
      * 根据照片 ID 找到其在 RecyclerView 中的位置
      */
     private fun findPhotoPosition(photoId: Long): Int {
-        val snapshot = photoAdapter?.snapshot() ?: return RecyclerView.NO_POSITION
+        val snapshot = photoAdapter?.currentList ?: return RecyclerView.NO_POSITION
         for (i in 0 until snapshot.size) {
             val item = snapshot[i]
             if (item is PhotoModel.PhotoItem && item.photo.id == photoId) {
@@ -372,7 +369,6 @@ class PhotosFragment : Fragment() {
                 Toast.makeText(requireContext(), R.string.moved_to_trash, Toast.LENGTH_SHORT).show()
                 selectionManager.exitSelectionMode()
                 viewModel.deletePhotos(selectedIds)
-                photoAdapter?.refresh()
                 // 抑制 ContentObserver 延迟 500ms 后的重复刷新
                 lastExplicitRefreshTime = System.currentTimeMillis()
             }
@@ -383,7 +379,6 @@ class PhotosFragment : Fragment() {
                 Toast.makeText(requireContext(), R.string.deleted, Toast.LENGTH_SHORT).show()
                 selectionManager.exitSelectionMode()
                 viewModel.deletePhotos(selectedIds)
-                photoAdapter?.refresh()
                 // 抑制 ContentObserver 延迟 500ms 后的重复刷新
                 lastExplicitRefreshTime = System.currentTimeMillis()
             }
@@ -424,7 +419,7 @@ class PhotosFragment : Fragment() {
     }
 
     private fun findPhotoById(id: Long): Photo? {
-        val snapshot = photoAdapter?.snapshot() ?: return null
+        val snapshot = photoAdapter?.currentList ?: return null
         for (i in 0 until snapshot.size) {
             val item = snapshot[i]
             if (item is PhotoModel.PhotoItem && item.photo.id == id) {
@@ -439,7 +434,7 @@ class PhotosFragment : Fragment() {
             val photoIds = bundle.getLongArray("photo_ids")?.toList() ?: emptyList()
             if (photoIds.isNotEmpty()) {
                 if (bundle.getBoolean("is_remove", false)) {
-                    // 删除/回收站操作：直接从 Room 移除，Room 会自动失效 PagingSource
+                    // 删除/回收站操作：直接从 Room 移除，Room Flow 自动推送更新
                     viewModel.deletePhotos(photoIds)
                 } else {
                     // 恢复操作：从 MediaStore 精确回写到 Room
@@ -453,34 +448,33 @@ class PhotosFragment : Fragment() {
     }
 
     private fun observeData() {
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.photoPagingFlow.collectLatest { pagingData ->
-                photoAdapter?.submitData(pagingData)
-            }
-        }
-
+        // 合并扫描状态和照片数据，统一管理 UI 状态
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                photoAdapter?.loadStateFlow?.collect { loadStates ->
-                    val isRefreshing = loadStates.refresh is LoadState.Loading
-                    val isEmpty = loadStates.refresh is LoadState.NotLoading && photoAdapter?.itemCount == 0
-                    val hasError = loadStates.refresh is LoadState.Error
+                combine(
+                    viewModel.isScanning,
+                    viewModel.photoListFlow
+                ) { isScanning, photoModels ->
+                    Pair(isScanning, photoModels)
+                }.collect { (isScanning, photoModels) ->
+                    photoAdapter?.submitList(photoModels)
 
-                    binding.progressBar.visibility = if (isRefreshing && photoAdapter?.itemCount == 0) View.VISIBLE else View.GONE
-                    binding.emptyStateView.visibility = if (isEmpty) View.VISIBLE else View.GONE
-                    binding.rvPhotos.visibility = if (hasError) View.GONE else View.VISIBLE
-                }
-            }
-        }
+                    val isEmpty = photoModels.isEmpty()
 
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.isScanning.collect { isScanning ->
-                    binding.scanningView.visibility = if (isScanning) View.VISIBLE else View.GONE
-                    binding.progressBar.visibility = if (isScanning) View.GONE else binding.progressBar.visibility
-                    
+                    binding.scanningView.visibility = if (isScanning && !isEmpty) View.VISIBLE else View.GONE
+                    binding.progressBar.visibility = if (isScanning && isEmpty) View.VISIBLE else View.GONE
+                    binding.emptyStateView.visibility = if (!isScanning && isEmpty) View.VISIBLE else View.GONE
+
                     // 扫描时禁用动画，避免数据快速刷新导致界面乱跳和残影
-                    binding.rvPhotos.itemAnimator = if (isScanning) null else photoItemAnimator
+                    if (isScanning) {
+                        if (binding.rvPhotos.itemAnimator != null) {
+                            binding.rvPhotos.itemAnimator = null
+                        }
+                    } else {
+                        if (binding.rvPhotos.itemAnimator == null && photoItemAnimator != null) {
+                            binding.rvPhotos.itemAnimator = photoItemAnimator
+                        }
+                    }
                 }
             }
         }
@@ -707,7 +701,7 @@ class PhotosFragment : Fragment() {
 
     /**
      * 刷新数据
-     * 触发增量扫描将 MediaStore 变化同步到 Room，Room 自动失效 PagingSource 触发刷新
+     * 触发增量扫描将 MediaStore 变化同步到 Room，Room Flow 自动推送更新
      */
     private fun refreshData() {
         lastExplicitRefreshTime = System.currentTimeMillis()
@@ -723,7 +717,7 @@ class PhotosFragment : Fragment() {
 
         val positions = mutableListOf<Int>()
         val searchEnd = minOf(lastVisible + 10, adapter.itemCount - 1)
-        val snapshot = adapter.snapshot()
+        val snapshot = adapter.currentList
 
         for (i in maxOf(0, firstVisible - 10)..searchEnd) {
             val item = snapshot.getOrNull(i)

@@ -28,8 +28,6 @@ hiltNavigationFragment = "1.2.0"
 # 导航
 navigation = "2.9.7"
 
-# 分页
-paging = "3.4.2"
 
 # 数据库
 room = "2.8.4"
@@ -42,6 +40,9 @@ room = "2.8.4"
 
 # 元数据提取
 metadataExtractor = "2.20.0"
+
+# RecyclerView
+recyclerview = "1.3.2"
 
 # 视频播放
 media3 = "1.9.1"
@@ -88,13 +89,9 @@ hilt-navigation-fragment = { group = "androidx.hilt", name = "hilt-navigation-fr
 androidx-navigation-fragment = { group = "androidx.navigation", name = "navigation-fragment-ktx", version.ref = "navigation" }
 androidx-navigation-ui = { group = "androidx.navigation", name = "navigation-ui-ktx", version.ref = "navigation" }
 
-# 分页
-androidx-paging-runtime = { group = "androidx.paging", name = "paging-runtime-ktx", version.ref = "paging" }
-
 # 数据库
 androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
-androidx-room-paging = { group = "androidx.room", name = "room-paging", version.ref = "room" }
 androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
 
 # 列表分组 (未使用，已用 Paging 3 insertSeparators 替代)
@@ -110,6 +107,9 @@ metadata-extractor = { group = "com.drewnoakes", name = "metadata-extractor", ve
 # 视频播放
 androidx-media3-exoplayer = { group = "androidx.media3", name = "media3-exoplayer", version.ref = "media3" }
 androidx-media3-ui = { group = "androidx.media3", name = "media3-ui", version.ref = "media3" }
+
+# RecyclerView
+androidx-recyclerview = { group = "androidx.recyclerview", name = "recyclerview", version.ref = "recyclerview" }
 
 # 拖动选择
 drag-select = { group = "com.afollestad", name = "drag-select-recyclerview", version.ref = "dragSelect" }

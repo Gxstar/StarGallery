@@ -50,6 +50,9 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
     
+    // RecyclerView
+    implementation(libs.androidx.recyclerview)
+
     // SplashScreen API
     implementation(libs.androidx.core.splashscreen)
 
@@ -72,13 +75,9 @@ dependencies {
     implementation(libs.androidx.navigation.fragment)
     implementation(libs.androidx.navigation.ui)
 
-    // 分页 - Paging 3
-    implementation(libs.androidx.paging.runtime)
-
     // 数据库 - Room
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
-    implementation(libs.androidx.room.paging)
     ksp(libs.androidx.room.compiler)
 
     // 列表分组 - Groupie (未使用，已用 Paging 3 insertSeparators 替代)

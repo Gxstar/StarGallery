@@ -3,8 +3,8 @@ package com.gxstar.stargallery.ui.photos
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.paging.PagingDataAdapter
 import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.data.repository.MediaRepository
@@ -19,7 +19,7 @@ class PhotoListAdapter(
     private val onPhotoLongClick: (Int) -> Unit,
     private val isSelectionModeProvider: () -> Boolean = { false },
     private val isSelectedProvider: (Int) -> Boolean = { false }
-) : PagingDataAdapter<PhotoModel, RecyclerView.ViewHolder>(PHOTO_DIFF_CALLBACK) {
+) : ListAdapter<PhotoModel, RecyclerView.ViewHolder>(PHOTO_DIFF_CALLBACK) {
 
     private var currentSortType = MediaRepository.SortType.DATE_TAKEN
     private var currentGroupType = GroupType.DAY
