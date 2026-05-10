@@ -820,18 +820,16 @@ class PhotosFragment : Fragment() {
         findNavController().navigate(action)
     }
 
-    override fun onPause() {
-        super.onPause()
-        saveScrollPosition()
-    }
-
     override fun onResume() {
         super.onResume()
         if (savedScrollPosition >= 0) {
+            // 从详情页/回收站/关于页面返回：恢复导航前保存的位置
             restoreScrollPosition()
-        } else {
+        } else if (photoAdapter?.itemCount == 0) {
+            // 全新打开或进程重启：adapter 无数据，触发加载（自然停在顶部）
             refreshData()
         }
+        // 后台切回或底部导航切换：adapter 已有数据，RecyclerView 天然保留位置，不做任何操作
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
