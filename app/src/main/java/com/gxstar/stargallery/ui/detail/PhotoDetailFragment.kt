@@ -336,14 +336,18 @@ class PhotoDetailFragment : Fragment() {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.photos.collect { photos ->
                     if (photos.isNotEmpty()) {
+                        val previousCount = pagerAdapter.getPhotoCount()
                         pagerAdapter.submitList(photos)
-                        // 只在首次加载时设置位置，后续删除等操作不重置位置
+                        // 只在首次加载时设置位置,后续删除等操作不重置位置
                         if (!hasInitialPositionBeenSet) {
                             val initialPosition = viewModel.getInitialPosition()
                             if (binding.viewPager.currentItem != initialPosition) {
                                 binding.viewPager.setCurrentItem(initialPosition, false)
                             }
                             hasInitialPositionBeenSet = true
+                        } else if (previousCount == 1 && photos.size > 1) {
+                            // 从初始单照片扩展到完整列表时,保持当前位置不触发动画
+                            binding.viewPager.setCurrentItem(binding.viewPager.currentItem, false)
                         }
                     }
                 }

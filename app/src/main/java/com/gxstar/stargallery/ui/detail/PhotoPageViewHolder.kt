@@ -138,9 +138,18 @@ class PhotoPageViewHolder(
     private var viewHolderScope: CoroutineScope? = null
 
     fun bind(photo: Photo, scope: CoroutineScope? = null) {
+        // 如果是同一张照片且已经加载过,跳过重新加载
+        if (currentPhoto?.id == photo.id && currentPhoto?.uri == photo.uri) {
+            // 只更新标签和收藏状态
+            currentPhoto = photo
+            currentSelectedTags = TagSettingsManager.getSelectedTags(binding.root.context)
+            loadTagsAsync(photo)
+            return
+        }
+
         // 取消之前的作用域
         viewHolderScope?.coroutineContext?.cancelChildren()
-        // 使用传入的 scope 或创建新的（用于预览图加载的协程）
+        // 使用传入的 scope 或创建新的(用于预览图加载的协程)
         viewHolderScope = scope
 
         currentPhoto = photo
@@ -149,7 +158,7 @@ class PhotoPageViewHolder(
         // 加载标签设置
         currentSelectedTags = TagSettingsManager.getSelectedTags(binding.root.context)
 
-        // 显示/隐藏标签容器
+        // 显示/隐藏标签
         setupTags(photo)
 
         if (photo.isVideo && ExoPlayerManager.getCurrentVideoId() == photo.id) {
@@ -502,17 +511,17 @@ class PhotoPageViewHolder(
 
     /**
      * 使用子采样加载大图
-     * 先显示缩略图，再启用子采样加载高清区域
+     * 先显示缩略图,再启用子采样加载高清区域
      */
     private fun loadWithSubsampling(photo: Photo, isPotentialHdr: Boolean) {
         val context = binding.root.context
 
-        // 第一步：加载缩略图作为预览
+        // 第一步: 加载缩略图作为预览
         Glide.with(context)
             .asBitmap()
             .load(photo.uri)
             .placeholder(android.R.color.black)
-            .override(1200) // 只指定一边，Glide 会自动保持比例
+            .override(1200) // 只指定一边,Glide 会自动保持比例
             .fitCenter()
             .diskCacheStrategy(DiskCacheStrategy.RESOURCE)
             .into(object : CustomTarget<Bitmap>() {
@@ -526,7 +535,7 @@ class PhotoPageViewHolder(
                     updateEdgeState()
                     setupHdrMode(resource)
 
-                    // 启用子采样
+                    // 启用子采样 - 避免闪烁: 先设置子采样再清除缩略图
                     enableSubsampling(photo)
                 }
 
