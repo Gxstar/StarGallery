@@ -400,6 +400,47 @@ class MediaRepository @Inject constructor(
         photos
     }
 
+    private fun Cursor.toMediaPhoto(): Photo {
+        val id = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns._ID))
+        val mimeType = getString(getColumnIndexOrThrow(MediaStore.Files.FileColumns.MIME_TYPE)) ?: "image/jpeg"
+
+        val uri: Uri = if (mimeType.startsWith("video/")) {
+            ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id)
+        } else {
+            ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id)
+        }
+
+        val orientationIndex = getColumnIndex(MediaStore.Files.FileColumns.ORIENTATION)
+        val orientation = if (orientationIndex >= 0) getInt(orientationIndex) else 0
+
+        val dateTaken = extractDateTaken()
+        val dateModified = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_MODIFIED))
+        val dateAdded = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_ADDED))
+
+        // date_modified 在文件移入回收站时被系统更新，用它 +30天 计算过期时间
+        // 不依赖 date_expires（该字段的存储单位在不同 ROM 上可能不一致）
+        val dateExpiration = (dateModified + 30 * 24 * 60 * 60) * 1000L
+
+        return Photo(
+            id = id,
+            uri = uri,
+            dateTaken = dateTaken,
+            dateModified = dateModified,
+            dateAdded = dateAdded,
+            mimeType = mimeType,
+            width = getInt(getColumnIndexOrThrow(MediaStore.Files.FileColumns.WIDTH)),
+            height = getInt(getColumnIndexOrThrow(MediaStore.Files.FileColumns.HEIGHT)),
+            size = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns.SIZE)),
+            bucketId = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns.BUCKET_ID)),
+            bucketName = getString(getColumnIndexOrThrow(MediaStore.Files.FileColumns.BUCKET_DISPLAY_NAME)) ?: "Unknown",
+            latitude = null,
+            longitude = null,
+            orientation = orientation,
+            isFavorite = getInt(getColumnIndexOrThrow(MediaStore.Files.FileColumns.IS_FAVORITE)) == 1,
+            dateExpiration = dateExpiration
+        )
+    }
+
     private fun Cursor.toPhoto(): Photo {
         val id = getLong(getColumnIndexOrThrow(MediaStore.Images.Media._ID))
         val uri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id)
@@ -431,42 +472,6 @@ class MediaRepository @Inject constructor(
         val dateModified = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_MODIFIED))
         val dateAdded = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_ADDED))
         return Photo.normalizeDateTaken(dateTakenRaw, dateModified, dateAdded)
-    }
-
-    private fun Cursor.toMediaPhoto(): Photo {
-        val id = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns._ID))
-        val mimeType = getString(getColumnIndexOrThrow(MediaStore.Files.FileColumns.MIME_TYPE)) ?: "image/jpeg"
-
-        val uri: Uri = if (mimeType.startsWith("video/")) {
-            ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id)
-        } else {
-            ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id)
-        }
-
-        val orientationIndex = getColumnIndex(MediaStore.Files.FileColumns.ORIENTATION)
-        val orientation = if (orientationIndex >= 0) getInt(orientationIndex) else 0
-
-        val dateTaken = extractDateTaken()
-        val dateModified = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_MODIFIED))
-        val dateAdded = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_ADDED))
-
-        return Photo(
-            id = id,
-            uri = uri,
-            dateTaken = dateTaken,
-            dateModified = dateModified,
-            dateAdded = dateAdded,
-            mimeType = mimeType,
-            width = getInt(getColumnIndexOrThrow(MediaStore.Files.FileColumns.WIDTH)),
-            height = getInt(getColumnIndexOrThrow(MediaStore.Files.FileColumns.HEIGHT)),
-            size = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns.SIZE)),
-            bucketId = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns.BUCKET_ID)),
-            bucketName = getString(getColumnIndexOrThrow(MediaStore.Files.FileColumns.BUCKET_DISPLAY_NAME)) ?: "Unknown",
-            latitude = null,
-            longitude = null,
-            orientation = orientation,
-            isFavorite = getInt(getColumnIndexOrThrow(MediaStore.Files.FileColumns.IS_FAVORITE)) == 1
-        )
     }
 
     /**

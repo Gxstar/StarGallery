@@ -4,6 +4,7 @@ import android.content.IntentSender
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.gxstar.stargallery.data.local.db.PhotoDao
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.data.repository.MediaRepository
 import com.gxstar.stargallery.ui.util.DateUtils
@@ -18,6 +19,7 @@ import javax.inject.Inject
 @HiltViewModel
 class PhotoDetailViewModel @Inject constructor(
     private val mediaRepository: MediaRepository,
+    private val photoDao: PhotoDao,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -137,11 +139,9 @@ class PhotoDetailViewModel @Inject constructor(
             val updatedPhoto = photo.copy(isFavorite = _pendingFavoriteState)
             _currentPhoto.value = updatedPhoto
 
-            val currentList = _photos.value.toMutableList()
-            val index = currentList.indexOfFirst { it.id == photo.id }
-            if (index >= 0) {
-                currentList[index] = updatedPhoto
-                _photos.value = currentList
+            // 同步到 Room，确保网格列表立即反映收藏变更
+            viewModelScope.launch {
+                photoDao.updateFavoriteBatch(listOf(photo.id), _pendingFavoriteState)
             }
         }
         _pendingFavoritePhoto = null

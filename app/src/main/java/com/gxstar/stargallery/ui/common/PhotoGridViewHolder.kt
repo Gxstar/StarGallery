@@ -104,6 +104,7 @@ class PhotoGridViewHolder(
             binding.ivFavorite.visibility = View.GONE
             binding.ivVideoIndicator.visibility = View.GONE
             binding.tvFormatTag.visibility = View.GONE
+            binding.tvExpirationTag.visibility = View.GONE
         } else {
             binding.ivSelected.visibility = View.GONE
             binding.selectionOverlay.visibility = View.GONE
@@ -128,6 +129,19 @@ class PhotoGridViewHolder(
             } else {
                 binding.tvFormatTag.visibility = View.GONE
             }
+
+            if (config.showExpirationTag && photo.dateExpiration > 0) {
+                val remainingDays = (photo.dateExpiration - System.currentTimeMillis()) / (24 * 60 * 60 * 1000)
+                when {
+                    remainingDays > 1 -> binding.tvExpirationTag.text = "剩${remainingDays}天"
+                    remainingDays == 1L -> binding.tvExpirationTag.text = "明天删除"
+                    remainingDays == 0L -> binding.tvExpirationTag.text = "今天删除"
+                    else -> binding.tvExpirationTag.text = "已过期"
+                }
+                binding.tvExpirationTag.visibility = View.VISIBLE
+            } else {
+                binding.tvExpirationTag.visibility = View.GONE
+            }
         }
     }
 
@@ -137,7 +151,8 @@ class PhotoGridViewHolder(
         val useClickProcessing: Boolean = true,
         val showFavorite: Boolean = true,
         val showVideoIndicator: Boolean = true,
-        val showFormatTag: Boolean = true
+        val showFormatTag: Boolean = true,
+        val showExpirationTag: Boolean = false
     ) {
         companion object {
             val DEFAULT = ViewHolderConfig()

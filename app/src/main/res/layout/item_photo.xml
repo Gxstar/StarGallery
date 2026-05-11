@@ -38,6 +38,23 @@
             android:src="@drawable/ic_video_indicator"
             android:visibility="gone" />
 
+        <!-- 回收站剩余天数 -->
+        <TextView
+            android:id="@+id/tvExpirationTag"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|center_horizontal"
+            android:layout_marginBottom="4dp"
+            android:background="#99000000"
+            android:paddingStart="6dp"
+            android:paddingEnd="6dp"
+            android:paddingTop="2dp"
+            android:paddingBottom="2dp"
+            android:textColor="#FFFFFF"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
         <!-- RAW 格式标签 -->
         <TextView
             android:id="@+id/tvFormatTag"

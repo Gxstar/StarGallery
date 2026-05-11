@@ -46,7 +46,8 @@ class TrashAdapter(
                 useClickProcessing = false,
                 showFavorite = false,
                 showVideoIndicator = false,
-                showFormatTag = false
+                showFormatTag = false,
+                showExpirationTag = true
             )
         )
     }
