@@ -254,6 +254,7 @@ class PhotosFragment : Fragment() {
         binding.btnSearch.setOnClickListener { showSearchDialog() }
         binding.btnBack.setOnClickListener { selectionManager.exitSelectionMode() }
         binding.btnShare.setOnClickListener { handleShareAction() }
+        binding.btnHide.setOnClickListener { handleHideAction() }
         binding.btnFavorite.setOnClickListener { handleFavoriteAction() }
         binding.btnDelete.setOnClickListener { handleDeleteAction() }
     }
@@ -310,6 +311,14 @@ class PhotosFragment : Fragment() {
     private fun handleShareAction() {
         val photos = getSelectedPhotosOrShowToast() ?: return
         batchActionHandler.sharePhotos(photos)
+        selectionManager.exitSelectionMode()
+    }
+
+    private fun handleHideAction() {
+        val photos = getSelectedPhotosOrShowToast() ?: return
+        val selectedIds = photos.map { it.id }
+        Toast.makeText(requireContext(), R.string.hidden_success, Toast.LENGTH_SHORT).show()
+        viewModel.updateHidden(selectedIds, true)
         selectionManager.exitSelectionMode()
     }
 
@@ -577,6 +586,7 @@ class PhotosFragment : Fragment() {
                 R.id.action_group -> { showGroupDialog(); true }
                 R.id.action_columns -> { showColumnsDialog(); true }
                 R.id.action_trash -> { navigateToTrash(); true }
+                R.id.action_hidden -> { navigateToHidden(); true }
                 R.id.action_about -> { navigateToAbout(); true }
                 else -> false
             }
@@ -805,6 +815,12 @@ class PhotosFragment : Fragment() {
     private fun navigateToTrash() {
         saveScrollPosition()
         val action = PhotosFragmentDirections.actionPhotosFragmentToTrashFragment()
+        findNavController().navigate(action)
+    }
+
+    private fun navigateToHidden() {
+        saveScrollPosition()
+        val action = PhotosFragmentDirections.actionPhotosFragmentToHiddenFragment()
         findNavController().navigate(action)
     }
 

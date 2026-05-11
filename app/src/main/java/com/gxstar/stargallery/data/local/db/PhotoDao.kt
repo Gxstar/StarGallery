@@ -79,6 +79,23 @@ interface PhotoDao {
 
     // ==================== 相册/bucket 查询 ====================
 
+    // ==================== 隐藏照片 ====================
+
+    @Query("SELECT id FROM photos WHERE isHidden = 1")
+    suspend fun getHiddenPhotoIds(): List<Long>
+
+    @Query("SELECT COUNT(*) FROM photos WHERE isHidden = 1")
+    fun getHiddenCountFlow(): Flow<Int>
+
+    @Query("SELECT COUNT(*) FROM photos WHERE isHidden = 1")
+    suspend fun getHiddenCount(): Int
+
+    @Query("UPDATE photos SET isHidden = :isHidden WHERE id = :photoId")
+    suspend fun updateHidden(photoId: Long, isHidden: Boolean)
+
+    @Query("UPDATE photos SET isHidden = :isHidden WHERE id IN (:photoIds)")
+    suspend fun updateHiddenBatch(photoIds: List<Long>, isHidden: Boolean)
+
     // ==================== 批量操作 ====================
 
     @Query("UPDATE photos SET isFavorite = :isFavorite WHERE id = :photoId")

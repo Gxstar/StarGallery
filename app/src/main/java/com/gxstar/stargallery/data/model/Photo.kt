@@ -21,6 +21,7 @@ data class Photo(
     val longitude: Double?,
     val orientation: Int = 0,
     val isFavorite: Boolean = false,
+    val isHidden: Boolean = false,
     val dateExpiration: Long = 0
 ) : Parcelable {
     val isVideo: Boolean

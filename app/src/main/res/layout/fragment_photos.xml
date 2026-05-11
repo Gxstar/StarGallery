@@ -147,6 +147,18 @@
                         app:layout_constraintEnd_toEndOf="parent"
                         app:layout_constraintTop_toTopOf="parent" />
 
+                    <!-- 隐藏按钮 -->
+                    <ImageButton
+                        android:id="@+id/btnHide"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="@string/hide"
+                        android:src="@drawable/ic_visibility_off"
+                        app:layout_constraintBottom_toBottomOf="parent"
+                        app:layout_constraintEnd_toStartOf="@id/btnShare"
+                        app:layout_constraintTop_toTopOf="parent" />
+
                     <!-- 收藏按钮 -->
                     <ImageButton
                         android:id="@+id/btnFavorite"
@@ -156,7 +168,7 @@
                         android:contentDescription="@string/favorite"
                         android:src="@drawable/ic_favorite"
                         app:layout_constraintBottom_toBottomOf="parent"
-                        app:layout_constraintEnd_toStartOf="@id/btnShare"
+                        app:layout_constraintEnd_toStartOf="@id/btnHide"
                         app:layout_constraintTop_toTopOf="parent" />
 
                     <!-- 删除按钮 -->

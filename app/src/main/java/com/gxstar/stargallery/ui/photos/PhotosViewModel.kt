@@ -50,6 +50,9 @@ class PhotosViewModel @Inject constructor(
     private val _favoriteCount = MutableStateFlow(0)
     val favoriteCount: StateFlow<Int> = _favoriteCount.asStateFlow()
 
+    private val _hiddenCount = MutableStateFlow(0)
+    val hiddenCount: StateFlow<Int> = _hiddenCount.asStateFlow()
+
     private val _searchQuery = MutableStateFlow<String?>(null)
     val searchQuery: StateFlow<String?> = _searchQuery.asStateFlow()
 
@@ -92,6 +95,7 @@ class PhotosViewModel @Inject constructor(
         viewModelScope.launch {
             _photoCount.value = photoDao.getPhotoCount()
             _favoriteCount.value = photoDao.getFavoriteCount()
+            _hiddenCount.value = photoDao.getHiddenCount()
         }
     }
 
@@ -182,6 +186,7 @@ class PhotosViewModel @Inject constructor(
     ) { entities, sortType, favoritesOnly, groupType ->
         var filtered = entities
         if (favoritesOnly) filtered = filtered.filter { it.isFavorite }
+        filtered = filtered.filter { !it.isHidden }
         val photos = filtered.map { it.toPhoto() }
         val sortedPhotos = SortUtils.sortPhotos(photos, sortType)
         buildPhotoModelList(sortedPhotos, sortType, groupType)
@@ -204,6 +209,16 @@ class PhotosViewModel @Inject constructor(
             result.add(PhotoModel.PhotoItem(photo))
         }
         return result
+    }
+
+    /**
+     * 更新隐藏状态
+     */
+    fun updateHidden(photoIds: List<Long>, isHidden: Boolean) {
+        viewModelScope.launch {
+            photoDao.updateHiddenBatch(photoIds, isHidden)
+            loadCounts()
+        }
     }
 
     fun refresh() {
@@ -237,7 +252,8 @@ class PhotosViewModel @Inject constructor(
             latitude = latitude,
             longitude = longitude,
             orientation = orientation,
-            isFavorite = isFavorite
+            isFavorite = isFavorite,
+            isHidden = isHidden
         )
     }
 }

@@ -19,6 +19,9 @@
             android:id="@+id/action_photosFragment_to_trashFragment"
             app:destination="@id/trashFragment" />
         <action
+            android:id="@+id/action_photosFragment_to_hiddenFragment"
+            app:destination="@id/hiddenFragment" />
+        <action
             android:id="@+id/action_photosFragment_to_aboutFragment"
             app:destination="@id/aboutFragment" />
     </fragment>
@@ -76,6 +79,19 @@
         android:id="@+id/trashFragment"
         android:name="com.gxstar.stargallery.ui.trash.TrashFragment"
         android:label="@string/trash_title" />
+
+    <fragment
+        android:id="@+id/hiddenFragment"
+        android:name="com.gxstar.stargallery.ui.hidden.HiddenFragment"
+        android:label="@string/hidden_title">
+        <action
+            android:id="@+id/action_hiddenFragment_to_photoDetailFragment"
+            app:destination="@id/photoDetailFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right" />
+    </fragment>
 
     <fragment
         android:id="@+id/aboutFragment"

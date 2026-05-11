@@ -3,6 +3,7 @@ package com.gxstar.stargallery.ui.albums
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.gxstar.stargallery.data.local.db.PhotoDao
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.data.repository.MediaRepository
 import com.gxstar.stargallery.ui.photos.GroupType
@@ -21,6 +22,7 @@ import javax.inject.Inject
 @HiltViewModel
 class AlbumDetailViewModel @Inject constructor(
     private val mediaRepository: MediaRepository,
+    private val photoDao: PhotoDao,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -107,8 +109,9 @@ class AlbumDetailViewModel @Inject constructor(
             _isLoading.value = true
             try {
                 val photos = mediaRepository.getPhotosByBucket(currentAlbumId)
-                _photos.value = photos
-                _photoCount.value = photos.size
+                val hiddenIds = photoDao.getHiddenPhotoIds().toSet()
+                _photos.value = photos.filter { it.id !in hiddenIds }
+                _photoCount.value = _photos.value.size
             } catch (e: Exception) {
                 e.printStackTrace()
             } finally {

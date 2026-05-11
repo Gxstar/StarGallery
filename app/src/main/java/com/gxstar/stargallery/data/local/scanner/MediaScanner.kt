@@ -95,6 +95,7 @@ class MediaScanner @Inject constructor(
             var processedCount = 0
             val batchSize = 100 // 增加批处理大小
             val batches = allMedia.chunked(batchSize)
+            val hiddenIds = photoDao.getHiddenPhotoIds().toSet()
 
             appDatabase.withTransaction {
                 for (batch in batches) {
@@ -114,7 +115,8 @@ class MediaScanner @Inject constructor(
                             latitude = null,
                             longitude = null,
                             orientation = item.orientation,
-                            isFavorite = item.isFavorite
+                            isFavorite = item.isFavorite,
+                            isHidden = item.id in hiddenIds
                         )
                     }
                     photoDao.insertAll(entities)
@@ -222,6 +224,8 @@ class MediaScanner @Inject constructor(
                 return@withContext false
             }
 
+            val hiddenIds = photoDao.getHiddenPhotoIds().toSet()
+
             // 增量更新到 Room
             val entities = changedMedia.map { item ->
                 PhotoEntity(
@@ -239,7 +243,8 @@ class MediaScanner @Inject constructor(
                     latitude = null,
                     longitude = null,
                     orientation = item.orientation,
-                    isFavorite = item.isFavorite
+                    isFavorite = item.isFavorite,
+                    isHidden = item.id in hiddenIds
                 )
             }
             photoDao.insertAll(entities)
@@ -274,6 +279,7 @@ class MediaScanner @Inject constructor(
         val items = queryMediaByIds(photoIds)
         if (items.isEmpty()) return@withContext
 
+        val hiddenIds = photoDao.getHiddenPhotoIds().toSet()
         val entities = items.map { item ->
             PhotoEntity(
                 id = item.id,
@@ -290,7 +296,8 @@ class MediaScanner @Inject constructor(
                 latitude = null,
                 longitude = null,
                 orientation = item.orientation,
-                isFavorite = item.isFavorite
+                isFavorite = item.isFavorite,
+                isHidden = item.id in hiddenIds
             )
         }
         photoDao.insertAll(entities)

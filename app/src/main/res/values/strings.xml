@@ -74,6 +74,14 @@
     <string name="selected">已选 %d 项</string>
     <string name="delete_selected_confirm">确定要删除选中的 %d 张照片吗？</string>
 
+    <!-- 隐藏图片 -->
+    <string name="hide">隐藏</string>
+    <string name="hidden_title">隐藏照片</string>
+    <string name="hidden_empty">暂无隐藏照片</string>
+    <string name="hidden_count">%d项</string>
+    <string name="hidden_success">已隐藏</string>
+    <string name="unhidden_success">已恢复显示</string>
+
     <!-- 排序方式 -->
     <string name="sort_by">排序方式</string>
     <string name="sort_by_date_taken">拍摄时间</string>

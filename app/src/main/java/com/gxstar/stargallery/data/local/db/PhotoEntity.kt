@@ -26,6 +26,7 @@ data class PhotoEntity(
     val longitude: Double?,
     val orientation: Int = 0,
     val isFavorite: Boolean = false,
+    val isHidden: Boolean = false,
 
     // EXIF 扩展字段（扫描时填充）
     val cameraMake: String? = null,
