@@ -822,8 +822,11 @@ class PhotosFragment : Fragment() {
         } else if (photoAdapter?.itemCount == 0) {
             // 全新打开或进程重启：adapter 无数据，触发加载（自然停在顶部）
             refreshData()
+        } else {
+            // 从后台（相机、桌面等）返回：ContentObserver 可能错过了 MediaStore 变更通知，
+            // 主动触发增量扫描以捕获外部拍照等新增媒体
+            refreshData()
         }
-        // 后台切回或底部导航切换：adapter 已有数据，RecyclerView 天然保留位置，不做任何操作
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
