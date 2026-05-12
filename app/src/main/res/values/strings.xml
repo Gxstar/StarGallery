@@ -81,6 +81,9 @@
     <string name="hidden_count">%d项</string>
     <string name="hidden_success">已隐藏</string>
     <string name="unhidden_success">已恢复显示</string>
+    <!-- 身份验证 -->
+    <string name="hidden_auth_title">验证身份</string>
+    <string name="hidden_auth_subtitle">需要验证身份才能查看隐藏照片</string>
 
     <!-- 排序方式 -->
     <string name="sort_by">排序方式</string>
@@ -212,6 +215,16 @@
     <string name="privacy_section_5_content">本应用可能包含以下第三方库/服务：\n\n• Glide：图片加载和缓存库\n• ZoomImage：图片缩放查看库\n• ExoPlayer：视频播放库\n• metadata-extractor：EXIF元数据读取库\n• Paging 3：分页加载库\n• Hilt：依赖注入框架\n• Navigation Component：页面导航库\n• Room：本地数据库\n• Coil：图片加载库\n\n这些第三方服务仅在您的设备本地处理数据，不会收集您的个人信息。</string>
     <string name="privacy_section_7_title">五、用户权利</string>
     <string name="privacy_section_7_content">您对您的数据拥有完全控制权：\n\n• 访问权：您可以随时通过应用浏览您的所有照片\n• 删除权：您可以使用系统功能或应用内置的删除功能删除照片\n• 权限控制：您可以在系统设置中管理应用权限\n• 卸载权：您可以随时卸载应用，卸载后所有应用数据将被清除\n• 清除缓存：在应用设置中可以清除所有缓存数据</string>
+    <string name="back">返回</string>
+
+    <!-- 筛选 -->
+    <string name="filter_title">筛选条件</string>
+    <string name="filter_camera_make">相机品牌</string>
+    <string name="filter_camera_model">相机型号</string>
+    <string name="filter_lens">镜头型号</string>
+    <string name="filter_all">全部</string>
+    <string name="filter_unknown_device">未知设备</string>
+    <string name="filter_clear">清除筛选</string>
     <string name="privacy_section_9_title">六、政策更新</string>
     <string name="privacy_section_9_content">我们可能会不时更新本隐私政策。更新时，我们会在应用内发布更新通知。建议您定期查看本政策以了解最新内容。重大变更将通过应用更新日志通知您。</string>
 </resources>

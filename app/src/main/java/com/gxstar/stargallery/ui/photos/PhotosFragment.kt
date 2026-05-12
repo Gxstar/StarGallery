@@ -33,6 +33,7 @@ import com.gxstar.stargallery.R
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.data.repository.MediaRepository
 import com.gxstar.stargallery.databinding.FragmentPhotosBinding
+import com.gxstar.stargallery.ui.photos.filter.FilterBottomSheet
 import com.gxstar.stargallery.ui.common.GridSpanCalculator
 import com.gxstar.stargallery.ui.photos.action.BatchActionHandler
 import com.gxstar.stargallery.ui.photos.animation.PhotoItemAnimator
@@ -251,6 +252,7 @@ class PhotosFragment : Fragment() {
     private fun setupClickListeners() {
         binding.btnMore.setOnClickListener { showPopupMenu(it) }
         binding.btnFilter.setOnClickListener { viewModel.toggleFavoritesOnly() }
+        binding.btnFilterExif.setOnClickListener { showFilterSheet() }
         binding.btnSearch.setOnClickListener { showSearchDialog() }
         binding.btnBack.setOnClickListener { selectionManager.exitSelectionMode() }
         binding.btnShare.setOnClickListener { handleShareAction() }
@@ -501,6 +503,16 @@ class PhotosFragment : Fragment() {
                         if (showFavoritesOnly) R.drawable.ic_favorite_filled else R.drawable.ic_favorite
                     )
                     updateSubtitle()
+                }
+            }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.isExifFilterActive.collect { isActive ->
+                    binding.btnFilterExif.setImageResource(
+                        if (isActive) R.drawable.ic_filter_active else R.drawable.ic_filter
+                    )
                 }
             }
         }
@@ -822,6 +834,10 @@ class PhotosFragment : Fragment() {
         saveScrollPosition()
         val action = PhotosFragmentDirections.actionPhotosFragmentToHiddenFragment()
         findNavController().navigate(action)
+    }
+
+    private fun showFilterSheet() {
+        FilterBottomSheet().show(childFragmentManager, FilterBottomSheet.TAG)
     }
 
     private fun navigateToAbout() {

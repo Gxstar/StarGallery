@@ -13,6 +13,7 @@ import com.gxstar.stargallery.ui.util.DateUtils
 import com.gxstar.stargallery.ui.util.SortUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import com.gxstar.stargallery.R
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -61,6 +62,61 @@ class PhotosViewModel @Inject constructor(
 
     val isSearching: Flow<Boolean> = _searchQuery.map { !it.isNullOrBlank() }
 
+    private val _filterCameraMake = MutableStateFlow<String?>(null)
+    val filterCameraMake: StateFlow<String?> = _filterCameraMake.asStateFlow()
+
+    private val _filterCameraModel = MutableStateFlow<String?>(null)
+    val filterCameraModel: StateFlow<String?> = _filterCameraModel.asStateFlow()
+
+    private val _filterLensModel = MutableStateFlow<String?>(null)
+    val filterLensModel: StateFlow<String?> = _filterLensModel.asStateFlow()
+
+    val isExifFilterActive: StateFlow<Boolean> = combine(
+        _filterCameraMake, _filterCameraModel, _filterLensModel
+    ) { make, model, lens ->
+        make != null || model != null || lens != null
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val cameraMakeOptions: StateFlow<List<FilterOption>> = combine(
+        photoDao.getCameraMakeCountsFlow(),
+        _photoCount
+    ) { counts, totalVisible ->
+        buildFilterOptions(counts, totalVisible)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val cameraModelOptions: StateFlow<List<FilterOption>> = combine(
+        photoDao.getCameraModelCountsFlow(),
+        _photoCount
+    ) { counts, totalVisible ->
+        buildFilterOptions(counts, totalVisible)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val lensModelOptions: StateFlow<List<FilterOption>> = combine(
+        photoDao.getLensModelCountsFlow(),
+        _photoCount
+    ) { counts, totalVisible ->
+        buildFilterOptions(counts, totalVisible)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private fun buildFilterOptions(counts: List<com.gxstar.stargallery.data.local.db.PhotoDao.ExifCount>, totalVisible: Int): List<FilterOption> {
+        val options = mutableListOf<FilterOption>()
+        val knownTotal = counts.sumOf { it.count }
+        val unknownCount = (totalVisible - knownTotal).coerceAtLeast(0)
+
+        options.add(FilterOption(null, context.getString(R.string.filter_all), totalVisible))
+        counts.forEach { options.add(FilterOption(it.value, it.value, it.count)) }
+        if (unknownCount > 0) {
+            options.add(FilterOption("", context.getString(R.string.filter_unknown_device), unknownCount))
+        }
+        return options
+    }
+
+    data class FilterOption(
+        val key: String?,
+        val display: String,
+        val count: Int
+    )
+
     init {
         // 初始化时执行一次全量扫描
         viewModelScope.launch {
@@ -85,6 +141,24 @@ class PhotosViewModel @Inject constructor(
 
     fun toggleFavoritesOnly() {
         _showFavoritesOnly.value = !_showFavoritesOnly.value
+    }
+
+    fun setFilterCameraMake(make: String?) {
+        _filterCameraMake.value = make
+    }
+
+    fun setFilterCameraModel(model: String?) {
+        _filterCameraModel.value = model
+    }
+
+    fun setFilterLensModel(model: String?) {
+        _filterLensModel.value = model
+    }
+
+    fun clearExifFilters() {
+        _filterCameraMake.value = null
+        _filterCameraModel.value = null
+        _filterLensModel.value = null
     }
 
     fun setSearchQuery(query: String?) {
@@ -178,15 +252,46 @@ class PhotosViewModel @Inject constructor(
      * 数据源：Room Flow（自动监听表变化推送更新）
      * 全量加载后在内存中排序、过滤、插入日期分隔符，适配 < 5w 张照片场景
      */
+    private val exifFilterState = combine(
+        _filterCameraMake,
+        _filterCameraModel,
+        _filterLensModel
+    ) { cameraMake, cameraModel, lensModel ->
+        Triple(cameraMake, cameraModel, lensModel)
+    }
+
     val photoListFlow: StateFlow<List<PhotoModel>> = combine(
         photoDao.getAllPhotosFlow(),
         _currentSortType,
         _showFavoritesOnly,
+        exifFilterState,
         _currentGroupType
-    ) { entities, sortType, favoritesOnly, groupType ->
+    ) { entities, sortType, favoritesOnly, exifFilters, groupType ->
+        val (cameraMake, cameraModel, lensModel) = exifFilters
         var filtered = entities
         if (favoritesOnly) filtered = filtered.filter { it.isFavorite }
         filtered = filtered.filter { !it.isHidden }
+        if (cameraMake != null) {
+            filtered = if (cameraMake.isEmpty()) {
+                filtered.filter { it.cameraMake.isNullOrBlank() }
+            } else {
+                filtered.filter { it.cameraMake == cameraMake }
+            }
+        }
+        if (cameraModel != null) {
+            filtered = if (cameraModel.isEmpty()) {
+                filtered.filter { it.cameraModel.isNullOrBlank() }
+            } else {
+                filtered.filter { it.cameraModel == cameraModel }
+            }
+        }
+        if (lensModel != null) {
+            filtered = if (lensModel.isEmpty()) {
+                filtered.filter { it.lensModel.isNullOrBlank() }
+            } else {
+                filtered.filter { it.lensModel == lensModel }
+            }
+        }
         val photos = filtered.map { it.toPhoto() }
         val sortedPhotos = SortUtils.sortPhotos(photos, sortType)
         buildPhotoModelList(sortedPhotos, sortType, groupType)

@@ -56,6 +56,9 @@ leakcanary = "2.14"
 # 协程
 coroutines = "1.10.1"
 
+# 生物识别
+biometric = "1.1.0"
+
 # 测试
 junit = "4.13.2"
 junitVersion = "1.1.5"
@@ -110,6 +113,9 @@ androidx-media3-ui = { group = "androidx.media3", name = "media3-ui", version.re
 
 # RecyclerView
 androidx-recyclerview = { group = "androidx.recyclerview", name = "recyclerview", version.ref = "recyclerview" }
+
+# 生物识别
+androidx-biometric = { group = "androidx.biometric", name = "biometric", version.ref = "biometric" }
 
 # 拖动选择
 drag-select = { group = "com.afollestad", name = "drag-select-recyclerview", version.ref = "dragSelect" }

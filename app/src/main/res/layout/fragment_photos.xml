@@ -66,6 +66,17 @@
                         android:contentDescription="@string/filter_favorites"
                         android:src="@drawable/ic_favorite"
                         app:layout_constraintBottom_toBottomOf="parent"
+                        app:layout_constraintEnd_toStartOf="@id/btnFilterExif"
+                        app:layout_constraintTop_toTopOf="parent" />
+
+                    <ImageButton
+                        android:id="@+id/btnFilterExif"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="@string/filter_title"
+                        android:src="@drawable/ic_filter"
+                        app:layout_constraintBottom_toBottomOf="parent"
                         app:layout_constraintEnd_toStartOf="@id/btnMore"
                         app:layout_constraintTop_toTopOf="parent" />
 

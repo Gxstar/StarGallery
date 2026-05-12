@@ -7,6 +7,9 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
+import androidx.biometric.BiometricManager
+import androidx.biometric.BiometricPrompt
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
@@ -36,6 +39,7 @@ class HiddenFragment : Fragment() {
 
     private var currentSpanCount = 4
     private var itemSize = 0
+    private var isAuthenticated = false
 
     private val backPressedCallback = object : OnBackPressedCallback(false) {
         override fun handleOnBackPressed() {
@@ -54,7 +58,40 @@ class HiddenFragment : Fragment() {
         calculateItemSize()
         setupRecyclerView()
         setupClickListeners()
-        observeData()
+        showAuthentication()
+    }
+
+    private fun showAuthentication() {
+        val executor = ContextCompat.getMainExecutor(requireContext())
+        val biometricPrompt = BiometricPrompt(this, executor, object : BiometricPrompt.AuthenticationCallback() {
+            override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                super.onAuthenticationSucceeded(result)
+                isAuthenticated = true
+                observeData()
+            }
+
+            override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                super.onAuthenticationError(errorCode, errString)
+                if (!isAuthenticated) {
+                    findNavController().navigateUp()
+                }
+            }
+        })
+
+        val promptInfo = BiometricPrompt.PromptInfo.Builder()
+            .setTitle(getString(R.string.hidden_auth_title))
+            .setSubtitle(getString(R.string.hidden_auth_subtitle))
+            .setAllowedAuthenticators(
+                BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                BiometricManager.Authenticators.DEVICE_CREDENTIAL
+            )
+            .build()
+
+        try {
+            biometricPrompt.authenticate(promptInfo)
+        } catch (_: Exception) {
+            findNavController().navigateUp()
+        }
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
