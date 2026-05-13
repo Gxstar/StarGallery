@@ -858,14 +858,10 @@ class PhotosFragment : Fragment() {
         if (savedScrollPosition >= 0) {
             // 从详情页/回收站/关于页面返回：恢复导航前保存的位置
             restoreScrollPosition()
-        } else if (photoAdapter?.itemCount == 0) {
-            // 全新打开或进程重启：adapter 无数据，触发加载（自然停在顶部）
-            refreshData()
-        } else {
-            // 从后台（相机、桌面等）返回：ContentObserver 可能错过了 MediaStore 变更通知，
-            // 主动触发增量扫描以捕获外部拍照等新增媒体
-            refreshData()
         }
+        // 不主动触发扫描：
+        // - ContentObserver 在 ON_START 时已注册，进程存活期间会实时响应 MediaStore 变化
+        // - 进程重启时 ViewModel.init 已处理首次/全量扫描，数据库非空则直接展示缓存
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {

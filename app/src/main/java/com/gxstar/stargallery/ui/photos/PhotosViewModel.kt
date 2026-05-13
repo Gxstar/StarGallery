@@ -118,12 +118,15 @@ class PhotosViewModel @Inject constructor(
     )
 
     init {
-        // 初始化时执行一次全量扫描
         viewModelScope.launch {
-            _isScanning.value = true
-            mediaScanner.performFullScan()
+            val isFirstLaunch = photoDao.getPhotoCount() == 0
+            if (isFirstLaunch) {
+                // 数据库为空：首次安装/清除数据 → 全量扫描
+                _isScanning.value = true
+                mediaScanner.performFullScan()
+                _isScanning.value = false
+            }
             loadCounts()
-            _isScanning.value = false
         }
     }
 

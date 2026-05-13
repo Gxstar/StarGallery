@@ -120,6 +120,25 @@ interface PhotoDao {
 
     data class ExifCount(val value: String, val count: Int)
 
+    data class ExifSnapshot(
+        val id: Long,
+        val cameraMake: String?,
+        val cameraModel: String?,
+        val lensModel: String?,
+        val isoEquivalent: Int?,
+        val focalLength: Float?,
+        val focalLength35mmEquiv: Int?,
+        val fNumber: Float?,
+        val shutterSpeed: Float?,
+        val exifImageWidth: Int?,
+        val exifImageHeight: Int?,
+        val lut1: String?,
+        val lut2: String?
+    )
+
+    @Query("SELECT id, cameraMake, cameraModel, lensModel, isoEquivalent, focalLength, focalLength35mmEquiv, fNumber, shutterSpeed, exifImageWidth, exifImageHeight, lut1, lut2 FROM photos")
+    suspend fun getExifSnapshots(): List<ExifSnapshot>
+
     // ==================== 完整性检查 ====================
 
     @Query("SELECT id FROM photos")

@@ -93,13 +93,15 @@ class MediaScanner @Inject constructor(
 
             // 2. 批量写入 Room
             var processedCount = 0
-            val batchSize = 100 // 增加批处理大小
+            val batchSize = 100
             val batches = allMedia.chunked(batchSize)
             val hiddenIds = photoDao.getHiddenPhotoIds().toSet()
+            val existingExif = photoDao.getExifSnapshots().associateBy { it.id }
 
             appDatabase.withTransaction {
                 for (batch in batches) {
                     val entities = batch.map { item ->
+                        val exif = existingExif[item.id]
                         PhotoEntity(
                             id = item.id,
                             uri = item.uri,
@@ -116,7 +118,19 @@ class MediaScanner @Inject constructor(
                             longitude = null,
                             orientation = item.orientation,
                             isFavorite = item.isFavorite,
-                            isHidden = item.id in hiddenIds
+                            isHidden = item.id in hiddenIds,
+                            cameraMake = exif?.cameraMake,
+                            cameraModel = exif?.cameraModel,
+                            lensModel = exif?.lensModel,
+                            isoEquivalent = exif?.isoEquivalent,
+                            focalLength = exif?.focalLength,
+                            focalLength35mmEquiv = exif?.focalLength35mmEquiv,
+                            fNumber = exif?.fNumber,
+                            shutterSpeed = exif?.shutterSpeed,
+                            exifImageWidth = exif?.exifImageWidth,
+                            exifImageHeight = exif?.exifImageHeight,
+                            lut1 = exif?.lut1,
+                            lut2 = exif?.lut2
                         )
                     }
                     photoDao.insertAll(entities)
@@ -225,9 +239,11 @@ class MediaScanner @Inject constructor(
             }
 
             val hiddenIds = photoDao.getHiddenPhotoIds().toSet()
+            val existingExif = photoDao.getExifSnapshots().associateBy { it.id }
 
             // 增量更新到 Room
             val entities = changedMedia.map { item ->
+                val exif = existingExif[item.id]
                 PhotoEntity(
                     id = item.id,
                     uri = item.uri,
@@ -244,7 +260,19 @@ class MediaScanner @Inject constructor(
                     longitude = null,
                     orientation = item.orientation,
                     isFavorite = item.isFavorite,
-                    isHidden = item.id in hiddenIds
+                    isHidden = item.id in hiddenIds,
+                    cameraMake = exif?.cameraMake,
+                    cameraModel = exif?.cameraModel,
+                    lensModel = exif?.lensModel,
+                    isoEquivalent = exif?.isoEquivalent,
+                    focalLength = exif?.focalLength,
+                    focalLength35mmEquiv = exif?.focalLength35mmEquiv,
+                    fNumber = exif?.fNumber,
+                    shutterSpeed = exif?.shutterSpeed,
+                    exifImageWidth = exif?.exifImageWidth,
+                    exifImageHeight = exif?.exifImageHeight,
+                    lut1 = exif?.lut1,
+                    lut2 = exif?.lut2
                 )
             }
             photoDao.insertAll(entities)
@@ -280,7 +308,9 @@ class MediaScanner @Inject constructor(
         if (items.isEmpty()) return@withContext
 
         val hiddenIds = photoDao.getHiddenPhotoIds().toSet()
+        val existingExif = photoDao.getExifSnapshots().associateBy { it.id }
         val entities = items.map { item ->
+            val exif = existingExif[item.id]
             PhotoEntity(
                 id = item.id,
                 uri = item.uri,
@@ -297,7 +327,19 @@ class MediaScanner @Inject constructor(
                 longitude = null,
                 orientation = item.orientation,
                 isFavorite = item.isFavorite,
-                isHidden = item.id in hiddenIds
+                isHidden = item.id in hiddenIds,
+                cameraMake = exif?.cameraMake,
+                cameraModel = exif?.cameraModel,
+                lensModel = exif?.lensModel,
+                isoEquivalent = exif?.isoEquivalent,
+                focalLength = exif?.focalLength,
+                focalLength35mmEquiv = exif?.focalLength35mmEquiv,
+                fNumber = exif?.fNumber,
+                shutterSpeed = exif?.shutterSpeed,
+                exifImageWidth = exif?.exifImageWidth,
+                exifImageHeight = exif?.exifImageHeight,
+                lut1 = exif?.lut1,
+                lut2 = exif?.lut2
             )
         }
         photoDao.insertAll(entities)

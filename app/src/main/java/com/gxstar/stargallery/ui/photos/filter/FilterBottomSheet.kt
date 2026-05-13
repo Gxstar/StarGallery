@@ -100,17 +100,26 @@ class FilterBottomSheet : BottomSheetDialogFragment() {
         }
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.cameraMakeOptions.collect { cachedCameraMakes = it }
+                viewModel.cameraMakeOptions.collect { options ->
+                    cachedCameraMakes = options
+                    if (currentDimension == FilterDimension.CAMERA_MAKE) rebuildCurrentList()
+                }
             }
         }
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.cameraModelOptions.collect { cachedCameraModels = it }
+                viewModel.cameraModelOptions.collect { options ->
+                    cachedCameraModels = options
+                    if (currentDimension == FilterDimension.CAMERA_MODEL) rebuildCurrentList()
+                }
             }
         }
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.lensModelOptions.collect { cachedLensModels = it }
+                viewModel.lensModelOptions.collect { options ->
+                    cachedLensModels = options
+                    if (currentDimension == FilterDimension.LENS) rebuildCurrentList()
+                }
             }
         }
     }
@@ -212,6 +221,22 @@ class FilterBottomSheet : BottomSheetDialogFragment() {
                 ContextCompat.getColor(requireContext(), R.color.text_secondary)
             }
         )
+    }
+
+    private fun rebuildCurrentList() {
+        val options = when (currentDimension) {
+            FilterDimension.CAMERA_MAKE -> cachedCameraMakes
+            FilterDimension.CAMERA_MODEL -> cachedCameraModels
+            FilterDimension.LENS -> cachedLensModels
+            else -> emptyList()
+        }
+        val selected = when (currentDimension) {
+            FilterDimension.CAMERA_MAKE -> viewModel.filterCameraMake.value
+            FilterDimension.CAMERA_MODEL -> viewModel.filterCameraModel.value
+            FilterDimension.LENS -> viewModel.filterLensModel.value
+            else -> null
+        }
+        buildOptionsList(options, selected)
     }
 
     private fun dpToPx(dp: Int): Int = (dp * resources.displayMetrics.density).toInt()
