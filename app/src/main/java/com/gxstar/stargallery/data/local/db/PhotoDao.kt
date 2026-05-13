@@ -63,6 +63,9 @@ interface PhotoDao {
     @Query("SELECT * FROM photos ORDER BY dateTaken DESC")
     fun getAllPhotosFlow(): Flow<List<PhotoEntity>>
 
+    @Query("SELECT * FROM photos")
+    suspend fun getAllPhotos(): List<PhotoEntity>
+
     // ==================== 手动分页查询 ====================
 
     @Query("SELECT * FROM photos ORDER BY dateTaken DESC LIMIT :limit OFFSET :offset")

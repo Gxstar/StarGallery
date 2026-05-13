@@ -205,7 +205,11 @@ class HiddenFragment : Fragment() {
     private fun navigateToDetail(photo: Photo) {
         val action = HiddenFragmentDirections.actionHiddenFragmentToPhotoDetailFragment(
             photoId = photo.id,
-            initialPhoto = photo
+            initialPhoto = photo,
+            favoritesOnly = false,
+            filterCameraMake = null,
+            filterCameraModel = null,
+            filterLensModel = null
         )
         findNavController().navigate(action)
     }

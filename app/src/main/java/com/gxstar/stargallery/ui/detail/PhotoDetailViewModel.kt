@@ -5,8 +5,10 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.gxstar.stargallery.data.local.db.PhotoDao
+import com.gxstar.stargallery.data.local.db.PhotoEntity
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.data.repository.MediaRepository
+import com.gxstar.stargallery.ui.util.SortUtils
 import com.gxstar.stargallery.ui.util.DateUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
@@ -28,6 +30,10 @@ class PhotoDetailViewModel @Inject constructor(
     private val initialPhotoId: Long = savedStateHandle["photoId"] ?: -1L
     private val sortTypeValue: Int = savedStateHandle["sortType"] ?: 0
     private val bucketId: Long = savedStateHandle["bucketId"] ?: -1L
+    private val favoritesOnly: Boolean = savedStateHandle["favoritesOnly"] ?: false
+    private val filterCameraMake: String? = savedStateHandle["filterCameraMake"]
+    private val filterCameraModel: String? = savedStateHandle["filterCameraModel"]
+    private val filterLensModel: String? = savedStateHandle["filterLensModel"]
 
     private val sortType = when (sortTypeValue) {
         0 -> MediaRepository.SortType.DATE_TAKEN
@@ -77,6 +83,34 @@ class PhotoDetailViewModel @Inject constructor(
         viewModelScope.launch {
             val allPhotos = if (bucketId != -1L) {
                 mediaRepository.getPhotosByBucket(bucketId, sortType)
+            } else if (favoritesOnly || filterCameraMake != null || filterCameraModel != null || filterLensModel != null) {
+                val entities = photoDao.getAllPhotos()
+                var filtered = entities
+                if (favoritesOnly) filtered = filtered.filter { it.isFavorite }
+                filtered = filtered.filter { !it.isHidden }
+                if (filterCameraMake != null) {
+                    filtered = if (filterCameraMake.isEmpty()) {
+                        filtered.filter { it.cameraMake.isNullOrBlank() }
+                    } else {
+                        filtered.filter { it.cameraMake == filterCameraMake }
+                    }
+                }
+                if (filterCameraModel != null) {
+                    filtered = if (filterCameraModel.isEmpty()) {
+                        filtered.filter { it.cameraModel.isNullOrBlank() }
+                    } else {
+                        filtered.filter { it.cameraModel == filterCameraModel }
+                    }
+                }
+                if (filterLensModel != null) {
+                    filtered = if (filterLensModel.isEmpty()) {
+                        filtered.filter { it.lensModel.isNullOrBlank() }
+                    } else {
+                        filtered.filter { it.lensModel == filterLensModel }
+                    }
+                }
+                val photos = filtered.map { it.toPhoto() }
+                SortUtils.sortPhotos(photos, sortType)
             } else {
                 mediaRepository.getAllMedia(sortType)
             }
@@ -190,5 +224,26 @@ class PhotoDetailViewModel @Inject constructor(
      */
     fun getInitialPosition(): Int {
         return _photos.value.indexOfFirst { it.id == initialPhotoId }.takeIf { it >= 0 } ?: 0
+    }
+
+    private fun PhotoEntity.toPhoto(): Photo {
+        return Photo(
+            id = id,
+            uri = android.net.Uri.parse(uri),
+            dateTaken = dateTaken,
+            dateModified = dateModified,
+            dateAdded = dateAdded,
+            mimeType = mimeType,
+            width = width,
+            height = height,
+            size = size,
+            bucketId = bucketId,
+            bucketName = bucketName,
+            latitude = latitude,
+            longitude = longitude,
+            orientation = orientation,
+            isFavorite = isFavorite,
+            isHidden = isHidden
+        )
     }
 }

@@ -54,6 +54,22 @@
             android:name="bucketId"
             app:argType="long"
             android:defaultValue="-1L" />
+        <argument
+            android:name="favoritesOnly"
+            app:argType="boolean"
+            android:defaultValue="false" />
+        <argument
+            android:name="filterCameraMake"
+            app:argType="string"
+            app:nullable="true" />
+        <argument
+            android:name="filterCameraModel"
+            app:argType="string"
+            app:nullable="true" />
+        <argument
+            android:name="filterLensModel"
+            app:argType="string"
+            app:nullable="true" />
     </fragment>
 
     <fragment

@@ -470,7 +470,16 @@ class AlbumDetailFragment : Fragment() {
 
     private fun navigateToDetail(photo: Photo) {
         val sortTypeValue = if (viewModel.currentSortType.value == MediaRepository.SortType.DATE_TAKEN) 0 else 1
-        val action = AlbumDetailFragmentDirections.actionAlbumDetailFragmentToPhotoDetailFragment(photo, photo.id, sortTypeValue, args.bucketId)
+        val action = AlbumDetailFragmentDirections.actionAlbumDetailFragmentToPhotoDetailFragment(
+            initialPhoto = photo,
+            photoId = photo.id,
+            sortType = sortTypeValue,
+            bucketId = args.bucketId,
+            favoritesOnly = false,
+            filterCameraMake = null,
+            filterCameraModel = null,
+            filterLensModel = null
+        )
         findNavController().navigate(action)
     }
 

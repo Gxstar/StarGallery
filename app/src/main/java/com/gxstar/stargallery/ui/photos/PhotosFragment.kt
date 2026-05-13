@@ -785,11 +785,18 @@ class PhotosFragment : Fragment() {
     }
 
     private fun navigateToDetail(photo: Photo) {
-        // 保存当前位置，用于从详情页返回时恢复
         saveScrollPosition()
 
         val sortTypeValue = if (viewModel.currentSortType.value == MediaRepository.SortType.DATE_TAKEN) 0 else 1
-        val action = PhotosFragmentDirections.actionPhotosFragmentToPhotoDetailFragment(photo, photo.id, sortTypeValue)
+        val action = PhotosFragmentDirections.actionPhotosFragmentToPhotoDetailFragment(
+            initialPhoto = photo,
+            photoId = photo.id,
+            sortType = sortTypeValue,
+            favoritesOnly = viewModel.showFavoritesOnly.value,
+            filterCameraMake = viewModel.filterCameraMake.value,
+            filterCameraModel = viewModel.filterCameraModel.value,
+            filterLensModel = viewModel.filterLensModel.value
+        )
         findNavController().navigate(action)
     }
 
