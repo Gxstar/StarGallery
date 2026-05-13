@@ -94,6 +94,9 @@ dependencies {
     // 生物识别 (指纹/密码验证)
     implementation(libs.androidx.biometric)
 
+    // 快速滚动条
+    implementation(libs.fastscroll)
+
     // 拖动多选功能
     implementation(libs.drag.select)
 

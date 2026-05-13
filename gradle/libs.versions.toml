@@ -59,6 +59,9 @@ coroutines = "1.10.1"
 # 生物识别
 biometric = "1.1.0"
 
+# 快速滚动
+fastscroll = "1.3.0"
+
 # 测试
 junit = "4.13.2"
 junitVersion = "1.1.5"
@@ -116,6 +119,9 @@ androidx-recyclerview = { group = "androidx.recyclerview", name = "recyclerview"
 
 # 生物识别
 androidx-biometric = { group = "androidx.biometric", name = "biometric", version.ref = "biometric" }
+
+# 快速滚动
+fastscroll = { group = "me.zhanghai.android.fastscroll", name = "library", version.ref = "fastscroll" }
 
 # 拖动选择
 drag-select = { group = "com.afollestad", name = "drag-select-recyclerview", version.ref = "dragSelect" }

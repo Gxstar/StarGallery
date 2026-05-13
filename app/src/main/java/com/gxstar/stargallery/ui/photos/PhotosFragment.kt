@@ -34,6 +34,7 @@ import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.data.repository.MediaRepository
 import com.gxstar.stargallery.databinding.FragmentPhotosBinding
 import com.gxstar.stargallery.ui.photos.filter.FilterBottomSheet
+import me.zhanghai.android.fastscroll.FastScrollerBuilder
 import com.gxstar.stargallery.ui.common.GridSpanCalculator
 import com.gxstar.stargallery.ui.photos.action.BatchActionHandler
 import com.gxstar.stargallery.ui.photos.animation.PhotoItemAnimator
@@ -230,6 +231,33 @@ class PhotosFragment : Fragment() {
         bindSelectionProviders()
 
         setupGlidePreloader()
+
+        setupFastScroller()
+    }
+
+    private fun setupFastScroller() {
+        val context = requireContext()
+        FastScrollerBuilder(binding.rvPhotos)
+            .setPopupTextProvider { _, position ->
+                val list = photoAdapter?.currentList ?: return@setPopupTextProvider ""
+                if (position !in list.indices) return@setPopupTextProvider ""
+                for (i in position downTo 0) {
+                    when (val item = list[i]) {
+                        is PhotoModel.SeparatorItem -> return@setPopupTextProvider item.dateText
+                        else -> {}
+                    }
+                }
+                ""
+            }
+            .setPopupStyle { popupView ->
+                popupView.background = ContextCompat.getDrawable(context, R.drawable.bg_fastscroll_popup)
+                popupView.setTextColor(0xFFFFFFFF.toInt())
+                popupView.textSize = 12f
+                popupView.includeFontPadding = false
+            }
+            .setTrackDrawable(ContextCompat.getDrawable(context, R.drawable.fastscroll_track)!!)
+            .setThumbDrawable(ContextCompat.getDrawable(context, R.drawable.fastscroll_thumb)!!)
+            .build()
     }
 
     private fun setupGlidePreloader() {
