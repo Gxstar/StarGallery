@@ -20,15 +20,18 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import javax.inject.Inject
 
 enum class GroupType {
     DAY, MONTH, YEAR
 }
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class PhotosViewModel @Inject constructor(
     private val photoDao: PhotoDao,
@@ -77,35 +80,54 @@ class PhotosViewModel @Inject constructor(
         make != null || model != null || lens != null
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
-    val cameraMakeOptions: StateFlow<List<FilterOption>> = combine(
-        photoDao.getCameraMakeCountsFlow(),
-        _photoCount
-    ) { counts, totalVisible ->
-        buildFilterOptions(counts, totalVisible)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    // 品牌选项 ← 受相机型号和镜头型号影响（双向联动）
+    val cameraMakeOptions: StateFlow<List<FilterOption>> =
+        combine(_filterCameraModel, _filterLensModel) { model, lens -> model to lens }
+            .flatMapLatest { (model, lens) ->
+                combine(
+                    photoDao.getCameraMakeCountsFlow(model, lens),
+                    photoDao.getFilteredCountFlow(null, model, lens)
+                ) { counts, total ->
+                    buildFilterOptions(counts, total, model == null && lens == null)
+                }
+            }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val cameraModelOptions: StateFlow<List<FilterOption>> = combine(
-        photoDao.getCameraModelCountsFlow(),
-        _photoCount
-    ) { counts, totalVisible ->
-        buildFilterOptions(counts, totalVisible)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    // 相机型号选项 ← 受品牌和镜头型号影响
+    val cameraModelOptions: StateFlow<List<FilterOption>> =
+        combine(_filterCameraMake, _filterLensModel) { make, lens -> make to lens }
+            .flatMapLatest { (make, lens) ->
+                combine(
+                    photoDao.getCameraModelCountsFlow(make, lens),
+                    photoDao.getFilteredCountFlow(make, null, lens)
+                ) { counts, total ->
+                    buildFilterOptions(counts, total, make == null && lens == null)
+                }
+            }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val lensModelOptions: StateFlow<List<FilterOption>> = combine(
-        photoDao.getLensModelCountsFlow(),
-        _photoCount
-    ) { counts, totalVisible ->
-        buildFilterOptions(counts, totalVisible)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    // 镜头型号选项 ← 受品牌和相机型号影响
+    val lensModelOptions: StateFlow<List<FilterOption>> =
+        combine(_filterCameraMake, _filterCameraModel) { make, model -> make to model }
+            .flatMapLatest { (make, model) ->
+                combine(
+                    photoDao.getLensModelCountsFlow(make, model),
+                    photoDao.getFilteredCountFlow(make, model, null)
+                ) { counts, total ->
+                    buildFilterOptions(counts, total, make == null && model == null)
+                }
+            }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    private fun buildFilterOptions(counts: List<com.gxstar.stargallery.data.local.db.PhotoDao.ExifCount>, totalVisible: Int): List<FilterOption> {
+    private fun buildFilterOptions(
+        counts: List<PhotoDao.ExifCount>,
+        totalVisible: Int,
+        showUnknown: Boolean = true
+    ): List<FilterOption> {
         val options = mutableListOf<FilterOption>()
         val knownTotal = counts.sumOf { it.count }
         val unknownCount = (totalVisible - knownTotal).coerceAtLeast(0)
 
         options.add(FilterOption(null, context.getString(R.string.filter_all), totalVisible))
         counts.forEach { options.add(FilterOption(it.value, it.value, it.count)) }
-        if (unknownCount > 0) {
+        if (showUnknown && unknownCount > 0) {
             options.add(FilterOption("", context.getString(R.string.filter_unknown_device), unknownCount))
         }
         return options
@@ -121,7 +143,6 @@ class PhotosViewModel @Inject constructor(
         viewModelScope.launch {
             val isFirstLaunch = photoDao.getPhotoCount() == 0
             if (isFirstLaunch) {
-                // 数据库为空：首次安装/清除数据 → 全量扫描
                 _isScanning.value = true
                 mediaScanner.performFullScan()
                 _isScanning.value = false
@@ -152,10 +173,34 @@ class PhotosViewModel @Inject constructor(
 
     fun setFilterCameraModel(model: String?) {
         _filterCameraModel.value = model
+        if (model != null && model != "" && _filterCameraMake.value == null) {
+            viewModelScope.launch {
+                val inferred = photoDao.inferMakeFromModel(model)
+                if (inferred != null && _filterCameraMake.value == null) {
+                    _filterCameraMake.value = inferred
+                }
+            }
+        }
     }
 
-    fun setFilterLensModel(model: String?) {
-        _filterLensModel.value = model
+    fun setFilterLensModel(lens: String?) {
+        _filterLensModel.value = lens
+        if (lens != null && lens != "") {
+            viewModelScope.launch {
+                if (_filterCameraMake.value == null) {
+                    val inferredMake = photoDao.inferMakeFromLens(lens)
+                    if (inferredMake != null && _filterCameraMake.value == null) {
+                        _filterCameraMake.value = inferredMake
+                    }
+                }
+                if (_filterCameraModel.value == null) {
+                    val inferredModel = photoDao.inferModelFromLens(lens)
+                    if (inferredModel != null && _filterCameraModel.value == null) {
+                        _filterCameraModel.value = inferredModel
+                    }
+                }
+            }
+        }
     }
 
     fun clearExifFilters() {

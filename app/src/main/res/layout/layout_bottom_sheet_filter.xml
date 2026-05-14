@@ -11,7 +11,7 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:paddingTop="8dp"
-        android:paddingBottom="24dp">
+        android:paddingBottom="32dp">
 
         <!-- 拖拽手柄 -->
         <View
@@ -29,7 +29,14 @@
             android:orientation="horizontal"
             android:paddingStart="20dp"
             android:paddingEnd="12dp"
-            android:paddingBottom="8dp">
+            android:paddingBottom="16dp">
+
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_marginEnd="8dp"
+                android:src="@drawable/ic_filter"
+                app:tint="@color/text_primary" />
 
             <TextView
                 android:layout_width="0dp"
@@ -37,13 +44,13 @@
                 android:layout_weight="1"
                 android:text="@string/filter_title"
                 android:textColor="@color/text_primary"
-                android:textSize="20sp"
+                android:textSize="18sp"
                 android:textStyle="bold" />
 
             <ImageButton
                 android:id="@+id/btnClose"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/cancel"
                 android:src="@drawable/ic_close" />
@@ -53,149 +60,210 @@
         <androidx.constraintlayout.widget.ConstraintLayout
             android:id="@+id/rowCameraMake"
             android:layout_width="match_parent"
-            android:layout_height="56dp"
-            android:background="?attr/selectableItemBackground"
-            android:paddingStart="20dp"
-            android:paddingEnd="16dp">
+            android:layout_height="60dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="2dp"
+            android:background="@drawable/bg_filter_row"
+            android:paddingStart="16dp"
+            android:paddingEnd="12dp">
+
+            <ImageView
+                android:id="@+id/ivCameraMakeIcon"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/ic_camera"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                app:tint="@color/text_secondary" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
                 android:text="@string/filter_camera_make"
                 android:textColor="@color/text_primary"
-                android:textSize="16sp"
+                android:textSize="15sp"
                 app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintStart_toEndOf="@+id/ivCameraMakeIcon"
                 app:layout_constraintTop_toTopOf="parent" />
 
             <TextView
                 android:id="@+id/tvCameraMakeValue"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginEnd="8dp"
+                android:layout_marginEnd="6dp"
+                android:ellipsize="end"
+                android:maxLines="1"
                 android:text="@string/filter_all"
                 android:textColor="@color/text_secondary"
                 android:textSize="14sp"
                 app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toStartOf="@id/ivArrowMake"
-                app:layout_constraintTop_toTopOf="parent" />
+                app:layout_constraintEnd_toStartOf="@+id/ivArrowMake"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintHorizontal_bias="0"
+                app:layout_constraintHorizontal_chainStyle="packed"
+                app:layout_constraintStart_toEndOf="@+id/guidelineCenter" />
+
+            <androidx.constraintlayout.widget.Guideline
+                android:id="@+id/guidelineCenter"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                app:layout_constraintGuide_percent="0.45" />
 
             <ImageView
                 android:id="@+id/ivArrowMake"
-                android:layout_width="20dp"
-                android:layout_height="20dp"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
                 android:src="@drawable/ic_arrow_right"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintTop_toTopOf="parent"
-                app:tint="@color/text_secondary" />
+                app:tint="@color/text_tertiary" />
         </androidx.constraintlayout.widget.ConstraintLayout>
-
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginStart="20dp"
-            android:background="@color/divider" />
 
         <!-- 相机型号行 -->
         <androidx.constraintlayout.widget.ConstraintLayout
             android:id="@+id/rowCameraModel"
             android:layout_width="match_parent"
-            android:layout_height="56dp"
-            android:background="?attr/selectableItemBackground"
-            android:paddingStart="20dp"
-            android:paddingEnd="16dp">
+            android:layout_height="60dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="2dp"
+            android:background="@drawable/bg_filter_row"
+            android:paddingStart="16dp"
+            android:paddingEnd="12dp">
+
+            <ImageView
+                android:id="@+id/ivCameraModelIcon"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/ic_camera"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                app:tint="@color/text_secondary" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
                 android:text="@string/filter_camera_model"
                 android:textColor="@color/text_primary"
-                android:textSize="16sp"
+                android:textSize="15sp"
                 app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintStart_toEndOf="@+id/ivCameraModelIcon"
                 app:layout_constraintTop_toTopOf="parent" />
 
             <TextView
                 android:id="@+id/tvCameraModelValue"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginEnd="8dp"
+                android:layout_marginEnd="6dp"
+                android:ellipsize="end"
+                android:maxLines="1"
                 android:text="@string/filter_all"
                 android:textColor="@color/text_secondary"
                 android:textSize="14sp"
                 app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toStartOf="@id/ivArrowModel"
-                app:layout_constraintTop_toTopOf="parent" />
+                app:layout_constraintEnd_toStartOf="@+id/ivArrowModel"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintStart_toEndOf="@+id/guidelineCenter2" />
+
+            <androidx.constraintlayout.widget.Guideline
+                android:id="@+id/guidelineCenter2"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                app:layout_constraintGuide_percent="0.45" />
 
             <ImageView
                 android:id="@+id/ivArrowModel"
-                android:layout_width="20dp"
-                android:layout_height="20dp"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
                 android:src="@drawable/ic_arrow_right"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintTop_toTopOf="parent"
-                app:tint="@color/text_secondary" />
+                app:tint="@color/text_tertiary" />
         </androidx.constraintlayout.widget.ConstraintLayout>
-
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginStart="20dp"
-            android:background="@color/divider" />
 
         <!-- 镜头型号行 -->
         <androidx.constraintlayout.widget.ConstraintLayout
             android:id="@+id/rowLens"
             android:layout_width="match_parent"
-            android:layout_height="56dp"
-            android:background="?attr/selectableItemBackground"
-            android:paddingStart="20dp"
-            android:paddingEnd="16dp">
+            android:layout_height="60dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
+            android:background="@drawable/bg_filter_row"
+            android:paddingStart="16dp"
+            android:paddingEnd="12dp">
+
+            <ImageView
+                android:id="@+id/ivLensIcon"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/ic_lens"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                app:tint="@color/text_secondary" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
                 android:text="@string/filter_lens"
                 android:textColor="@color/text_primary"
-                android:textSize="16sp"
+                android:textSize="15sp"
                 app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintStart_toEndOf="@+id/ivLensIcon"
                 app:layout_constraintTop_toTopOf="parent" />
 
             <TextView
                 android:id="@+id/tvLensValue"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginEnd="8dp"
+                android:layout_marginEnd="6dp"
+                android:ellipsize="end"
+                android:maxLines="1"
                 android:text="@string/filter_all"
                 android:textColor="@color/text_secondary"
                 android:textSize="14sp"
                 app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toStartOf="@id/ivArrowLens"
-                app:layout_constraintTop_toTopOf="parent" />
+                app:layout_constraintEnd_toStartOf="@+id/ivArrowLens"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintStart_toEndOf="@+id/guidelineCenter3" />
+
+            <androidx.constraintlayout.widget.Guideline
+                android:id="@+id/guidelineCenter3"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                app:layout_constraintGuide_percent="0.45" />
 
             <ImageView
                 android:id="@+id/ivArrowLens"
-                android:layout_width="20dp"
-                android:layout_height="20dp"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
                 android:src="@drawable/ic_arrow_right"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintTop_toTopOf="parent"
-                app:tint="@color/text_secondary" />
+                app:tint="@color/text_tertiary" />
         </androidx.constraintlayout.widget.ConstraintLayout>
 
         <!-- 清除筛选按钮 -->
         <TextView
             android:id="@+id/btnClear"
             android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:layout_marginStart="20dp"
-            android:layout_marginTop="16dp"
-            android:layout_marginEnd="20dp"
-            android:background="?attr/selectableItemBackground"
+            android:layout_height="44dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="20dp"
+            android:layout_marginEnd="16dp"
+            android:background="@drawable/bg_filter_clear"
             android:gravity="center"
             android:text="@string/filter_clear"
             android:textColor="@color/text_secondary"
@@ -220,7 +288,7 @@
             android:orientation="horizontal"
             android:paddingStart="4dp"
             android:paddingEnd="12dp"
-            android:paddingBottom="8dp">
+            android:paddingBottom="12dp">
 
             <ImageButton
                 android:id="@+id/btnBackFromList"
@@ -236,21 +304,27 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:textColor="@color/text_primary"
-                android:textSize="20sp"
+                android:textSize="18sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
+        <!-- ChipGroup 单选列表 -->
         <ScrollView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:overScrollMode="never">
+            android:overScrollMode="never"
+            android:clipToPadding="false"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp">
 
-            <RadioGroup
-                android:id="@+id/rgOptions"
+            <com.google.android.material.chip.ChipGroup
+                android:id="@+id/cgOptions"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:paddingStart="20dp"
-                android:paddingEnd="20dp" />
+                app:singleSelection="true"
+                app:selectionRequired="false"
+                app:chipSpacingHorizontal="8dp"
+                app:chipSpacingVertical="6dp" />
         </ScrollView>
     </LinearLayout>
 

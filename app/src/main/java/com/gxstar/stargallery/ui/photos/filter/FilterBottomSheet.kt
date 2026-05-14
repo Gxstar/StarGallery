@@ -1,12 +1,9 @@
 package com.gxstar.stargallery.ui.photos.filter
 
-import android.content.res.ColorStateList
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.RadioButton
-import android.widget.RadioGroup
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
@@ -16,6 +13,7 @@ import com.gxstar.stargallery.R
 import com.gxstar.stargallery.databinding.LayoutBottomSheetFilterBinding
 import com.gxstar.stargallery.ui.photos.PhotosViewModel
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
+import com.google.android.material.chip.Chip
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 
@@ -28,7 +26,6 @@ class FilterBottomSheet : BottomSheetDialogFragment() {
     private val viewModel: PhotosViewModel by viewModels({ requireParentFragment() })
 
     private var currentDimension = FilterDimension.NONE
-    private var isBuildingOptions = false
 
     private enum class FilterDimension { NONE, CAMERA_MAKE, CAMERA_MODEL, LENS }
 
@@ -62,19 +59,6 @@ class FilterBottomSheet : BottomSheetDialogFragment() {
 
         binding.btnClear.setOnClickListener {
             viewModel.clearExifFilters()
-        }
-
-        binding.rgOptions.setOnCheckedChangeListener { _, checkedId ->
-            if (isBuildingOptions) return@setOnCheckedChangeListener
-            val radio = binding.rgOptions.findViewById<RadioButton>(checkedId)
-            val key = radio?.tag as? String?
-            when (currentDimension) {
-                FilterDimension.CAMERA_MAKE -> viewModel.setFilterCameraMake(key)
-                FilterDimension.CAMERA_MODEL -> viewModel.setFilterCameraModel(key)
-                FilterDimension.LENS -> viewModel.setFilterLensModel(key)
-                else -> {}
-            }
-            showMainView()
         }
     }
 
@@ -128,6 +112,8 @@ class FilterBottomSheet : BottomSheetDialogFragment() {
         currentDimension = FilterDimension.NONE
         binding.mainView.visibility = View.VISIBLE
         binding.listView.visibility = View.GONE
+        binding.mainView.alpha = 0f
+        binding.mainView.animate().alpha(1f).setDuration(200).start()
         updateMainViewValues()
     }
 
@@ -135,6 +121,8 @@ class FilterBottomSheet : BottomSheetDialogFragment() {
         currentDimension = dimension
         binding.mainView.visibility = View.GONE
         binding.listView.visibility = View.VISIBLE
+        binding.listView.alpha = 0f
+        binding.listView.animate().alpha(1f).setDuration(200).start()
 
         val title = when (dimension) {
             FilterDimension.CAMERA_MAKE -> getString(R.string.filter_camera_make)
@@ -160,41 +148,56 @@ class FilterBottomSheet : BottomSheetDialogFragment() {
     }
 
     private fun buildOptionsList(options: List<PhotosViewModel.FilterOption>, selectedKey: String?) {
-        isBuildingOptions = true
-        val group = binding.rgOptions
+        val group = binding.cgOptions
         group.removeAllViews()
+        group.isSingleSelection = true
 
         options.forEach { option ->
-            val text = "${option.display} (${option.count})"
-            group.addView(createRadioButton(text, option.key, selectedKey == option.key))
+            val chip = createChip(option, selectedKey == option.key)
+            chip.setOnClickListener {
+                if (currentDimension == FilterDimension.CAMERA_MAKE) {
+                    viewModel.setFilterCameraMake(if (chip.isChecked) option.key else null)
+                } else if (currentDimension == FilterDimension.CAMERA_MODEL) {
+                    viewModel.setFilterCameraModel(if (chip.isChecked) option.key else null)
+                } else if (currentDimension == FilterDimension.LENS) {
+                    viewModel.setFilterLensModel(if (chip.isChecked) option.key else null)
+                }
+                showMainView()
+            }
+            group.addView(chip)
         }
-
-        isBuildingOptions = false
     }
 
-    private fun createRadioButton(text: String, key: String?, checked: Boolean): RadioButton {
-        val radio = RadioButton(requireContext())
-        radio.text = text
-        radio.tag = key
-        radio.isChecked = checked
-        radio.setTextColor(
-            ColorStateList(
-                arrayOf(
-                    intArrayOf(android.R.attr.state_checked),
-                    intArrayOf(-android.R.attr.state_checked)
-                ),
-                intArrayOf(
-                    ContextCompat.getColor(requireContext(), R.color.accent),
-                    ContextCompat.getColor(requireContext(), R.color.text_primary)
-                )
+    private fun createChip(option: PhotosViewModel.FilterOption, checked: Boolean): Chip {
+        val chip = Chip(requireContext(), null, com.google.android.material.R.style.Widget_Material3_Chip_Filter)
+        chip.text = "${option.display}  ${option.count}"
+        chip.tag = option.key
+        chip.isCheckable = true
+        chip.isChecked = checked
+
+        val accentColor = ContextCompat.getColor(requireContext(), R.color.accent)
+        val textPrimary = ContextCompat.getColor(requireContext(), R.color.text_primary)
+
+        val states = arrayOf(
+            intArrayOf(android.R.attr.state_selected),
+            intArrayOf(-android.R.attr.state_selected)
+        )
+
+        chip.setTextColor(
+            android.content.res.ColorStateList(
+                states, intArrayOf(android.graphics.Color.WHITE, textPrimary)
             )
         )
-        radio.setPadding(0, dpToPx(12), 0, dpToPx(12))
-        radio.layoutParams = RadioGroup.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
+
+        chip.chipBackgroundColor = android.content.res.ColorStateList(
+            states, intArrayOf(accentColor, ContextCompat.getColor(requireContext(), R.color.background_card))
         )
-        return radio
+
+        chip.chipStrokeColor = android.content.res.ColorStateList(
+            states, intArrayOf(accentColor, ContextCompat.getColor(requireContext(), R.color.divider))
+        )
+
+        return chip
     }
 
     private fun updateMainViewValues() {
@@ -238,8 +241,6 @@ class FilterBottomSheet : BottomSheetDialogFragment() {
         }
         buildOptionsList(options, selected)
     }
-
-    private fun dpToPx(dp: Int): Int = (dp * resources.displayMetrics.density).toInt()
 
     override fun onDestroyView() {
         _binding = null

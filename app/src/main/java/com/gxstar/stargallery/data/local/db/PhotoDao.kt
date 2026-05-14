@@ -107,16 +107,28 @@ interface PhotoDao {
     @Query("UPDATE photos SET isFavorite = :isFavorite WHERE id IN (:photoIds)")
     suspend fun updateFavoriteBatch(photoIds: List<Long>, isFavorite: Boolean)
 
-    // ==================== EXIF 筛选数据 ====================
+    // ==================== EXIF 筛选数据（双向联动） ====================
 
-    @Query("SELECT cameraMake AS value, COUNT(*) AS count FROM photos WHERE cameraMake IS NOT NULL AND cameraMake != '' AND isHidden = 0 GROUP BY cameraMake ORDER BY count DESC")
-    fun getCameraMakeCountsFlow(): Flow<List<ExifCount>>
+    @Query("SELECT cameraMake AS value, COUNT(*) AS count FROM photos WHERE cameraMake IS NOT NULL AND cameraMake != '' AND isHidden = 0 AND (:cameraModel IS NULL OR :cameraModel = '' OR cameraModel = :cameraModel) AND (:lensModel IS NULL OR :lensModel = '' OR lensModel = :lensModel) GROUP BY cameraMake ORDER BY count DESC")
+    fun getCameraMakeCountsFlow(cameraModel: String?, lensModel: String?): Flow<List<ExifCount>>
 
-    @Query("SELECT cameraModel AS value, COUNT(*) AS count FROM photos WHERE cameraModel IS NOT NULL AND cameraModel != '' AND isHidden = 0 GROUP BY cameraModel ORDER BY count DESC")
-    fun getCameraModelCountsFlow(): Flow<List<ExifCount>>
+    @Query("SELECT cameraModel AS value, COUNT(*) AS count FROM photos WHERE cameraModel IS NOT NULL AND cameraModel != '' AND isHidden = 0 AND (:cameraMake IS NULL OR :cameraMake = '' OR cameraMake = :cameraMake) AND (:lensModel IS NULL OR :lensModel = '' OR lensModel = :lensModel) GROUP BY cameraModel ORDER BY count DESC")
+    fun getCameraModelCountsFlow(cameraMake: String?, lensModel: String?): Flow<List<ExifCount>>
 
-    @Query("SELECT lensModel AS value, COUNT(*) AS count FROM photos WHERE lensModel IS NOT NULL AND lensModel != '' AND isHidden = 0 GROUP BY lensModel ORDER BY count DESC")
-    fun getLensModelCountsFlow(): Flow<List<ExifCount>>
+    @Query("SELECT lensModel AS value, COUNT(*) AS count FROM photos WHERE lensModel IS NOT NULL AND lensModel != '' AND isHidden = 0 AND (:cameraMake IS NULL OR :cameraMake = '' OR cameraMake = :cameraMake) AND (:cameraModel IS NULL OR :cameraModel = '' OR cameraModel = :cameraModel) GROUP BY lensModel ORDER BY count DESC")
+    fun getLensModelCountsFlow(cameraMake: String?, cameraModel: String?): Flow<List<ExifCount>>
+
+    @Query("SELECT COUNT(*) FROM photos WHERE isHidden = 0 AND (:cameraMake IS NULL OR :cameraMake = '' OR cameraMake = :cameraMake) AND (:cameraModel IS NULL OR :cameraModel = '' OR cameraModel = :cameraModel) AND (:lensModel IS NULL OR :lensModel = '' OR lensModel = :lensModel)")
+    fun getFilteredCountFlow(cameraMake: String?, cameraModel: String?, lensModel: String?): Flow<Int>
+
+    @Query("SELECT cameraMake FROM photos WHERE cameraModel = :cameraModel AND cameraMake IS NOT NULL AND cameraMake != '' GROUP BY cameraMake ORDER BY COUNT(*) DESC LIMIT 1")
+    suspend fun inferMakeFromModel(cameraModel: String): String?
+
+    @Query("SELECT cameraMake FROM photos WHERE lensModel = :lensModel AND cameraMake IS NOT NULL AND cameraMake != '' GROUP BY cameraMake ORDER BY COUNT(*) DESC LIMIT 1")
+    suspend fun inferMakeFromLens(lensModel: String): String?
+
+    @Query("SELECT cameraModel FROM photos WHERE lensModel = :lensModel AND cameraModel IS NOT NULL AND cameraModel != '' GROUP BY cameraModel ORDER BY COUNT(*) DESC LIMIT 1")
+    suspend fun inferModelFromLens(lensModel: String): String?
 
     data class ExifCount(val value: String, val count: Int)
 
