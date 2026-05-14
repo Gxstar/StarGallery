@@ -11,10 +11,12 @@ import android.provider.MediaStore
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.FrameLayout
 import android.widget.PopupMenu
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
+import android.view.Gravity
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.setFragmentResultListener
@@ -250,10 +252,14 @@ class PhotosFragment : Fragment() {
                 ""
             }
             .setPopupStyle { popupView ->
+                val params = popupView.layoutParams as FrameLayout.LayoutParams
+                params.gravity = Gravity.RIGHT
+                popupView.layoutParams = params
                 popupView.background = ContextCompat.getDrawable(context, R.drawable.bg_fastscroll_popup)
                 popupView.setTextColor(0xFFFFFFFF.toInt())
                 popupView.textSize = 12f
                 popupView.includeFontPadding = false
+                popupView.translationY = -(16 * context.resources.displayMetrics.density)
             }
             .setTrackDrawable(ContextCompat.getDrawable(context, R.drawable.fastscroll_track)!!)
             .setThumbDrawable(ContextCompat.getDrawable(context, R.drawable.fastscroll_thumb)!!)
