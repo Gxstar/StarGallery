@@ -235,6 +235,7 @@ class MediaScanner @Inject constructor(
 
             if (changedMedia.isEmpty()) {
                 Log.d(TAG, "No new or updated media found")
+                scanPreferences.lastScanTime = System.currentTimeMillis() / 1000
                 return@withContext false
             }
 
@@ -465,7 +466,7 @@ class MediaScanner @Inject constructor(
 
         val selection = "(${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE} " +
                 "OR ${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO}) " +
-                "AND ${MediaStore.Files.FileColumns.DATE_MODIFIED} > $modifiedAfter"
+                "AND ${MediaStore.Files.FileColumns.DATE_MODIFIED} >= $modifiedAfter"
 
         val projection = arrayOf(
             MediaStore.Files.FileColumns._ID,

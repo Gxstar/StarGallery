@@ -201,6 +201,13 @@ class PhotosViewModel @Inject constructor(
         }
     }
 
+    fun refreshOnResume() {
+        viewModelScope.launch {
+            mediaScanner.performIncrementalScan()
+            loadCounts()
+        }
+    }
+
     /**
      * 从 MediaStore 精确同步指定 ID 的照片到 Room
      * 用于回收站恢复后回写，不依赖时间戳

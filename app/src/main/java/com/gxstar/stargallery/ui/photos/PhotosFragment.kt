@@ -890,12 +890,9 @@ class PhotosFragment : Fragment() {
     override fun onResume() {
         super.onResume()
         if (savedScrollPosition >= 0) {
-            // 从详情页/回收站/关于页面返回：恢复导航前保存的位置
             restoreScrollPosition()
         }
-        // 不主动触发扫描：
-        // - ContentObserver 在 ON_START 时已注册，进程存活期间会实时响应 MediaStore 变化
-        // - 进程重启时 ViewModel.init 已处理首次/全量扫描，数据库非空则直接展示缓存
+        viewModel.refreshOnResume()
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {

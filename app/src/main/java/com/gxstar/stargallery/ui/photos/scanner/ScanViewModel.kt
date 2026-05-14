@@ -65,7 +65,6 @@ class ScanViewModel @Inject constructor(
 
                 if (state is MediaScanner.ScanState.Completed) {
                     scanPreferences.isScanCompleted = true
-                    scanPreferences.lastScanTime = System.currentTimeMillis()
                     _isInitialized.value = true
                 }
             }
