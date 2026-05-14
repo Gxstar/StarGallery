@@ -94,6 +94,8 @@ class MainActivity : AppCompatActivity() {
             when (destination.id) {
                 R.id.photoDetailFragment,
                 R.id.albumDetailFragment,
+                R.id.trashFragment,
+                R.id.hiddenFragment,
                 R.id.aboutFragment,
                 R.id.privacyPolicyFragment,
                 R.id.permissionsFragment,
