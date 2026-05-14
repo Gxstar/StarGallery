@@ -307,13 +307,13 @@ class PhotosViewModel @Inject constructor(
      * 数据源：Room Flow（自动监听表变化推送更新）
      * 全量加载后在内存中排序、过滤、插入日期分隔符，适配 < 5w 张照片场景
      */
-    private val exifFilterState = combine(
+    private val exifFilterState: StateFlow<Triple<String?, String?, String?>> = combine(
         _filterCameraMake,
         _filterCameraModel,
         _filterLensModel
     ) { cameraMake, cameraModel, lensModel ->
         Triple(cameraMake, cameraModel, lensModel)
-    }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Triple(null, null, null))
 
     val photoListFlow: StateFlow<List<PhotoModel>> = combine(
         photoDao.getAllPhotosFlow(),
@@ -352,6 +352,10 @@ class PhotosViewModel @Inject constructor(
         buildPhotoModelList(sortedPhotos, sortType, groupType)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val filteredPhotoCount: StateFlow<Int> = photoListFlow.map { models ->
+        models.count { it is PhotoModel.PhotoItem }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
     private fun buildPhotoModelList(
         sortedPhotos: List<Photo>,
         sortType: MediaRepository.SortType,
@@ -385,13 +389,7 @@ class PhotosViewModel @Inject constructor(
         loadCounts()
     }
 
-    fun getCurrentPhotoCount(): Int {
-        return if (_showFavoritesOnly.value) {
-            _favoriteCount.value
-        } else {
-            _photoCount.value
-        }
-    }
+    fun getCurrentPhotoCount(): Int = filteredPhotoCount.value
 
     /**
      * 将 PhotoEntity 转换为 Photo

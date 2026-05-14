@@ -526,7 +526,7 @@ class PhotosFragment : Fragment() {
 
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.photoCount.collect { updateSubtitle() }
+                viewModel.filteredPhotoCount.collect { updateSubtitle() }
             }
         }
 
