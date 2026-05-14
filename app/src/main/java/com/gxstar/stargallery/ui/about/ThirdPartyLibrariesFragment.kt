@@ -23,11 +23,12 @@ class ThirdPartyLibrariesFragment : Fragment() {
         Library("Glide", "图片加载和缓存", "https://github.com/bumptech/glide", "Apache-2.0"),
         Library("ZoomImage", "高性能图片缩放查看", "https://github.com/panpf/zoomimage", "Apache-2.0"),
         Library("ExoPlayer (Media3)", "视频播放", "https://github.com/androidx/media", "Apache-2.0"),
-        Library("metadata-extractor", "EXIF元数据读取", "https://github.com/drewnoakes/metadata-extractor", "Apache-2.0"),
-        Library("Paging 3", "分页加载", "https://developer.android.com/kotlin/coroutines#paging", "Apache-2.0"),
+        Library("metadata-extractor", "EXIF 元数据读取", "https://github.com/drewnoakes/metadata-extractor", "Apache-2.0"),
+        Library("Room", "本地数据库", "https://developer.android.com/training/data-storage/room", "Apache-2.0"),
         Library("Hilt", "依赖注入", "https://developer.android.com/training/dependency-injection/hilt-android", "Apache-2.0"),
         Library("Navigation Component", "页面导航", "https://developer.android.com/guide/navigation", "Apache-2.0"),
-        Library("RecyclerView Selection", "拖动多选", "https://developer.android.com/guide/topics/ui/accessibility/auto-selection", "Apache-2.0"),
+        Library("drag-select-recyclerview", "拖动多选", "https://github.com/afollestad/drag-select-recyclerview", "Apache-2.0"),
+        Library("FastScroller", "快速滚动条", "https://github.com/zhanghai/MaterialFastScroll", "Apache-2.0"),
         Library("LeakCanary", "内存泄漏检测", "https://github.com/square/leakcanary", "Apache-2.0")
     )
 

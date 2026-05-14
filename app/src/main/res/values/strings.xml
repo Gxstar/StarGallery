@@ -212,7 +212,7 @@
     <string name="privacy_section_3_title">三、信息存储</string>
     <string name="privacy_section_3_content">• 本地存储：所有照片数据均存储在您的设备本地存储中，我们不会创建任何额外的照片副本\n• 应用设置：您的偏好设置（如列数、排序方式）存储在应用的私有目录中\n• 缓存数据：为提升加载速度，我们会缓存部分缩略图，缓存文件存储在应用私有目录，可随时清除\n• 不上传：我们的应用不会将您的任何照片或视频上传至服务器</string>
     <string name="privacy_section_5_title">四、第三方服务</string>
-    <string name="privacy_section_5_content">本应用可能包含以下第三方库/服务：\n\n• Glide：图片加载和缓存库\n• ZoomImage：图片缩放查看库\n• ExoPlayer：视频播放库\n• metadata-extractor：EXIF元数据读取库\n• Paging 3：分页加载库\n• Hilt：依赖注入框架\n• Navigation Component：页面导航库\n• Room：本地数据库\n• Coil：图片加载库\n\n这些第三方服务仅在您的设备本地处理数据，不会收集您的个人信息。</string>
+    <string name="privacy_section_5_content">本应用可能包含以下第三方库/服务：\n\n• Glide：图片加载和缓存库\n• ZoomImage：图片缩放查看库\n• ExoPlayer：视频播放库\n• metadata-extractor：EXIF 元数据读取库\n• Room：本地数据库\n• Hilt：依赖注入框架\n• Navigation Component：页面导航库\n• FastScroller：快速滚动条库\n\n这些第三方服务仅在您的设备本地处理数据，不会收集您的个人信息。</string>
     <string name="privacy_section_7_title">五、用户权利</string>
     <string name="privacy_section_7_content">您对您的数据拥有完全控制权：\n\n• 访问权：您可以随时通过应用浏览您的所有照片\n• 删除权：您可以使用系统功能或应用内置的删除功能删除照片\n• 权限控制：您可以在系统设置中管理应用权限\n• 卸载权：您可以随时卸载应用，卸载后所有应用数据将被清除\n• 清除缓存：在应用设置中可以清除所有缓存数据</string>
     <string name="back">返回</string>

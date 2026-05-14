@@ -13,10 +13,10 @@
 | 导航 | Navigation Component + SafeArgs |
 | 图片加载 | Glide 4.16.0 |
 | 大图查看 | ZoomImage 1.4.0 (子采样+缩放) |
-| 分页加载 | Paging 3.4.0 |
+| 本地数据库 | Room 2.8.4 |
 | 快速滚动 | FastScroller |
 | 拖动多选 | drag-select-recyclerview 2.4.0 |
-| 权限管理 | PermissionX |
+| 权限管理 | ActivityResultContracts |
 | 视频播放 | Media3 (ExoPlayer) 1.9.1 |
 | EXIF 信息 | metadata-extractor 2.20.0 |
 | 异步处理 | Coroutines + Flow |
@@ -25,13 +25,13 @@
 ## 功能特性
 
 ### 照片浏览（首页网格列表）
-- **Paging 3 分页加载**: PhotoPagingSource 从 MediaStore 分页获取数据，支持日期分组
-- **日期分组展示**: 使用 `insertSeparators` 实现，按日/月/年自动分组，SeparatorItem 占整行显示日期标题
-- **网格布局**: GridLayoutManager 支持 3-10 列自定义，动态计算单元格大小
+- **Room Flow 全量加载**: PhotoDao.getAllPhotosFlow() 返回 Flow<List<PhotoEntity>>，Room 自动监听表变化推送更新，在 ViewModel 中全量加载到内存进行排序/过滤/插入日期分隔符
+- **日期分组展示**: 按日/月/年自动分组，SeparatorItem 占整行显示日期标题
+- **网格布局**: GridLayoutManager 支持 3-8 列自定义，动态计算单元格大小
 - **Glide 预加载**: RecyclerViewPreloader 预加载图片，配合 ViewPreloadSizeProvider 提升滚动体验
-- **快速滚动条定位**: FastScrollerBuilder 自定义样式，支持滚动时显示日期/位置预览
+- **快速滚动条定位**: FastScrollerBuilder 自定义样式，支持滚动时显示日期预览
 - **拖动多选模式**: PhotoSelectionManager + DragSelectHelper 实现长按选择、拖动连续选择
-- **实时刷新**: MediaChangeDetector 通过 ContentObserver 监听媒体变化，PagingSource 自动刷新
+- **实时刷新**: MediaChangeDetector 通过 ContentObserver 监听媒体变化，触发增量扫描同步到 Room，Room Flow 自动推送更新
 - **状态恢复**: 配置变更时保存/恢复滚动位置，支持搜索、排序、分组筛选
 
 ### RAW 格式识别与配对
@@ -54,25 +54,40 @@
 - **封面预览**: 每个相册显示最新照片作为封面
 - **数量统计**: 实时计算相册内照片数量
 
+### 隐藏照片
+- **生物识别认证**: HiddenFragment 进入需 BiometricPrompt 认证（指纹/设备密码）
+- **隐藏/恢复**: 支持批量隐藏照片，隐藏后仅在 HiddenFragment 中可见
+- **Room Flow 同步**: 隐藏操作直接写入 Room，Flow 自动推送列表更新
+
+### EXIF 筛选
+- **按相机品牌/型号/镜头型号过滤**: FilterBottomSheet 弹窗选择筛选条件
+- **实时统计**: Room 聚合查询各选项的可用数量，UI 动态更新
+- **多筛选组合**: 支持同时筛选品牌 + 型号 + 镜头
+
+### RAW 格式识别与配对
+- **自动识别**: DNG、ARW、CR2、CR3、NEF、ORF、RAF、RW2、PEF 等 RAW 格式
+- **JPG+RAW 配对**: 同名文件自动关联，显示 "JPG+RAW" 标签
+- **单独分组**: RAW 文件在相册中独立展示，便于专业摄影管理
+
 ### 批量选择与操作
 - **长按进入选择模式**: PhotoSelectionManager 管理选择状态
 - **拖动选择**: DragSelectHelper 处理连续选择逻辑
 - **多选批量操作**: 收藏、删除、移至回收站等批量操作
 - **全选功能**: 支持快速全选当前页面所有照片
 
-### MediaStore API 使用
-- **收藏/取消收藏**: `MediaStore.createFavoriteRequest()` - 返回 IntentSender，需用户确认
-- **删除**: `MediaStore.createDeleteRequest()` - 逻辑删除，需用户确认
-- **回收站操作**: `MediaStore.createTrashRequest()` - 移至回收站或恢复
-- **直接切换**: `toggleFavoriteDirect()` - 无需确认的收藏状态切换（内部使用）
+### 回收站
+- **移至回收站**: 使用 `MediaStore.createTrashRequest()` 将照片移到回收站
+- **恢复**: 从回收站恢复照片到原位置
+- **永久删除**: 使用 `MediaStore.createDeleteRequest()` 直接从设备删除
+- **批量操作**: 支持多选后批量恢复或删除
 
 ## 权限说明
 
 | Android 版本 | 所需权限 |
 |-------------|----------|
-| Android 13+ (API 33+) | `READ_MEDIA_IMAGES` |
+| Android 14+ (API 34+) | `READ_MEDIA_IMAGES`, `READ_MEDIA_VIDEO`, `READ_MEDIA_VISUAL_USER_SELECTED` |
+| Android 13 (API 33) | `READ_MEDIA_IMAGES`, `READ_MEDIA_VIDEO` |
 | Android 11-12 (API 30-32) | `READ_EXTERNAL_STORAGE` |
-| Android 10 及以下 | 无特殊权限（使用 Storage Access Framework）|
 
 ## 项目结构
 
@@ -80,22 +95,29 @@
 app/src/main/java/com/gxstar/stargallery/
 ├── data/
 │   ├── model/              # 数据模型 (Photo, Album)
-│   ├── paging/             # 分页数据源 (PhotoPagingSource)
 │   ├── repository/         # 数据仓库 (MediaRepository)
 │   └── local/
-│       ├── scanner/        # 媒体扫描器
-│       └── preferences/    # 扫描状态持久化
-├── di/                     # Hilt 依赖注入模块
+│       ├── db/             # Room 数据库 (PhotoDao, PhotoEntity, AppDatabase)
+│       ├── scanner/        # MediaScanner (全量/增量扫描, EXIF 提取)
+│       ├── exif/           # ExifExtractor (EXIF 元数据读取)
+│       └── preferences/    # ScanPreferences (扫描状态持久化)
+├── di/                     # Hilt 依赖注入模块 (AppModule, DatabaseModule, PreferenceModule)
 ├── ui/
-│   ├── albums/             # 相册列表和详情
-│   ├── detail/             # 照片详情和大图查看
-│   ├── photos/             # 照片网格展示
+│   ├── albums/             # 相册列表和详情 (AlbumsFragment, AlbumDetailFragment)
+│   ├── detail/             # 照片详情查看器 (ViewPager2 + ZoomImageView + ExoPlayer)
+│   ├── photos/             # 首页照片网格
 │   │   ├── action/         # 批量操作 (BatchActionHandler)
 │   │   ├── animation/      # 列表动画 (PhotoItemAnimator)
-│   │   ├── launcher/       # IntentSender 管理
-│   │   ├── refresh/         # 媒体变化检测
-│   │   └── selection/      # 选择状态管理
-│   └── trash/              # 回收站管理
+│   │   ├── filter/         # EXIF 筛选弹窗 (FilterBottomSheet)
+│   │   ├── launcher/       # IntentSender 统一管理 (IntentSenderManager)
+│   │   ├── model/          # UI 模型 (PhotoModel: PhotoItem + SeparatorItem)
+│   │   ├── refresh/        # 媒体变化检测 (MediaChangeDetector - ContentObserver)
+│   │   ├── scanner/        # 扫描进度弹窗 (ScanningProgressDialog, ScanViewModel)
+│   │   └── selection/      # 选择状态管理 (PhotoSelectionManager)
+│   ├── hidden/             # 隐藏照片 (需生物识别认证)
+│   ├── trash/              # 回收站管理
+│   ├── about/              # 关于页面组 (隐私/权限/第三方库/联系我们/许可)
+│   └── common/             # 共享组件 (BaseSelectionManager, GridSpanCalculator, PhotoGridViewHolder)
 ├── MainActivity.kt
 └── StarGalleryApp.kt
 ```
@@ -104,13 +126,14 @@ app/src/main/java/com/gxstar/stargallery/
 
 ### 首页照片网格实现
 - **PhotosFragment**: 协调各管理器（SelectionManager、BatchActionHandler、IntentSenderManager），处理 UI 事件
-- **PhotoPagingAdapter**: Paging 3 适配器，`insertSeparators` 插入日期分隔符，支持多列网格布局
+- **PhotoListAdapter**: ListAdapter<PhotoModel>，DiffUtil 智能更新，PhotoItem/SeparatorItem 双类型
 - **PhotoSelectionManager**: 管理选择模式状态、idToPosition 映射，提供拖动选择入口
 - **DragSelectHelper**: 处理拖动选择逻辑，支持 findCorrectPosition() 映射校准
 - **BatchActionHandler**: 封装收藏/删除/移入回收站等批量操作
-- **IntentSenderManager**: 管理 MediaStore IntentSender 回调流程
-- **MediaChangeDetector**: ContentObserver 监听媒体变化，触发 Paging 数据刷新
-- **GridLayoutManager**: 动态列数（3-10列），spanSizeLookup 控制 SeparatorItem 占整行
+- **IntentSenderManager**: 统一管理 favoriteLauncher / trashLauncher / deleteLauncher
+- **MediaChangeDetector**: ContentObserver 监听媒体变化，触发增量扫描同步到 Room，Room Flow 自动推送
+- **GridLayoutManager**: 动态列数（3-8列），spanSizeLookup 控制 SeparatorItem 占整行
+- **PhotoViewModel.photoListFlow**: combine 合并排序/收藏过滤/EXIF 过滤/分组，在内存中处理
 
 ### 图片详情页实现
 - **PhotoDetailFragment**: 全屏图片查看器，ViewPager2 管理页面切换
@@ -125,42 +148,31 @@ app/src/main/java/com/gxstar/stargallery/
 2. UI 层通过 `ActivityResultContracts.StartIntentSenderForResult` 启动
 3. 用户确认后回调处理成功/失败
 4. 支持批量操作和单张照片操作
-
-### MVVM + Clean Architecture
-- **UI 层**: Fragment/ViewModel 处理用户交互、事件响应
-- **Domain 层**: Repository 接口定义数据操作
-- **Data 层**: MediaStore API、本地扫描器
+5. IntentSenderManager 统一管理三种操作的回调
 
 ## 性能优化
 
-- **分页加载**: Paging 3 避免一次性加载大量数据，默认每页 50 项
 - **Glide 预加载**: RecyclerViewPreloader 提前加载可见区域图片
-- **大图子采样**: ZoomImageView 按需加载图像金字塔区域块（tiles）
+- **大图子采样**: ZoomImageView 按需加载图像金字塔区域块（tiles），>=2000px 启用
 - **ExoPlayer 单例**: 全局复用 ExoPlayer 实例，滑动时保持播放状态
 - **异步处理**: 所有 IO 操作在 Dispatchers.IO 线程池执行
 - **视图缓存**: RecyclerView ItemViewCache、GridLayoutManager 优化
+- **扫描动画控制**: 扫描时 itemAnimator = null 防快速刷新乱跳
 
 ## 开发约定
 
 - **ViewBinding** 替代 findViewById，使用 `viewBinding.root` 访问根视图
 - **SafeArgs** 进行 Fragment 参数传递，避免 Bundle 手动管理
-- **IntentSender 流程**: MediaStore 收藏/删除/回收站操作需用户确认，必须设置回调处理结果
-- **日期分组**: 使用 Paging 3 `insertSeparators` 实现，按日/月/年自动分组
+- **数据加载**: Room Flow + ListAdapter，`combine` 合并排序/过滤/分组在内存中处理
+- **日期分组**: 按日/月/年自动分组，SeparatorItem 占整行显示日期标题
 - **RAW 配对**: 同名 JPG+RAW 文件自动合并显示，支持标签切换查看
 - **大图加载策略**: 小图直接加载，大图（>=2000px）启用 ZoomImageView 子采样
 - **ExoPlayer 单例**: 使用 ExoPlayerManager 全局管理，滑动切换时保持播放
-- **协程作用域**: PhotoPageViewHolder 使用 viewHolderScope 管理异步任务生命周期
-
-## Fragment 导航指南
-
-修改导航需更新 `res/navigation/nav_graph.xml`：
-1. 在 nav_graph.xml 中添加新的 Fragment 节点
-2. 使用 SafeArgs 传递参数（如 photoId, albumId）
-3. 在目标 Fragment 的 onNavigate() 中接收参数
-4. 更新 AGENTS.md 中的导航说明
+- **IntentSender 流程**: MediaStore 收藏/删除/回收站操作需用户确认，必须设置回调
+- **隐藏照片**: HiddenFragment 需 BiometricPrompt 认证才能进入
 
 ## 快速验证
 
-修改 Kotlin 代码后运行 `gradlew.bat assembleDebug` 确认编译通过。
+修改 Kotlin 代码后运行 `.\gradlew.bat assembleDebug` 确认编译通过。
 
-*最后更新：2026-04-25*
+*最后更新：2026-05-14*
