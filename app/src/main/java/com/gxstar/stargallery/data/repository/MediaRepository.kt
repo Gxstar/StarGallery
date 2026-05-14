@@ -52,7 +52,8 @@ class MediaRepository @Inject constructor(
             MediaStore.Files.FileColumns.BUCKET_DISPLAY_NAME,
             MediaStore.Files.FileColumns.ORIENTATION,
             MediaStore.Files.FileColumns.IS_FAVORITE,
-            MediaStore.Files.FileColumns.MEDIA_TYPE
+            MediaStore.Files.FileColumns.MEDIA_TYPE,
+            MediaStore.MediaColumns.DATE_EXPIRES
         )
 
         val sortOrder = when (sortType) {
@@ -389,7 +390,8 @@ class MediaRepository @Inject constructor(
             MediaStore.Files.FileColumns.BUCKET_DISPLAY_NAME,
             MediaStore.Files.FileColumns.ORIENTATION,
             MediaStore.Files.FileColumns.IS_FAVORITE,
-            MediaStore.Files.FileColumns.MEDIA_TYPE
+            MediaStore.Files.FileColumns.MEDIA_TYPE,
+            MediaStore.MediaColumns.DATE_EXPIRES
         )
 
         contentResolver.query(uri, projection, bundle, null)?.use { cursor ->
@@ -417,9 +419,21 @@ class MediaRepository @Inject constructor(
         val dateModified = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_MODIFIED))
         val dateAdded = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_ADDED))
 
-        // date_modified 在文件移入回收站时被系统更新，用它 +30天 计算过期时间
-        // 不依赖 date_expires（该字段的存储单位在不同 ROM 上可能不一致）
-        val dateExpiration = (dateModified + 30 * 24 * 60 * 60) * 1000L
+        // 优先使用系统返回的 DATE_EXPIRES（回收站自动到期时间）
+        // 该字段由系统在文件移入回收站时自动填充，各厂商可能设置不同的天数（如30天/60天）
+        // 比用 DATE_MODIFIED + 30天 更准确，因为 DATE_MODIFIED 是文件内容最后修改时间而非移入回收站时间
+        val dateExpiration = try {
+            val expiresIndex = getColumnIndex(MediaStore.MediaColumns.DATE_EXPIRES)
+            if (expiresIndex >= 0) {
+                val expires = getLong(expiresIndex)
+                if (expires > 0) expires * 1000L // DATE_EXPIRES 为秒级，转毫秒
+                else (dateModified + 30 * 24 * 60 * 60) * 1000L // 系统未填充时回退
+            } else {
+                (dateModified + 30 * 24 * 60 * 60) * 1000L // 旧 ROM 不支持该字段时回退
+            }
+        } catch (_: Exception) {
+            (dateModified + 30 * 24 * 60 * 60) * 1000L
+        }
 
         return Photo(
             id = id,
