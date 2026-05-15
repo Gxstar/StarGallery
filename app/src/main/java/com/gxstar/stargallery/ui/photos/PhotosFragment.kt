@@ -892,7 +892,6 @@ class PhotosFragment : Fragment() {
         if (savedScrollPosition >= 0) {
             restoreScrollPosition()
         }
-        viewModel.refreshOnResume()
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
@@ -940,8 +939,5 @@ class PhotosFragment : Fragment() {
         private const val KEY_GROUP_TYPE = "group_type"
 
         const val REQUEST_KEY_PHOTO_DELETED = "photo_deleted"
-
-        // 增量扫描最小间隔（毫秒），避免频繁扫描
-        private const val MIN_INCREMENTAL_SCAN_INTERVAL_MS = 60_000L // 1分钟
     }
 }

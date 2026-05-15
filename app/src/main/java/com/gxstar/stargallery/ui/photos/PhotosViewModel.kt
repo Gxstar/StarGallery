@@ -48,14 +48,14 @@ class PhotosViewModel @Inject constructor(
     private val _showFavoritesOnly = MutableStateFlow(false)
     val showFavoritesOnly: StateFlow<Boolean> = _showFavoritesOnly.asStateFlow()
 
-    private val _photoCount = MutableStateFlow(0)
-    val photoCount: StateFlow<Int> = _photoCount.asStateFlow()
+    val photoCount: StateFlow<Int> = photoDao.getPhotoCountFlow()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
-    private val _favoriteCount = MutableStateFlow(0)
-    val favoriteCount: StateFlow<Int> = _favoriteCount.asStateFlow()
+    val favoriteCount: StateFlow<Int> = photoDao.getFavoriteCountFlow()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
-    private val _hiddenCount = MutableStateFlow(0)
-    val hiddenCount: StateFlow<Int> = _hiddenCount.asStateFlow()
+    val hiddenCount: StateFlow<Int> = photoDao.getHiddenCountFlow()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
     private val _searchQuery = MutableStateFlow<String?>(null)
     val searchQuery: StateFlow<String?> = _searchQuery.asStateFlow()
@@ -147,7 +147,6 @@ class PhotosViewModel @Inject constructor(
                 mediaScanner.performFullScan()
                 _isScanning.value = false
             }
-            loadCounts()
         }
     }
 
@@ -213,14 +212,6 @@ class PhotosViewModel @Inject constructor(
         _searchQuery.value = query?.takeIf { it.isNotBlank() }
     }
 
-    fun loadCounts() {
-        viewModelScope.launch {
-            _photoCount.value = photoDao.getPhotoCount()
-            _favoriteCount.value = photoDao.getFavoriteCount()
-            _hiddenCount.value = photoDao.getHiddenCount()
-        }
-    }
-
     /**
      * 权限授权后重新扫描
      */
@@ -228,7 +219,6 @@ class PhotosViewModel @Inject constructor(
         viewModelScope.launch {
             _isScanning.value = true
             mediaScanner.performFullScan()
-            loadCounts()
             _isScanning.value = false
         }
     }
@@ -241,15 +231,7 @@ class PhotosViewModel @Inject constructor(
         viewModelScope.launch {
             _isScanning.value = true
             mediaScanner.performIncrementalScan()
-            loadCounts()
             _isScanning.value = false
-        }
-    }
-
-    fun refreshOnResume() {
-        viewModelScope.launch {
-            mediaScanner.performIncrementalScan()
-            loadCounts()
         }
     }
 
@@ -262,7 +244,6 @@ class PhotosViewModel @Inject constructor(
         if (photoIds.isEmpty()) return
         viewModelScope.launch {
             mediaScanner.syncSpecificPhotos(photoIds)
-            loadCounts()
         }
     }
 
@@ -272,7 +253,6 @@ class PhotosViewModel @Inject constructor(
     fun updateFavorite(photoIds: List<Long>, isFavorite: Boolean) {
         viewModelScope.launch {
             mediaScanner.updateFavorite(photoIds, isFavorite)
-            loadCounts()
         }
     }
 
@@ -287,7 +267,6 @@ class PhotosViewModel @Inject constructor(
             if (toUnfavorite.isNotEmpty()) {
                 mediaScanner.updateFavorite(toUnfavorite, false)
             }
-            loadCounts()
         }
     }
 
@@ -298,7 +277,6 @@ class PhotosViewModel @Inject constructor(
     fun deletePhotos(photoIds: List<Long>) {
         viewModelScope.launch {
             photoIds.forEach { mediaScanner.deletePhoto(it) }
-            loadCounts()
         }
     }
 
@@ -381,12 +359,7 @@ class PhotosViewModel @Inject constructor(
     fun updateHidden(photoIds: List<Long>, isHidden: Boolean) {
         viewModelScope.launch {
             photoDao.updateHiddenBatch(photoIds, isHidden)
-            loadCounts()
         }
-    }
-
-    fun refresh() {
-        loadCounts()
     }
 
     fun getCurrentPhotoCount(): Int = filteredPhotoCount.value

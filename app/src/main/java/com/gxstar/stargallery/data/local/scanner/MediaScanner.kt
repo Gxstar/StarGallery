@@ -151,12 +151,8 @@ class MediaScanner @Inject constructor(
             _scanState.emit(ScanState.Completed(total, duration))
             scanPreferences.lastScanTime = System.currentTimeMillis() / 1000
 
-            // 3.5 全量扫描完成后，后台提取 EXIF 信息
+            // 全量扫描完成后，后台提取 EXIF 信息
             extractExifForAllPhotos()
-
-            // 3.6 删除已不存在于 MediaStore 的记录
-            val validIds = allMedia.map { it.id }
-            photoDao.deleteRemovedPhotos(validIds)
         } catch (e: Exception) {
             Log.e(TAG, "Full scan failed", e)
             _scanState.emit(ScanState.Error(e.message ?: "Unknown error"))
@@ -170,8 +166,8 @@ class MediaScanner @Inject constructor(
      * 在全量扫描完成后异步执行
      * 批量写入数据库，避免逐条 update 触发 Room 频繁失效
      */
-    private fun extractExifForAllPhotos() {
-        CoroutineScope(Dispatchers.IO).launch {
+    private fun CoroutineScope.extractExifForAllPhotos() {
+        launch(Dispatchers.IO) {
             try {
                 val allPhotoIds = photoDao.getAllPhotoIds()
                 Log.i(TAG, "Starting EXIF extraction for ${allPhotoIds.size} photos")
