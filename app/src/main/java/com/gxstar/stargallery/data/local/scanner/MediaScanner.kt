@@ -166,8 +166,8 @@ class MediaScanner @Inject constructor(
      * 在全量扫描完成后异步执行
      * 批量写入数据库，避免逐条 update 触发 Room 频繁失效
      */
-    private fun CoroutineScope.extractExifForAllPhotos() {
-        launch(Dispatchers.IO) {
+    private fun extractExifForAllPhotos() {
+        CoroutineScope(Dispatchers.IO).launch {
             try {
                 val allPhotoIds = photoDao.getAllPhotoIds()
                 Log.i(TAG, "Starting EXIF extraction for ${allPhotoIds.size} photos")
