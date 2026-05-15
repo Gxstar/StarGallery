@@ -112,7 +112,11 @@ class PhotoDetailViewModel @Inject constructor(
                 val photos = filtered.map { it.toPhoto() }
                 SortUtils.sortPhotos(photos, sortType)
             } else {
-                mediaRepository.getAllMedia(sortType)
+                val entities = photoDao.getAllPhotos()
+                val photos = entities
+                    .filter { !it.isHidden }
+                    .map { it.toPhoto() }
+                SortUtils.sortPhotos(photos, sortType)
             }
 
             // 延迟提交等待导航动画（300ms slide）完成，避免动画期间
