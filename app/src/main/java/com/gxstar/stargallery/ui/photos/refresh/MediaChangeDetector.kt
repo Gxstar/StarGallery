@@ -78,6 +78,9 @@ class MediaChangeDetector(
             )
             
             isRegistered = true
+
+            // 后台切前台时，主动检查外部变化（补 ContentObserver 收不到历史通知的盲区）
+            onChangeDetected()
         } catch (e: Exception) {
             e.printStackTrace()
         }

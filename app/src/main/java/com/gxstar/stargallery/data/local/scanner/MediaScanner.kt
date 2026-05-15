@@ -233,59 +233,70 @@ class MediaScanner @Inject constructor(
             val lastScanTime = scanPreferences.lastScanTime
             val changedMedia = queryMediaModifiedAfter(lastScanTime)
 
-            if (changedMedia.isEmpty()) {
-                Log.d(TAG, "No new or updated media found")
-                scanPreferences.lastScanTime = System.currentTimeMillis() / 1000
-                return@withContext false
+            if (changedMedia.isNotEmpty()) {
+                val hiddenIds = photoDao.getHiddenPhotoIds().toSet()
+                val existingExif = photoDao.getExifSnapshots().associateBy { it.id }
+
+                val entities = changedMedia.map { item ->
+                    val exif = existingExif[item.id]
+                    PhotoEntity(
+                        id = item.id,
+                        uri = item.uri,
+                        dateTaken = item.dateTaken,
+                        dateModified = item.dateModified,
+                        dateAdded = item.dateAdded,
+                        mimeType = item.mimeType,
+                        width = item.width,
+                        height = item.height,
+                        size = item.size,
+                        bucketId = item.bucketId,
+                        bucketName = item.bucketName,
+                        latitude = null,
+                        longitude = null,
+                        orientation = item.orientation,
+                        isFavorite = item.isFavorite,
+                        isHidden = item.id in hiddenIds,
+                        cameraMake = exif?.cameraMake,
+                        cameraModel = exif?.cameraModel,
+                        lensModel = exif?.lensModel,
+                        isoEquivalent = exif?.isoEquivalent,
+                        focalLength = exif?.focalLength,
+                        focalLength35mmEquiv = exif?.focalLength35mmEquiv,
+                        fNumber = exif?.fNumber,
+                        shutterSpeed = exif?.shutterSpeed,
+                        exifImageWidth = exif?.exifImageWidth,
+                        exifImageHeight = exif?.exifImageHeight,
+                        lut1 = exif?.lut1,
+                        lut2 = exif?.lut2
+                    )
+                }
+                photoDao.insertAll(entities)
+
+                extractExifForPhotos(changedMedia.map { it.id })
             }
 
-            val hiddenIds = photoDao.getHiddenPhotoIds().toSet()
-            val existingExif = photoDao.getExifSnapshots().associateBy { it.id }
-
-            // 增量更新到 Room
-            val entities = changedMedia.map { item ->
-                val exif = existingExif[item.id]
-                PhotoEntity(
-                    id = item.id,
-                    uri = item.uri,
-                    dateTaken = item.dateTaken,
-                    dateModified = item.dateModified,
-                    dateAdded = item.dateAdded,
-                    mimeType = item.mimeType,
-                    width = item.width,
-                    height = item.height,
-                    size = item.size,
-                    bucketId = item.bucketId,
-                    bucketName = item.bucketName,
-                    latitude = null,
-                    longitude = null,
-                    orientation = item.orientation,
-                    isFavorite = item.isFavorite,
-                    isHidden = item.id in hiddenIds,
-                    cameraMake = exif?.cameraMake,
-                    cameraModel = exif?.cameraModel,
-                    lensModel = exif?.lensModel,
-                    isoEquivalent = exif?.isoEquivalent,
-                    focalLength = exif?.focalLength,
-                    focalLength35mmEquiv = exif?.focalLength35mmEquiv,
-                    fNumber = exif?.fNumber,
-                    shutterSpeed = exif?.shutterSpeed,
-                    exifImageWidth = exif?.exifImageWidth,
-                    exifImageHeight = exif?.exifImageHeight,
-                    lut1 = exif?.lut1,
-                    lut2 = exif?.lut2
-                )
-            }
-            photoDao.insertAll(entities)
-
-            // 立即为新增的照片提取 EXIF 信息
-            extractExifForPhotos(changedMedia.map { it.id })
-
-            // 更新最后扫描时间（秒级，与 MediaStore DATE_MODIFIED 一致）
             scanPreferences.lastScanTime = System.currentTimeMillis() / 1000
 
+            // 双向同步：清理孤立记录 + 补充缺失记录
+            val mediaStoreIds = queryAllMediaIdsFromMediaStore()
+            val roomIds = photoDao.getAllPhotoIds()
+            val mediaStoreIdSet = mediaStoreIds.toSet()
+            val roomIdSet = roomIds.toSet()
+
+            val removedIds = roomIdSet - mediaStoreIdSet
+            if (removedIds.isNotEmpty()) {
+                Log.i(TAG, "Removing ${removedIds.size} stale records (permanently deleted)")
+                photoDao.deleteByIds(removedIds.toList())
+            }
+
+            val missingIds = mediaStoreIdSet - roomIdSet
+            if (missingIds.isNotEmpty()) {
+                Log.i(TAG, "Adding ${missingIds.size} missing records (restored from trash)")
+                syncSpecificPhotos(missingIds.toList())
+            }
+
             val duration = System.currentTimeMillis() - startTime
-            Log.i(TAG, "Incremental scan completed: ${changedMedia.size} media in ${duration}ms")
+            Log.i(TAG, "Incremental scan completed: ${changedMedia.size} media found, ${removedIds.size} cleaned in ${duration}ms")
 
             _scanState.emit(ScanState.Completed(changedMedia.size, duration))
             return@withContext true
@@ -601,6 +612,28 @@ class MediaScanner @Inject constructor(
         }
 
         return items
+    }
+
+    /**
+     * 查询 MediaStore 中所有媒体文件的 _ID（用于清理孤立记录）
+     * 只查单列，性能轻量
+     */
+    private fun queryAllMediaIdsFromMediaStore(): List<Long> {
+        val ids = mutableListOf<Long>()
+        val uri = MediaStore.Files.getContentUri("external")
+        val selection = "(${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE} " +
+                "OR ${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO})"
+        val projection = arrayOf(MediaStore.Files.FileColumns._ID)
+        val bundle = Bundle().apply {
+            putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, MediaStore.MATCH_EXCLUDE)
+            putString(ContentResolver.QUERY_ARG_SQL_SELECTION, selection)
+        }
+        context.contentResolver.query(uri, projection, bundle, null)?.use { cursor ->
+            while (cursor.moveToNext()) {
+                ids.add(cursor.getLong(0))
+            }
+        }
+        return ids
     }
 
     /**
