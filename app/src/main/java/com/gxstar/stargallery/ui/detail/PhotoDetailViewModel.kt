@@ -31,9 +31,14 @@ class PhotoDetailViewModel @Inject constructor(
     private val sortTypeValue: Int = savedStateHandle["sortType"] ?: 0
     private val bucketId: Long = savedStateHandle["bucketId"] ?: -1L
     private val favoritesOnly: Boolean = savedStateHandle["favoritesOnly"] ?: false
-    private val filterCameraMake: String? = savedStateHandle["filterCameraMake"]
-    private val filterCameraModel: String? = savedStateHandle["filterCameraModel"]
-    private val filterLensModel: String? = savedStateHandle["filterLensModel"]
+    private val filterCameraMake: Set<String> = parseFilterSet(savedStateHandle["filterCameraMake"])
+    private val filterCameraModel: Set<String> = parseFilterSet(savedStateHandle["filterCameraModel"])
+    private val filterLensModel: Set<String> = parseFilterSet(savedStateHandle["filterLensModel"])
+
+    private fun parseFilterSet(encoded: String?): Set<String> {
+        if (encoded.isNullOrEmpty()) return emptySet()
+        return encoded.split(",").toSet()
+    }
 
     private val sortType = when (sortTypeValue) {
         0 -> MediaRepository.SortType.DATE_TAKEN
@@ -83,30 +88,27 @@ class PhotoDetailViewModel @Inject constructor(
         viewModelScope.launch {
             val allPhotos = if (bucketId != -1L) {
                 mediaRepository.getPhotosByBucket(bucketId, sortType)
-            } else if (favoritesOnly || filterCameraMake != null || filterCameraModel != null || filterLensModel != null) {
+            } else if (favoritesOnly || filterCameraMake.isNotEmpty() || filterCameraModel.isNotEmpty() || filterLensModel.isNotEmpty()) {
                 val entities = photoDao.getAllPhotos()
                 var filtered = entities
                 if (favoritesOnly) filtered = filtered.filter { it.isFavorite }
                 filtered = filtered.filter { !it.isHidden }
-                if (filterCameraMake != null) {
-                    filtered = if (filterCameraMake.isEmpty()) {
-                        filtered.filter { it.cameraMake.isNullOrBlank() }
-                    } else {
-                        filtered.filter { it.cameraMake == filterCameraMake }
+                if (filterCameraMake.isNotEmpty()) {
+                    filtered = filtered.filter { entity ->
+                        entity.cameraMake in filterCameraMake ||
+                            ("" in filterCameraMake && entity.cameraMake.isNullOrBlank())
                     }
                 }
-                if (filterCameraModel != null) {
-                    filtered = if (filterCameraModel.isEmpty()) {
-                        filtered.filter { it.cameraModel.isNullOrBlank() }
-                    } else {
-                        filtered.filter { it.cameraModel == filterCameraModel }
+                if (filterCameraModel.isNotEmpty()) {
+                    filtered = filtered.filter { entity ->
+                        entity.cameraModel in filterCameraModel ||
+                            ("" in filterCameraModel && entity.cameraModel.isNullOrBlank())
                     }
                 }
-                if (filterLensModel != null) {
-                    filtered = if (filterLensModel.isEmpty()) {
-                        filtered.filter { it.lensModel.isNullOrBlank() }
-                    } else {
-                        filtered.filter { it.lensModel == filterLensModel }
+                if (filterLensModel.isNotEmpty()) {
+                    filtered = filtered.filter { entity ->
+                        entity.lensModel in filterLensModel ||
+                            ("" in filterLensModel && entity.lensModel.isNullOrBlank())
                     }
                 }
                 val photos = filtered.map { it.toPhoto() }

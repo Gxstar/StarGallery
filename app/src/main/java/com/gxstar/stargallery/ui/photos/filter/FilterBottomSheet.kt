@@ -138,31 +138,30 @@ class FilterBottomSheet : BottomSheetDialogFragment() {
             FilterDimension.LENS -> cachedLensModels
             else -> emptyList()
         }
-        val selected = when (dimension) {
+        val selectedKeys = when (dimension) {
             FilterDimension.CAMERA_MAKE -> viewModel.filterCameraMake.value
             FilterDimension.CAMERA_MODEL -> viewModel.filterCameraModel.value
             FilterDimension.LENS -> viewModel.filterLensModel.value
-            else -> null
+            else -> emptySet()
         }
-        buildOptionsList(options, selected)
+        buildOptionsList(options, selectedKeys)
     }
 
-    private fun buildOptionsList(options: List<PhotosViewModel.FilterOption>, selectedKey: String?) {
+    private fun buildOptionsList(options: List<PhotosViewModel.FilterOption>, selectedKeys: Set<String>) {
         val group = binding.cgOptions
         group.removeAllViews()
-        group.isSingleSelection = true
+        group.isSingleSelection = false
 
         options.forEach { option ->
-            val chip = createChip(option, selectedKey == option.key)
+            val chip = createChip(option, option.key in selectedKeys)
             chip.setOnClickListener {
-                if (currentDimension == FilterDimension.CAMERA_MAKE) {
-                    viewModel.setFilterCameraMake(if (chip.isChecked) option.key else null)
-                } else if (currentDimension == FilterDimension.CAMERA_MODEL) {
-                    viewModel.setFilterCameraModel(if (chip.isChecked) option.key else null)
-                } else if (currentDimension == FilterDimension.LENS) {
-                    viewModel.setFilterLensModel(if (chip.isChecked) option.key else null)
+                val toggle = when (currentDimension) {
+                    FilterDimension.CAMERA_MAKE -> viewModel::toggleFilterCameraMake
+                    FilterDimension.CAMERA_MODEL -> viewModel::toggleFilterCameraModel
+                    FilterDimension.LENS -> viewModel::toggleFilterLensModel
+                    else -> return@setOnClickListener
                 }
-                showMainView()
+                toggle(option.key)
             }
             group.addView(chip)
         }
@@ -201,24 +200,20 @@ class FilterBottomSheet : BottomSheetDialogFragment() {
     }
 
     private fun updateMainViewValues() {
-        val make = viewModel.filterCameraMake.value
-        val model = viewModel.filterCameraModel.value
-        val lens = viewModel.filterLensModel.value
-
-        updateValueText(binding.tvCameraMakeValue, make)
-        updateValueText(binding.tvCameraModelValue, model)
-        updateValueText(binding.tvLensValue, lens)
+        updateValueText(binding.tvCameraMakeValue, viewModel.filterCameraMake.value)
+        updateValueText(binding.tvCameraModelValue, viewModel.filterCameraModel.value)
+        updateValueText(binding.tvLensValue, viewModel.filterLensModel.value)
     }
 
-    private fun updateValueText(textView: android.widget.TextView, value: String?) {
+    private fun updateValueText(textView: android.widget.TextView, value: Set<String>) {
         val display = when {
-            value == null -> getString(R.string.filter_all)
-            value.isEmpty() -> getString(R.string.filter_unknown_device)
-            else -> value
+            value.isEmpty() -> getString(R.string.filter_all)
+            value.size == 1 -> value.first()
+            else -> getString(R.string.filter_selected_count, value.size)
         }
         textView.text = display
         textView.setTextColor(
-            if (value != null) {
+            if (value.isNotEmpty()) {
                 ContextCompat.getColor(requireContext(), R.color.accent)
             } else {
                 ContextCompat.getColor(requireContext(), R.color.text_secondary)
@@ -233,13 +228,13 @@ class FilterBottomSheet : BottomSheetDialogFragment() {
             FilterDimension.LENS -> cachedLensModels
             else -> emptyList()
         }
-        val selected = when (currentDimension) {
+        val selectedKeys = when (currentDimension) {
             FilterDimension.CAMERA_MAKE -> viewModel.filterCameraMake.value
             FilterDimension.CAMERA_MODEL -> viewModel.filterCameraModel.value
             FilterDimension.LENS -> viewModel.filterLensModel.value
-            else -> null
+            else -> emptySet()
         }
-        buildOptionsList(options, selected)
+        buildOptionsList(options, selectedKeys)
     }
 
     override fun onDestroyView() {

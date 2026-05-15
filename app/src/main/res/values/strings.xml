@@ -225,6 +225,7 @@
     <string name="filter_all">全部</string>
     <string name="filter_unknown_device">未知设备</string>
     <string name="filter_clear">清除筛选</string>
+    <string name="filter_selected_count">已选 %d 项</string>
     <string name="privacy_section_9_title">六、政策更新</string>
     <string name="privacy_section_9_content">我们可能会不时更新本隐私政策。更新时，我们会在应用内发布更新通知。建议您定期查看本政策以了解最新内容。重大变更将通过应用更新日志通知您。</string>
 </resources>
