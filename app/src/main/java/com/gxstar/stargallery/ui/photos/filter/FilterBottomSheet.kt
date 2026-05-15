@@ -207,7 +207,7 @@ class FilterBottomSheet : BottomSheetDialogFragment() {
 
     private fun updateValueText(textView: android.widget.TextView, value: Set<String>) {
         val display = when {
-            value.isEmpty() -> getString(R.string.filter_all)
+            value.isEmpty() -> "—"
             value.size == 1 -> value.first()
             else -> getString(R.string.filter_selected_count, value.size)
         }

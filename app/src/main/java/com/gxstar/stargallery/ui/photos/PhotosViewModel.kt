@@ -112,7 +112,6 @@ class PhotosViewModel @Inject constructor(
         val knownTotal = counts.sumOf { it.count }
         val unknownCount = (totalVisible - knownTotal).coerceAtLeast(0)
 
-        options.add(FilterOption(null, context.getString(R.string.filter_all), totalVisible))
         counts.forEach { options.add(FilterOption(it.value, it.value, it.count)) }
         if (unknownCount > 0) {
             options.add(FilterOption("", context.getString(R.string.filter_unknown_device), unknownCount))
