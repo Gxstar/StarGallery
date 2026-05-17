@@ -17,9 +17,13 @@ import androidx.room.withTransaction
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -62,6 +66,17 @@ class MediaScanner @Inject constructor(
     // 是否正在扫描
     @Volatile
     private var isScanning = false
+
+    // EXIF 提取任务引用，用于取消/感知状态
+    private var exifJob: Job? = null
+
+    // EXIF 提取是否在进行中（独立状态流，避免 StateFlow conflate 导致 UI 感知延迟）
+    private val _isExtractingExif = MutableStateFlow(false)
+    val isExtractingExifFlow: StateFlow<Boolean> = _isExtractingExif.asStateFlow()
+
+    // EXIF 提取进度 (0f ~ 1f)
+    private val _exifProgress = MutableStateFlow(0f)
+    val exifProgress: StateFlow<Float> = _exifProgress.asStateFlow()
 
     /**
      * 执行全量扫描
@@ -164,15 +179,21 @@ class MediaScanner @Inject constructor(
     /**
      * 后台批量提取 EXIF 信息
      * 在全量扫描完成后异步执行
-     * 批量写入数据库，避免逐条 update 触发 Room 频繁失效
+     * 使用托管 Job 避免多次全量扫描并发，且不被 ViewModel 生命周期打断
      */
     private fun extractExifForAllPhotos() {
-        CoroutineScope(Dispatchers.IO).launch {
+        exifJob?.cancel()
+        _exifProgress.value = 0f
+        _isExtractingExif.value = true
+        exifJob = CoroutineScope(Dispatchers.IO).launch {
             try {
                 val allPhotoIds = photoDao.getAllPhotoIds()
                 Log.i(TAG, "Starting EXIF extraction for ${allPhotoIds.size} photos")
 
+                val totalIds = allPhotoIds.size
+                val totalBatches = (totalIds + EXIF_BATCH_SIZE - 1) / EXIF_BATCH_SIZE
                 var totalUpdated = 0
+
                 allPhotoIds.chunked(EXIF_BATCH_SIZE).forEachIndexed { batchIndex, ids ->
                     val batchUpdates = mutableListOf<PhotoEntity>()
 
@@ -201,10 +222,14 @@ class MediaScanner @Inject constructor(
                         photoDao.updateAll(batchUpdates)
                         totalUpdated += batchUpdates.size
                     }
+
+                    _exifProgress.value = (batchIndex + 1).toFloat() / totalBatches
                 }
                 Log.i(TAG, "EXIF extraction completed: $totalUpdated photos updated")
             } catch (e: Exception) {
                 Log.e(TAG, "EXIF extraction failed", e)
+            } finally {
+                _isExtractingExif.value = false
             }
         }
     }
@@ -369,8 +394,11 @@ class MediaScanner @Inject constructor(
 
     /**
      * 为指定照片批量提取 EXIF 信息
+     * 全量扫描仍在提取时不重复工作（最终会被全量覆盖）
      */
     private suspend fun extractExifForPhotos(photoIds: List<Long>) = withContext(Dispatchers.IO) {
+        if (exifJob?.isActive == true) return@withContext
+
         val batchUpdates = mutableListOf<PhotoEntity>()
         photoIds.forEach { id ->
             val photo = photoDao.getPhotoById(id) ?: return@forEach

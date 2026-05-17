@@ -65,6 +65,15 @@ class PhotosViewModel @Inject constructor(
 
     val isSearching: Flow<Boolean> = _searchQuery.map { !it.isNullOrBlank() }
 
+    val isExtractingExif: StateFlow<Boolean> = mediaScanner.isExtractingExifFlow
+
+    val exifProgress: StateFlow<Float> = combine(
+        photoDao.getExifCompletedCountFlow(),
+        photoDao.getPhotoCountFlow()
+    ) { completed, total ->
+        if (total > 0) completed.toFloat() / total else 0f
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0f)
+
     // 用户显式选择（仅由 toggle 修改，不含级联）
     private val _explicitCameraMake = MutableStateFlow<Set<String>>(emptySet())
     private val _explicitCameraModel = MutableStateFlow<Set<String>>(emptySet())

@@ -562,6 +562,14 @@ class PhotosFragment : Fragment() {
                     }
             }
         }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.isExtractingExif.collect { extracting ->
+                    binding.exifProgressBar.visibility = if (extracting) View.VISIBLE else View.GONE
+                }
+            }
+        }
     }
 
     private fun observeSelectionState() {

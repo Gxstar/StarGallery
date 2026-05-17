@@ -121,6 +121,9 @@ interface PhotoDao {
     @Query("SELECT COUNT(*) FROM photos WHERE isHidden = 0")
     fun getVisiblePhotoCountFlow(): Flow<Int>
 
+    @Query("SELECT COUNT(*) FROM photos WHERE cameraMake IS NOT NULL OR cameraModel IS NOT NULL")
+    fun getExifCompletedCountFlow(): Flow<Int>
+
     // ==================== 级联筛选关联查询 ====================
 
     @Query("SELECT DISTINCT cameraMake FROM photos WHERE lensModel IN (:lensModels) AND cameraMake IS NOT NULL AND cameraMake != ''")
