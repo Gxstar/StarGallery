@@ -73,6 +73,9 @@ class PhotoDetailViewModel @Inject constructor(
     // 用户是否已经手动滑动过位置（用于防止后台加载完成后重置位置）
     private var _userHasMovedPosition = false
 
+    // 初始加载是否已完成（加载完成前 ViewPager 的 onPageSelected 回调不算用户操作）
+    private var _initialLoadComplete = false
+
     init {
         // 立即显示初始照片，不等待全部加载
         initialPhoto?.let { photo ->
@@ -129,13 +132,13 @@ class PhotoDetailViewModel @Inject constructor(
 
             if (allPhotos.isNotEmpty()) {
                 val initialPos = allPhotos.indexOfFirst { it.id == initialPhotoId }.takeIf { it >= 0 } ?: 0
-                // 仅在用户未主动滑动过的情况下才更新位置，否则保持用户在详情页的手动滑动位置
                 _photos.value = allPhotos
                 if (!_userHasMovedPosition) {
                     _currentPosition.value = initialPos
                     _currentPhoto.value = allPhotos[initialPos]
                     updateDateInfo(allPhotos[initialPos])
                 }
+                _initialLoadComplete = true
             }
             _isLoading.value = false
         }
@@ -147,7 +150,9 @@ class PhotoDetailViewModel @Inject constructor(
     fun setPosition(position: Int) {
         val photoList = _photos.value
         if (position in photoList.indices) {
-            _userHasMovedPosition = true
+            if (_initialLoadComplete) {
+                _userHasMovedPosition = true
+            }
             _currentPosition.value = position
             val photo = photoList[position]
             _currentPhoto.value = photo
