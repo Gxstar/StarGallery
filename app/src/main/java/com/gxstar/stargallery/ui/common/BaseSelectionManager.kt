@@ -19,7 +19,7 @@ abstract class BaseSelectionManager(
     protected var recyclerView: RecyclerView?,
     protected var adapter: Any?
 ) {
-    protected val selectedPositions = mutableSetOf<Int>()
+    protected val _selectedPhotoIds = mutableSetOf<Long>()
     protected var dragSelectListener: DragSelectTouchListener? = null
 
     private val _isMode = MutableStateFlow(false)
@@ -73,16 +73,20 @@ abstract class BaseSelectionManager(
         val receiver = object : DragSelectReceiver {
             override fun getItemCount(): Int = this@BaseSelectionManager.getItemCount()
 
-            override fun isSelected(index: Int): Boolean = selectedPositions.contains(index)
+            override fun isSelected(index: Int): Boolean {
+                val photo = getPhotoAtPosition(index) ?: return false
+                return _selectedPhotoIds.contains(photo.id)
+            }
 
             override fun isIndexSelectable(index: Int): Boolean =
                 this@BaseSelectionManager.isPositionSelectable(index)
 
             override fun setSelected(index: Int, selected: Boolean) {
+                val photo = getPhotoAtPosition(index) ?: return
                 if (selected) {
-                    selectedPositions.add(index)
+                    _selectedPhotoIds.add(photo.id)
                 } else {
-                    selectedPositions.remove(index)
+                    _selectedPhotoIds.remove(photo.id)
                 }
                 notifyItemChanged(index)
                 updateSelectionState()
@@ -94,8 +98,8 @@ abstract class BaseSelectionManager(
     }
 
     private fun updateSelectionState() {
-        _count.value = selectedPositions.size
-        _isMode.value = selectedPositions.isNotEmpty()
+        _count.value = _selectedPhotoIds.size
+        _isMode.value = _selectedPhotoIds.isNotEmpty()
     }
 
     open fun isInSelectionMode(): Boolean = _isMode.value
@@ -106,13 +110,10 @@ abstract class BaseSelectionManager(
     }
 
     open fun exitSelectionMode() {
-        val previousPositions = selectedPositions.toList()
-        selectedPositions.clear()
+        _selectedPhotoIds.clear()
         _count.value = 0
         _isMode.value = false
-        previousPositions.forEach { pos ->
-            notifyItemChanged(pos)
-        }
+        refreshAllVisible()
     }
 
     open fun toggleSelectionMode() {
@@ -120,8 +121,14 @@ abstract class BaseSelectionManager(
     }
 
     open fun toggleSelection(photo: Photo) {
+        if (_selectedPhotoIds.contains(photo.id)) {
+            _selectedPhotoIds.remove(photo.id)
+        } else {
+            _selectedPhotoIds.add(photo.id)
+        }
         val position = findPositionByPhotoId(photo.id)
-        toggleSelectionAtPosition(position)
+        if (position >= 0) notifyItemChanged(position)
+        updateSelectionState()
     }
 
     open fun toggleSelection(position: Int) {
@@ -130,41 +137,34 @@ abstract class BaseSelectionManager(
 
     private fun toggleSelectionAtPosition(position: Int) {
         if (position < 0) return
-        if (selectedPositions.contains(position)) {
-            selectedPositions.remove(position)
+        val photo = getPhotoAtPosition(position) ?: return
+        if (_selectedPhotoIds.contains(photo.id)) {
+            _selectedPhotoIds.remove(photo.id)
         } else {
-            selectedPositions.add(position)
+            _selectedPhotoIds.add(photo.id)
         }
         notifyItemChanged(position)
         updateSelectionState()
     }
 
-    open fun isSelected(id: Long): Boolean {
-        val position = findPositionByPhotoId(id)
-        return position >= 0 && selectedPositions.contains(position)
-    }
+    open fun isSelected(id: Long): Boolean = _selectedPhotoIds.contains(id)
 
-    open fun isSelectedPosition(position: Int): Boolean = selectedPositions.contains(position)
+    open fun isSelectedPosition(position: Int): Boolean {
+        val photo = getPhotoAtPosition(position) ?: return false
+        return _selectedPhotoIds.contains(photo.id)
+    }
 
     /** Get set of selected photo IDs */
     val selectedPhotoIds: Set<Long>
-        get() {
-            val ids = mutableSetOf<Long>()
-            val count = getItemCount()
-            for (i in 0 until count) {
-                if (selectedPositions.contains(i)) {
-                    getPhotoAtPosition(i)?.let { ids.add(it.id) }
-                }
-            }
-            return ids
-        }
+        get() = _selectedPhotoIds
 
     open fun getSelectedPhotos(): List<Photo> {
         val photos = mutableListOf<Photo>()
         val count = getItemCount()
         for (i in 0 until count) {
-            if (selectedPositions.contains(i)) {
-                getPhotoAtPosition(i)?.let { photos.add(it) }
+            val photo = getPhotoAtPosition(i)
+            if (photo != null && _selectedPhotoIds.contains(photo.id)) {
+                photos.add(photo)
             }
         }
         return photos
@@ -173,7 +173,8 @@ abstract class BaseSelectionManager(
     open fun startDragSelection(startPosition: Int) {
         if (!_isMode.value) {
             _isMode.value = true
-            selectedPositions.add(startPosition)
+            val photo = getPhotoAtPosition(startPosition)
+            if (photo != null) _selectedPhotoIds.add(photo.id)
             notifyItemChanged(startPosition)
             updateSelectionState()
         }
@@ -195,7 +196,7 @@ abstract class BaseSelectionManager(
         dragSelectListener?.let { listener ->
             recyclerView?.removeOnItemTouchListener(listener)
         }
-        selectedPositions.clear()
+        _selectedPhotoIds.clear()
         adapter = null
         recyclerView?.adapter = null
         recyclerView = null
