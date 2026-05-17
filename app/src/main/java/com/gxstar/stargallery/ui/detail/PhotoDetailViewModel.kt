@@ -37,7 +37,7 @@ class PhotoDetailViewModel @Inject constructor(
 
     private fun parseFilterSet(encoded: String?): Set<String> {
         if (encoded.isNullOrEmpty()) return emptySet()
-        return encoded.split(",").toSet()
+        return encoded.split("\n").toSet()
     }
 
     private val sortType = when (sortTypeValue) {
@@ -87,7 +87,9 @@ class PhotoDetailViewModel @Inject constructor(
     private fun loadPhotosInBackground() {
         viewModelScope.launch {
             val allPhotos = if (bucketId != -1L) {
-                mediaRepository.getPhotosByBucket(bucketId, sortType)
+                val photos = mediaRepository.getPhotosByBucket(bucketId, sortType)
+                val hiddenIds = photoDao.getHiddenPhotoIds().toSet()
+                SortUtils.sortPhotos(photos.filter { it.id !in hiddenIds }, sortType)
             } else if (favoritesOnly || filterCameraMake.isNotEmpty() || filterCameraModel.isNotEmpty() || filterLensModel.isNotEmpty()) {
                 val entities = photoDao.getAllPhotos()
                 var filtered = entities

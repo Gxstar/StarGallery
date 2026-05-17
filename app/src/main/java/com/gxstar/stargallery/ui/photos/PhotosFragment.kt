@@ -827,9 +827,9 @@ class PhotosFragment : Fragment() {
             photoId = photo.id,
             sortType = sortTypeValue,
             favoritesOnly = viewModel.showFavoritesOnly.value,
-            filterCameraMake = viewModel.filterCameraMake.value.joinToString(",").takeIf { it.isNotEmpty() },
-            filterCameraModel = viewModel.filterCameraModel.value.joinToString(",").takeIf { it.isNotEmpty() },
-            filterLensModel = viewModel.filterLensModel.value.joinToString(",").takeIf { it.isNotEmpty() }
+            filterCameraMake = viewModel.filterCameraMake.value.joinToString("\n").takeIf { it.isNotEmpty() },
+            filterCameraModel = viewModel.filterCameraModel.value.joinToString("\n").takeIf { it.isNotEmpty() },
+            filterLensModel = viewModel.filterLensModel.value.joinToString("\n").takeIf { it.isNotEmpty() }
         )
         findNavController().navigate(action)
     }

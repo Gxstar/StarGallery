@@ -204,7 +204,7 @@
     <string name="license_apache_title">Apache License 2.0</string>
     <string name="license_apache_content">大多数第三方库采用 Apache License 2.0 许可。这意味着您可以自由地使用、修改和分发这些代码，但需要保留原始版权声明和许可声明。</string>
     <!-- 隐私政策详细章节 -->
-    <string name="privacy_policy_date">最后更新：2026年4月25日</string>
+    <string name="privacy_policy_date">最后更新：2026年5月17日</string>
     <string name="privacy_section_1_title">一、信息收集</string>
     <string name="privacy_section_1_content">相册应用仅访问您设备上的本地媒体文件（照片和视频），以提供以下功能：\n\n• 照片浏览：以网格形式展示设备中的照片和视频\n• 相册管理：按文件夹自动整理照片\n• 照片预览：查看照片详情和基本信息\n• 收藏功能：标记您喜欢的照片\n• 回收站：安全删除和恢复已删除的媒体文件\n\n我们不会收集、传输或分享您的任何个人信息到外部服务器。所有数据处理均在您的设备本地完成。</string>
     <string name="privacy_section_2_title">二、信息使用</string>

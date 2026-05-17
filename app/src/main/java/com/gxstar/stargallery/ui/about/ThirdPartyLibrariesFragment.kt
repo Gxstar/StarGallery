@@ -29,7 +29,9 @@ class ThirdPartyLibrariesFragment : Fragment() {
         Library("Navigation Component", "页面导航", "https://developer.android.com/guide/navigation", "Apache-2.0"),
         Library("drag-select-recyclerview", "拖动多选", "https://github.com/afollestad/drag-select-recyclerview", "Apache-2.0"),
         Library("FastScroller", "快速滚动条", "https://github.com/zhanghai/MaterialFastScroll", "Apache-2.0"),
-        Library("LeakCanary", "内存泄漏检测", "https://github.com/square/leakcanary", "Apache-2.0")
+        Library("Biometric", "生物识别认证", "https://developer.android.com/jetpack/androidx/releases/biometric", "Apache-2.0"),
+        Library("LeakCanary", "内存泄漏检测", "https://github.com/square/leakcanary", "Apache-2.0"),
+        Library("Kotlinx Coroutines", "异步协程框架", "https://github.com/Kotlin/kotlinx.coroutines", "Apache-2.0")
     )
 
     override fun onCreateView(
