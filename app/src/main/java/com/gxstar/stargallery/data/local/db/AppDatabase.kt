@@ -4,21 +4,54 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 
 /**
  * Room 数据库
+ *
+ * 数据库升级策略：
+ * - 每次升级 version 时，必须编写对应的 Migration 对象并加入到 addMigrations() 中
+ * - fallbackToDestructiveMigration() 仅作为兜底，正常情况下不应触发
+ * - schema JSON 文件自动生成到 app/schemas/ 目录，提交到版本控制
  */
 @Database(
     entities = [PhotoEntity::class],
     version = 2,
-    exportSchema = false
+    exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun photoDao(): PhotoDao
 
     companion object {
-        private const val DATABASE_NAME = "stargallery_db"
+        const val DATABASE_NAME = "stargallery_db"
+
+        /**
+         * V1 → V2：新增 EXIF 扩展字段
+         * 防御式写法：若字段已存在（如早期开发版本），忽略异常
+         */
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                val exifColumns = listOf(
+                    "cameraMake TEXT",
+                    "cameraModel TEXT",
+                    "lensModel TEXT",
+                    "isoEquivalent INTEGER",
+                    "focalLength REAL",
+                    "focalLength35mmEquiv INTEGER",
+                    "fNumber REAL",
+                    "shutterSpeed REAL",
+                    "exifImageWidth INTEGER",
+                    "exifImageHeight INTEGER",
+                    "lut1 TEXT",
+                    "lut2 TEXT"
+                )
+                exifColumns.forEach { col ->
+                    try { db.execSQL("ALTER TABLE photos ADD COLUMN $col") } catch (_: Exception) {}
+                }
+            }
+        }
 
         @Volatile
         private var INSTANCE: AppDatabase? = null
@@ -35,7 +68,8 @@ abstract class AppDatabase : RoomDatabase() {
                 AppDatabase::class.java,
                 DATABASE_NAME
             )
-                .fallbackToDestructiveMigration()
+                .addMigrations(MIGRATION_1_2)
+                .fallbackToDestructiveMigration(true)
                 .build()
         }
     }

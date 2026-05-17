@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.gxstar.stargallery.data.local.db.PhotoDao
 import com.gxstar.stargallery.data.local.db.PhotoEntity
+import com.gxstar.stargallery.data.local.preferences.ScanPreferences
 import com.gxstar.stargallery.data.local.scanner.MediaScanner
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.data.repository.MediaRepository
@@ -36,6 +37,7 @@ enum class GroupType {
 class PhotosViewModel @Inject constructor(
     private val photoDao: PhotoDao,
     private val mediaScanner: MediaScanner,
+    private val scanPreferences: ScanPreferences,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -136,8 +138,7 @@ class PhotosViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            val isFirstLaunch = photoDao.getPhotoCount() == 0
-            if (isFirstLaunch) {
+            if (!scanPreferences.isScanCompleted) {
                 _isScanning.value = true
                 mediaScanner.performFullScan()
                 _isScanning.value = false

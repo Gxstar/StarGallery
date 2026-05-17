@@ -6,6 +6,10 @@ plugins {
     alias(libs.plugins.kotlin.parcelize)
 }
 
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 android {
     namespace = "com.gxstar.stargallery"
     compileSdk = 36
