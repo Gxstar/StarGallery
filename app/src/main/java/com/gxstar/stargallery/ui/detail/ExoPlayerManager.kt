@@ -12,14 +12,14 @@ import androidx.media3.exoplayer.ExoPlayer
  * 用于在多个 ViewHolder 之间复用同一个播放器实例
  */
 object ExoPlayerManager {
+    @Volatile
     private var exoPlayer: ExoPlayer? = null
     private var currentVideoId: Long? = null
 
     @OptIn(UnstableApi::class)
     fun getPlayer(context: Context): ExoPlayer {
-        return exoPlayer ?: run {
-            ExoPlayer.Builder(context).build().also {
-                // 设置循环播放
+        return exoPlayer ?: synchronized(this) {
+            exoPlayer ?: ExoPlayer.Builder(context).build().also {
                 it.repeatMode = Player.REPEAT_MODE_ONE
                 exoPlayer = it
             }

@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import javax.inject.Inject
 
@@ -258,6 +259,13 @@ class PhotosViewModel @Inject constructor(
             _isScanning.value = true
             mediaScanner.performIncrementalScan()
             _isScanning.value = false
+        }
+    }
+
+    /** 静默增量扫描：不触发 _isScanning UI，用于后台补盲 */
+    fun silentRefresh() {
+        viewModelScope.launch(Dispatchers.IO) {
+            mediaScanner.performIncrementalScan()
         }
     }
 

@@ -61,7 +61,15 @@ class AlbumsFragment : Fragment() {
         } else {
             arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
         }
-        permissionLauncher.launch(permissions)
+        val allGranted = permissions.all {
+            android.content.pm.PackageManager.PERMISSION_GRANTED ==
+                androidx.core.content.ContextCompat.checkSelfPermission(requireContext(), it)
+        }
+        if (allGranted) {
+            viewModel.loadAlbums()
+        } else {
+            permissionLauncher.launch(permissions)
+        }
     }
 
     private fun setupRecyclerView() {

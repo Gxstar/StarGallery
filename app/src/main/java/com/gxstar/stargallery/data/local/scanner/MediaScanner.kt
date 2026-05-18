@@ -157,8 +157,15 @@ class MediaScanner @Inject constructor(
                 }
 
                 // 全量扫描完成后，删除已不存在于 MediaStore 的记录
-                val validIds = allMedia.map { it.id }
-                photoDao.deleteRemovedPhotos(validIds)
+                // 先计算需要删除的 ID，再分批执行，避免 SQLite 参数上限（~999）
+                val validIds = allMedia.map { it.id }.toSet()
+                val roomIds = photoDao.getAllPhotoIds()
+                val idsToRemove = roomIds - validIds
+                if (idsToRemove.isNotEmpty()) {
+                    idsToRemove.chunked(500).forEach { batch ->
+                        photoDao.deleteByIds(batch)
+                    }
+                }
             }
 
             val duration = System.currentTimeMillis() - startTime
@@ -166,6 +173,7 @@ class MediaScanner @Inject constructor(
 
             _scanState.emit(ScanState.Completed(total, duration))
             scanPreferences.lastScanTime = System.currentTimeMillis() / 1000
+            scanPreferences.isScanCompleted = true
 
             // 全量扫描完成后，后台提取 EXIF 信息
             extractExifForAllPhotos()

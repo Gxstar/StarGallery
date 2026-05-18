@@ -60,7 +60,7 @@ class PhotoGridViewHolder(
             if (config.useClickProcessing) {
                 isClickProcessing = true
             }
-            onPhotoLongClick(bindingAdapterPosition)
+            onPhotoLongClick(currentPosition)
             true
         }
     }

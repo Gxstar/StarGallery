@@ -81,6 +81,7 @@
     <string name="hidden_title">隐藏照片</string>
     <string name="hidden_empty">暂无隐藏照片</string>
     <string name="hidden_count">%d项</string>
+    <string name="hide_selected_confirm">确定要隐藏选中的 %d 张照片吗？</string>
     <string name="hidden_success">已隐藏</string>
     <string name="unhidden_success">已恢复显示</string>
     <!-- 身份验证 -->

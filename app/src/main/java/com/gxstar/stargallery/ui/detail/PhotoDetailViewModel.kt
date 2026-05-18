@@ -118,11 +118,15 @@ class PhotoDetailViewModel @Inject constructor(
                 }
                 val photos = filtered.map { it.toPhoto() }
                 SortUtils.sortPhotos(photos, sortType)
-            } else {
+            } else if (initialPhoto?.isHidden == true) {
+                // 从隐藏页进入 → 只显示隐藏照片
                 val entities = photoDao.getAllPhotos()
-                val photos = entities
-                    .filter { !it.isHidden }
-                    .map { it.toPhoto() }
+                val photos = entities.filter { it.isHidden }.map { it.toPhoto() }
+                SortUtils.sortPhotos(photos, sortType)
+            } else {
+                // 从首页/相册进入 → 排除隐藏照片
+                val entities = photoDao.getAllPhotos()
+                val photos = entities.filter { !it.isHidden }.map { it.toPhoto() }
                 SortUtils.sortPhotos(photos, sortType)
             }
 

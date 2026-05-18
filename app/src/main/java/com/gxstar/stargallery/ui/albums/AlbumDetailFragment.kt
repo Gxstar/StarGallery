@@ -193,7 +193,16 @@ class AlbumDetailFragment : Fragment() {
         } else {
             arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
         }
-        permissionLauncher.launch(permissions)
+        val allGranted = permissions.all {
+            android.content.pm.PackageManager.PERMISSION_GRANTED ==
+                androidx.core.content.ContextCompat.checkSelfPermission(requireContext(), it)
+        }
+        if (allGranted) {
+            viewModel.setAlbumId(args.bucketId)
+            observePhotoList()
+        } else {
+            permissionLauncher.launch(permissions)
+        }
     }
 
     private fun setupClickListeners() {
@@ -203,6 +212,7 @@ class AlbumDetailFragment : Fragment() {
         binding.btnFavorite.setOnClickListener { favoriteSelectedPhotos() }
         binding.btnDelete.setOnClickListener { deleteSelectedPhotos() }
         binding.btnFilter.visibility = View.GONE
+        binding.btnFilterExif.visibility = View.GONE
         binding.btnSearch.visibility = View.GONE
     }
 

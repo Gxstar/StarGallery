@@ -171,7 +171,7 @@ class PhotosFragment : Fragment() {
             lifecycleOwner = viewLifecycleOwner,
             context = requireContext(),
             onChangeDetected = {
-                refreshData()
+                viewModel.silentRefresh()
             },
             shouldSkipRefresh = {
                 System.currentTimeMillis() - lastExplicitRefreshTime < 1000
@@ -389,9 +389,16 @@ class PhotosFragment : Fragment() {
     private fun handleHideAction() {
         val photos = getSelectedPhotosOrShowToast() ?: return
         val selectedIds = photos.map { it.id }
-        Toast.makeText(requireContext(), R.string.hidden_success, Toast.LENGTH_SHORT).show()
-        viewModel.updateHidden(selectedIds, true)
-        selectionManager.exitSelectionMode()
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.hide)
+            .setMessage(getString(R.string.hide_selected_confirm, photos.size))
+            .setPositiveButton(R.string.hide) { _, _ ->
+                Toast.makeText(requireContext(), R.string.hidden_success, Toast.LENGTH_SHORT).show()
+                viewModel.updateHidden(selectedIds, true)
+                selectionManager.exitSelectionMode()
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
     }
 
     private fun handleFavoriteAction() {
