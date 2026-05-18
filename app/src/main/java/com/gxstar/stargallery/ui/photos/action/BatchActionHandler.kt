@@ -50,49 +50,54 @@ class BatchActionHandler(
 
     /**
      * 收藏/取消收藏照片
-     * @return 是否需要启动 IntentSender
+     * 混合操作仅发起一次 IntentSender（取数量较多的方向），
+     * Room 更新在 callback 中处理所有照片的正确状态
      */
     fun favoritePhotos(
         photos: List<Photo>,
         favoriteLauncher: ActivityResultLauncher<IntentSenderRequest>,
         actionType: Int
     ): Boolean {
-        if (photos.isEmpty()) {
+        if (photos.isEmpty() || actionType == FAVORITE_ACTION_NONE) {
             return false
         }
 
         val photosToFavorite = photos.filter { !it.isFavorite }
         val photosToUnfavorite = photos.filter { it.isFavorite }
 
-        if (actionType == FAVORITE_ACTION_NONE) {
-            return false
-        }
-
-        var hasRequest = false
-
-        if (photosToFavorite.isNotEmpty()) {
-            mediaRepository.setFavorite(photosToFavorite, true)?.let { intentSender ->
-                favoriteLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
-                hasRequest = true
+        // 混合时取数量较多的方向发起请求，避免多次 launch 互相覆盖回调
+        val (targetPhotos, targetState) = if (actionType == FAVORITE_ACTION_MIXED) {
+            if (photosToFavorite.size >= photosToUnfavorite.size) {
+                photosToFavorite to true
+            } else {
+                photosToUnfavorite to false
             }
+        } else if (actionType == FAVORITE_ACTION_ADD) {
+            photosToFavorite to true
+        } else {
+            photosToUnfavorite to false
         }
 
-        if (photosToUnfavorite.isNotEmpty()) {
-            mediaRepository.setFavorite(photosToUnfavorite, false)?.let { intentSender ->
-                favoriteLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
-                hasRequest = true
-            }
-        }
-
-        if (!hasRequest) {
+        if (targetPhotos.isEmpty()) {
             Toast.makeText(
                 fragment.requireContext(),
                 R.string.add_to_favorite_failed,
                 Toast.LENGTH_SHORT
             ).show()
+            return false
         }
 
-        return hasRequest
+        mediaRepository.setFavorite(targetPhotos, targetState)?.let { intentSender ->
+            favoriteLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
+            return true
+        } ?: run {
+            Toast.makeText(
+                fragment.requireContext(),
+                R.string.add_to_favorite_failed,
+                Toast.LENGTH_SHORT
+            ).show()
+            return false
+        }
     }
 
     /**

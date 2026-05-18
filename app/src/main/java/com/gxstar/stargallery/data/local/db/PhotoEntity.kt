@@ -1,12 +1,27 @@
 package com.gxstar.stargallery.data.local.db
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
  * Room 数据库实体，对应 MediaStore 中的一张照片/视频
  */
-@Entity(tableName = "photos")
+@Entity(
+    tableName = "photos",
+    indices = [
+        Index("dateTaken"),
+        Index("dateAdded"),
+        Index("isHidden"),
+        Index("isFavorite"),
+        Index("cameraMake"),
+        Index("cameraModel"),
+        Index("lensModel"),
+        Index("bucketId"),
+        Index("isHidden", "dateTaken"),
+        Index("isHidden", "isFavorite"),
+    ]
+)
 data class PhotoEntity(
     @PrimaryKey
     val id: Long,

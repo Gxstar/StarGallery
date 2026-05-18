@@ -17,7 +17,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  */
 @Database(
     entities = [PhotoEntity::class],
-    version = 3,
+    version = 4,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -59,6 +59,21 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_photos_dateTaken ON photos(dateTaken)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_photos_dateAdded ON photos(dateAdded)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_photos_isHidden ON photos(isHidden)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_photos_isFavorite ON photos(isFavorite)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_photos_cameraMake ON photos(cameraMake)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_photos_cameraModel ON photos(cameraModel)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_photos_lensModel ON photos(lensModel)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_photos_bucketId ON photos(bucketId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_photos_hidden_dateTaken ON photos(isHidden, dateTaken)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_photos_hidden_favorite ON photos(isHidden, isFavorite)")
+            }
+        }
+
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
@@ -74,7 +89,7 @@ abstract class AppDatabase : RoomDatabase() {
                 AppDatabase::class.java,
                 DATABASE_NAME
             )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .fallbackToDestructiveMigration(true)
                 .build()
         }
