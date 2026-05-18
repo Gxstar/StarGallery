@@ -71,8 +71,9 @@ class ExifExtractor @Inject constructor(
             ?: panasonicMakernote?.getString(0x0051)?.trim()
         android.util.Log.v("ExifExtractor", "lensModel: $lensModel")
 
-        // isoEquivalent
-        val isoEquivalent = subIFD?.getInteger(ExifSubIFDDirectory.TAG_ISO_EQUIVALENT)?.takeIf { it > 0 }
+        // isoEquivalent — 优先用 TAG_ISO_SPEED (EXIF 2.3+)，fallback TAG_ISO_EQUIVALENT
+        val isoEquivalent = subIFD?.getInteger(ExifSubIFDDirectory.TAG_ISO_SPEED)?.takeIf { it > 0 }
+            ?: subIFD?.getInteger(ExifSubIFDDirectory.TAG_ISO_EQUIVALENT)?.takeIf { it > 0 }
         android.util.Log.v("ExifExtractor", "isoEquivalent: $isoEquivalent")
 
         // focalLength - 提取数字部分

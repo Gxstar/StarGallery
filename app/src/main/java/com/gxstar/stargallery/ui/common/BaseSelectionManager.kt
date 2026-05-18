@@ -17,7 +17,7 @@ import kotlinx.coroutines.flow.asStateFlow
  */
 abstract class BaseSelectionManager(
     protected var recyclerView: RecyclerView?,
-    protected var adapter: Any?
+    protected var adapter: RecyclerView.Adapter<*>?
 ) {
     protected val _selectedPhotoIds = mutableSetOf<Long>()
     protected var dragSelectListener: DragSelectTouchListener? = null
@@ -44,28 +44,7 @@ abstract class BaseSelectionManager(
     protected open fun refreshAllVisible() {
         val count = getItemCount()
         if (count > 0) {
-            // Try with payload first
-            try {
-                val method = adapter?.javaClass?.getMethod(
-                    "notifyItemRangeChanged",
-                    Int::class.java,
-                    Int::class.java,
-                    String::class.java
-                )
-                method?.invoke(adapter, 0, count, PAYLOAD_SELECTION_CHANGED)
-            } catch (e: Exception) {
-                // Fallback: try without payload
-                try {
-                    val method = adapter?.javaClass?.getMethod(
-                        "notifyItemRangeChanged",
-                        Int::class.java,
-                        Int::class.java
-                    )
-                    method?.invoke(adapter, 0, count)
-                } catch (ignored: Exception) {
-                    // Ignore
-                }
-            }
+            adapter?.notifyItemRangeChanged(0, count, PAYLOAD_SELECTION_CHANGED)
         }
     }
 
