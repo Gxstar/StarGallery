@@ -13,6 +13,7 @@ data class PhotoEntity(
 
     // MediaStore 基础字段
     val uri: String,
+    val displayName: String? = null,
     val dateTaken: Long,
     val dateModified: Long,
     val dateAdded: Long,

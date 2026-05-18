@@ -130,6 +130,7 @@ class PhotosFragment : Fragment() {
         initMediaChangeDetector()
         setupRecyclerView()
         setupClickListeners()
+        setupSearchViews()
         setupFragmentResultListener()
         observeData()
         observeSelectionState()
@@ -287,7 +288,7 @@ class PhotosFragment : Fragment() {
         binding.btnMore.setOnClickListener { showPopupMenu(it) }
         binding.btnFilter.setOnClickListener { viewModel.toggleFavoritesOnly() }
         binding.btnFilterExif.setOnClickListener { showFilterSheet() }
-        binding.btnSearch.setOnClickListener { showSearchDialog() }
+        binding.btnSearch.setOnClickListener { enterSearchMode() }
         binding.btnBack.setOnClickListener { selectionManager.exitSelectionMode() }
         binding.btnShare.setOnClickListener { handleShareAction() }
         binding.btnHide.setOnClickListener { handleHideAction() }
@@ -296,30 +297,65 @@ class PhotosFragment : Fragment() {
     }
 
     /**
-     * 显示搜索对话框
+     * 进入搜索模式：显示 searchToolbar，隐藏 normalToolbar
      */
-    private fun showSearchDialog() {
-        val editText = android.widget.EditText(requireContext()).apply {
-            hint = getString(R.string.search_hint)
-            setText(viewModel.searchQuery.value ?: "")
-            setPadding(48, 32, 48, 32)
+    private fun enterSearchMode() {
+        binding.normalToolbar.visibility = View.GONE
+        binding.searchToolbar.visibility = View.VISIBLE
+        binding.etSearch.requestFocus()
+        val imm = requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
+        imm?.showSoftInput(binding.etSearch, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+    }
+
+    /**
+     * 退出搜索模式：隐藏 searchToolbar，恢复 normalToolbar
+     */
+    private fun exitSearchMode() {
+        viewModel.setSearchQuery(null)
+        binding.searchToolbar.visibility = View.GONE
+        binding.normalToolbar.visibility = View.VISIBLE
+        binding.etSearch.setText("")
+        binding.btnSearchClear.visibility = View.GONE
+        val imm = requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
+        imm?.hideSoftInputFromWindow(binding.etSearch.windowToken, 0)
+        binding.etSearch.clearFocus()
+    }
+
+    private fun setupSearchViews() {
+        // 返回按钮退出搜索
+        binding.btnSearchBack.setOnClickListener { exitSearchMode() }
+
+        // 清除按钮清除输入
+        binding.btnSearchClear.setOnClickListener {
+            binding.etSearch.setText("")
+            viewModel.setSearchQuery(null)
         }
 
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle(R.string.search)
-            .setView(editText)
-            .setPositiveButton(R.string.search) { _, _ ->
-                val query = editText.text.toString().trim()
-                viewModel.setSearchQuery(query)
+        // 输入框实时过滤
+        binding.etSearch.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: android.text.Editable?) {
+                val text = s?.toString()?.trim()
+                if (text.isNullOrEmpty()) {
+                    viewModel.setSearchQuery(null)
+                    binding.btnSearchClear.visibility = View.GONE
+                } else {
+                    viewModel.setSearchQuery(text)
+                    binding.btnSearchClear.visibility = View.VISIBLE
+                }
             }
-            .setNegativeButton(R.string.cancel) { _, _ ->
-                // 取消搜索
-            }
-            .setNeutralButton(R.string.clear) { _, _ ->
-                // 清除搜索
-                viewModel.setSearchQuery(null)
-            }
-            .show()
+        })
+
+        // 搜索键提交
+        binding.etSearch.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH) {
+                val imm = requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
+                imm?.hideSoftInputFromWindow(binding.etSearch.windowToken, 0)
+                binding.etSearch.clearFocus()
+                true
+            } else false
+        }
     }
 
     private fun handlePhotoClick(photo: Photo) {
@@ -567,6 +603,16 @@ class PhotosFragment : Fragment() {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.isExtractingExif.collect { extracting ->
                     binding.exifProgressBar.visibility = if (extracting) View.VISIBLE else View.GONE
+                }
+            }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.isSearching.collect { searching ->
+                    binding.btnSearch.setImageResource(
+                        if (searching) R.drawable.ic_filter_active else R.drawable.ic_search
+                    )
                 }
             }
         }
@@ -819,10 +865,21 @@ class PhotosFragment : Fragment() {
     private fun updateSubtitle() {
         val count = viewModel.getCurrentPhotoCount()
         val showFavoritesOnly = viewModel.showFavoritesOnly.value
+        val searchQuery = viewModel.searchQuery.value
+        val isSearching = !searchQuery.isNullOrBlank()
+
+        // 普通/收藏副标题
         binding.tvSubtitle.text = if (showFavoritesOnly) {
             getString(R.string.favorite_count, count)
         } else {
             getString(R.string.photo_count, count)
+        }
+
+        // 搜索副标题
+        if (isSearching) {
+            binding.tvSearchSubtitle.text = getString(R.string.search_result, searchQuery, count)
+        } else {
+            binding.tvSearchSubtitle.text = ""
         }
     }
 

@@ -65,7 +65,8 @@ class PhotosViewModel @Inject constructor(
     private val _isScanning = MutableStateFlow(false)
     val isScanning: StateFlow<Boolean> = _isScanning.asStateFlow()
 
-    val isSearching: Flow<Boolean> = _searchQuery.map { !it.isNullOrBlank() }
+    val isSearching: StateFlow<Boolean> = _searchQuery.map { !it.isNullOrBlank() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val isExtractingExif: StateFlow<Boolean> = mediaScanner.isExtractingExifFlow
 
@@ -318,13 +319,12 @@ class PhotosViewModel @Inject constructor(
         Triple(cameraMake, cameraModel, lensModel)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Triple(emptySet(), emptySet(), emptySet()))
 
-    val photoListFlow: StateFlow<List<PhotoModel>> = combine(
+    private val baseFilteredList: StateFlow<List<PhotoEntity>> = combine(
         photoDao.getAllPhotosFlow(),
         _currentSortType,
         _showFavoritesOnly,
-        exifFilterState,
-        _currentGroupType
-    ) { entities, sortType, favoritesOnly, exifFilters, groupType ->
+        exifFilterState
+    ) { entities, sortType, favoritesOnly, exifFilters ->
         val (cameraMake, cameraModel, lensModel) = exifFilters
         var filtered = entities
         if (favoritesOnly) filtered = filtered.filter { it.isFavorite }
@@ -347,7 +347,25 @@ class PhotosViewModel @Inject constructor(
                     ("" in lensModel && entity.lensModel.isNullOrBlank())
             }
         }
-        val photos = filtered.map { it.toPhoto() }
+        filtered
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val photoListFlow: StateFlow<List<PhotoModel>> = combine(
+        baseFilteredList,
+        _currentSortType,
+        _currentGroupType,
+        _searchQuery
+    ) { filtered, sortType, groupType, searchQuery ->
+        val queryResult = if (!searchQuery.isNullOrBlank()) {
+            val q = searchQuery.lowercase()
+            filtered.filter { entity ->
+                entity.displayName?.lowercase()?.contains(q) == true ||
+                    entity.bucketName?.lowercase()?.contains(q) == true
+            }
+        } else {
+            filtered
+        }
+        val photos = queryResult.map { it.toPhoto() }
         val sortedPhotos = SortUtils.sortPhotos(photos, sortType)
         buildPhotoModelList(sortedPhotos, sortType, groupType)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())

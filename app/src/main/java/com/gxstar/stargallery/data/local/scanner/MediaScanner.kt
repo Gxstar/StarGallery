@@ -120,6 +120,7 @@ class MediaScanner @Inject constructor(
                         PhotoEntity(
                             id = item.id,
                             uri = item.uri,
+                            displayName = item.displayName,
                             dateTaken = item.dateTaken,
                             dateModified = item.dateModified,
                             dateAdded = item.dateAdded,
@@ -263,6 +264,7 @@ class MediaScanner @Inject constructor(
                     PhotoEntity(
                         id = item.id,
                         uri = item.uri,
+                        displayName = item.displayName,
                         dateTaken = item.dateTaken,
                         dateModified = item.dateModified,
                         dateAdded = item.dateAdded,
@@ -347,6 +349,7 @@ class MediaScanner @Inject constructor(
             PhotoEntity(
                 id = item.id,
                 uri = item.uri,
+                displayName = item.displayName,
                 dateTaken = item.dateTaken,
                 dateModified = item.dateModified,
                 dateAdded = item.dateAdded,
@@ -424,6 +427,7 @@ class MediaScanner @Inject constructor(
 
         val projection = arrayOf(
             MediaStore.Files.FileColumns._ID,
+            MediaStore.MediaColumns.DISPLAY_NAME,
             MediaStore.Files.FileColumns.MIME_TYPE,
             MediaStore.Files.FileColumns.DATE_TAKEN,
             MediaStore.Files.FileColumns.DATE_MODIFIED,
@@ -475,6 +479,7 @@ class MediaScanner @Inject constructor(
                     MediaStoreItem(
                         id = id,
                         uri = photoUri.toString(),
+                        displayName = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DISPLAY_NAME)),
                         mimeType = mimeType,
                         dateTaken = finalDateTaken,
                         dateModified = dateModified,
@@ -505,6 +510,7 @@ class MediaScanner @Inject constructor(
 
         val projection = arrayOf(
             MediaStore.Files.FileColumns._ID,
+            MediaStore.MediaColumns.DISPLAY_NAME,
             MediaStore.Files.FileColumns.MIME_TYPE,
             MediaStore.Files.FileColumns.DATE_TAKEN,
             MediaStore.Files.FileColumns.DATE_MODIFIED,
@@ -548,6 +554,7 @@ class MediaScanner @Inject constructor(
                     MediaStoreItem(
                         id = id,
                         uri = photoUri.toString(),
+                        displayName = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DISPLAY_NAME)),
                         mimeType = mimeType,
                         dateTaken = finalDateTaken,
                         dateModified = dateModified,
@@ -580,6 +587,7 @@ class MediaScanner @Inject constructor(
 
         val projection = arrayOf(
             MediaStore.Files.FileColumns._ID,
+            MediaStore.MediaColumns.DISPLAY_NAME,
             MediaStore.Files.FileColumns.MIME_TYPE,
             MediaStore.Files.FileColumns.DATE_TAKEN,
             MediaStore.Files.FileColumns.DATE_MODIFIED,
@@ -618,6 +626,7 @@ class MediaScanner @Inject constructor(
                     MediaStoreItem(
                         id = id,
                         uri = photoUri.toString(),
+                        displayName = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DISPLAY_NAME)),
                         mimeType = mimeType,
                         dateTaken = finalDateTaken,
                         dateModified = dateModified,
@@ -666,6 +675,7 @@ class MediaScanner @Inject constructor(
     private data class MediaStoreItem(
         val id: Long,
         val uri: String,
+        val displayName: String?,
         val mimeType: String,
         val dateTaken: Long,
         val dateModified: Long,
