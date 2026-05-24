@@ -433,8 +433,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:layout_marginBottom="8dp">
+                android:gravity="center_vertical">
 
                 <TextView
                     android:id="@+id/tvPhotoStyleLabel"
@@ -461,6 +460,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
+                android:layout_marginTop="8dp"
                 android:visibility="gone">
 
                 <TextView

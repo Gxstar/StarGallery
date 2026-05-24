@@ -110,9 +110,8 @@ class ExifExtractor @Inject constructor(
         val lut1 = panasonicMakernote?.getString(0x00F1)?.trim()?.takeIf { it.isNotBlank() }
         val lut2 = panasonicMakernote?.getString(0x00F4)?.trim()?.takeIf { it.isNotBlank() }
 
-        // photoStyle (Panasonic)
-        val photoStyleValue = panasonicMakernote?.getInteger(PanasonicMakernoteDirectory.TAG_PHOTO_STYLE)
-        val photoStyle = photoStyleValue?.let { PHOTO_STYLE_MAP[it] }
+        // photoStyle — 根据相机品牌选择对应映射
+        val photoStyle = PhotoStyleResolver.resolve(cameraMake, cameraModel, metadata)
 
         // exposureCompensation
         val exposureCompensation = subIFD?.getRational(ExifSubIFDDirectory.TAG_EXPOSURE_BIAS)
@@ -244,22 +243,6 @@ class ExifExtractor @Inject constructor(
     }
 
     companion object {
-        private val PHOTO_STYLE_MAP = mapOf(
-            0 to "Auto",
-            1 to "Standard",
-            2 to "Vivid",
-            3 to "Natural",
-            4 to "Monochrome",
-            5 to "Scenery",
-            6 to "Portrait",
-            8 to "Cinelike D",
-            9 to "Cinelike V",
-            11 to "L. Monochrome",
-            12 to "Like709",
-            15 to "L. Monochrome D",
-            17 to "V-Log",
-            18 to "Cinelike D2"
-        )
         /**
          * 将 ExifData 应用到 PhotoEntity，返回更新后的 PhotoEntity
          */

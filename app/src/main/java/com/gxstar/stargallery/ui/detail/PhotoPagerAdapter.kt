@@ -130,12 +130,5 @@ class PhotoPagerAdapter(
         return viewHolders[position]
     }
 
-    /**
-     * 更新所有可见 ViewHolder 的标签可见性
-     */
-    fun updateAllTagsVisibility(selectedTags: Set<TagType>) {
-        viewHolders.values.forEach { it.updateTagVisibility(selectedTags) }
-    }
-
     class ViewHolder(val viewHolder: PhotoPageViewHolder) : RecyclerView.ViewHolder(viewHolder.binding.root)
 }
