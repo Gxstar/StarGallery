@@ -165,6 +165,7 @@ class PhotoDetailFragment : Fragment() {
             override fun onPageSelected(position: Int) {
                 if (lastPosition >= 0 && lastPosition != position) {
                     pagerAdapter.getViewHolder(lastPosition)?.resetZoom()
+                    ExoPlayerManager.pause()
                 }
                 lastPosition = position
                 viewModel.setPosition(position)

@@ -425,6 +425,9 @@ class PhotoPageViewHolder(
         viewHolderScope?.coroutineContext?.cancelChildren()
         viewHolderScope = null
 
+        if (currentPhoto?.isVideo == true) {
+            ExoPlayerManager.pause()
+        }
         currentPhoto = null
         binding.videoView.player = null
         exoPlayer = null
