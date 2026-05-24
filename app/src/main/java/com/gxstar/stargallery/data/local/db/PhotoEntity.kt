@@ -59,5 +59,6 @@ data class PhotoEntity(
     val lut2: String? = null,
     val flash: Boolean? = null,
     val exposureCompensation: Float? = null,
-    val meteringMode: String? = null
+    val meteringMode: String? = null,
+    val photoStyle: String? = null
 )

@@ -209,25 +209,40 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
             binding.cardLocation.visibility = View.GONE
         }
 
-        // LUT
+        // 照片风格 + LUT
+        val photoStyle = entity.photoStyle?.trim()?.takeIf { it.isNotBlank() }
         val lut1 = entity.lut1?.trim()?.takeIf { it.isNotBlank() }
         val lut2 = entity.lut2?.trim()?.takeIf { it.isNotBlank() }
-        if (lut1 != null || lut2 != null) {
-            binding.containerLuts.visibility = View.VISIBLE
-            if (lut1 != null) {
-                binding.chipLut1.text = "LUT1: $lut1"
-                binding.chipLut1.visibility = View.VISIBLE
+        val hasPhotoStyle = photoStyle != null
+        val hasLut = lut1 != null || lut2 != null
+        if (hasPhotoStyle || hasLut) {
+            binding.cardPhotoStyle.visibility = View.VISIBLE
+            if (photoStyle != null) {
+                binding.tvPhotoStyleLabel.visibility = View.VISIBLE
+                binding.tvPhotoStyleValue.text = photoStyle
             } else {
-                binding.chipLut1.visibility = View.GONE
+                binding.tvPhotoStyleLabel.visibility = View.GONE
+                binding.tvPhotoStyleValue.text = null
             }
-            if (lut2 != null) {
-                binding.chipLut2.text = "LUT2: $lut2"
-                binding.chipLut2.visibility = View.VISIBLE
+            if (hasLut) {
+                binding.containerLuts.visibility = View.VISIBLE
+                if (lut1 != null) {
+                    binding.chipLut1.text = "LUT1: $lut1"
+                    binding.chipLut1.visibility = View.VISIBLE
+                } else {
+                    binding.chipLut1.visibility = View.GONE
+                }
+                if (lut2 != null) {
+                    binding.chipLut2.text = "LUT2: $lut2"
+                    binding.chipLut2.visibility = View.VISIBLE
+                } else {
+                    binding.chipLut2.visibility = View.GONE
+                }
             } else {
-                binding.chipLut2.visibility = View.GONE
+                binding.containerLuts.visibility = View.GONE
             }
         } else {
-            binding.containerLuts.visibility = View.GONE
+            binding.cardPhotoStyle.visibility = View.GONE
         }
     }
 

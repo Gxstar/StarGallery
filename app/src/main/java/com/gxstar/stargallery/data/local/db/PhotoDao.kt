@@ -155,10 +155,11 @@ interface PhotoDao {
         val longitude: Double?,
         val flash: Boolean?,
         val exposureCompensation: Float?,
-        val meteringMode: String?
+        val meteringMode: String?,
+        val photoStyle: String?
     )
 
-    @Query("SELECT id, cameraMake, cameraModel, lensModel, isoEquivalent, focalLength, focalLength35mmEquiv, fNumber, shutterSpeed, exifImageWidth, exifImageHeight, lut1, lut2, latitude, longitude, flash, exposureCompensation, meteringMode FROM photos")
+    @Query("SELECT id, cameraMake, cameraModel, lensModel, isoEquivalent, focalLength, focalLength35mmEquiv, fNumber, shutterSpeed, exifImageWidth, exifImageHeight, lut1, lut2, latitude, longitude, flash, exposureCompensation, meteringMode, photoStyle FROM photos")
     suspend fun getExifSnapshots(): List<ExifSnapshot>
 
     // ==================== 完整性检查 ====================

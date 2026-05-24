@@ -110,6 +110,10 @@ class ExifExtractor @Inject constructor(
         val lut1 = panasonicMakernote?.getString(0x00F1)?.trim()?.takeIf { it.isNotBlank() }
         val lut2 = panasonicMakernote?.getString(0x00F4)?.trim()?.takeIf { it.isNotBlank() }
 
+        // photoStyle (Panasonic)
+        val photoStyleValue = panasonicMakernote?.getInteger(PanasonicMakernoteDirectory.TAG_PHOTO_STYLE)
+        val photoStyle = photoStyleValue?.let { PHOTO_STYLE_MAP[it] }
+
         // exposureCompensation
         val exposureCompensation = subIFD?.getRational(ExifSubIFDDirectory.TAG_EXPOSURE_BIAS)
             ?.let { if (it.denominator != 0L) it.numerator.toFloat() / it.denominator.toFloat() else null }
@@ -150,7 +154,8 @@ class ExifExtractor @Inject constructor(
             longitude = longitude,
             flash = flash,
             exposureCompensation = exposureCompensation,
-            meteringMode = meteringMode
+            meteringMode = meteringMode,
+            photoStyle = photoStyle
         )
     }
 
@@ -225,7 +230,8 @@ class ExifExtractor @Inject constructor(
         val longitude: Double? = null,
         val flash: Boolean? = null,
         val exposureCompensation: Float? = null,
-        val meteringMode: String? = null
+        val meteringMode: String? = null,
+        val photoStyle: String? = null
     ) {
         fun isAllNull(): Boolean {
             return cameraMake == null && cameraModel == null && lensModel == null &&
@@ -233,11 +239,27 @@ class ExifExtractor @Inject constructor(
                     fNumber == null && shutterSpeed == null && exifImageWidth == null &&
                     exifImageHeight == null && lut1 == null && lut2 == null &&
                     latitude == null && longitude == null && flash == null &&
-                    exposureCompensation == null && meteringMode == null
+                    exposureCompensation == null && meteringMode == null && photoStyle == null
         }
     }
 
     companion object {
+        private val PHOTO_STYLE_MAP = mapOf(
+            0 to "Auto",
+            1 to "Standard",
+            2 to "Vivid",
+            3 to "Natural",
+            4 to "Monochrome",
+            5 to "Scenery",
+            6 to "Portrait",
+            8 to "Cinelike D",
+            9 to "Cinelike V",
+            11 to "L. Monochrome",
+            12 to "Like709",
+            15 to "L. Monochrome D",
+            17 to "V-Log",
+            18 to "Cinelike D2"
+        )
         /**
          * 将 ExifData 应用到 PhotoEntity，返回更新后的 PhotoEntity
          */
@@ -259,7 +281,8 @@ class ExifExtractor @Inject constructor(
                 longitude = exifData.longitude,
                 flash = exifData.flash,
                 exposureCompensation = exifData.exposureCompensation,
-                meteringMode = exifData.meteringMode
+                meteringMode = exifData.meteringMode,
+                photoStyle = exifData.photoStyle
             )
         }
     }

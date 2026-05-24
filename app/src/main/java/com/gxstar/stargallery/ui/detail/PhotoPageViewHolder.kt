@@ -230,15 +230,6 @@ class PhotoPageViewHolder(
                 }
             }
 
-            if (currentSelectedTags.contains(TagType.PHOTO_STYLE)) {
-                val photoStyleTag = readPhotoStyle(photo)
-                photoStyleTag?.let {
-                    if (!newTags.contains(it)) {
-                        newTags.add(it)
-                        displayTags(newTags)
-                    }
-                }
-            }
         }
     }
 
