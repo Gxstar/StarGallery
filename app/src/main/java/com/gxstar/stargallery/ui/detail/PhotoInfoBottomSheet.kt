@@ -1,36 +1,34 @@
 package com.gxstar.stargallery.ui.detail
 
-import android.content.Context
+import android.content.Intent
+import android.graphics.drawable.GradientDrawable
+import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import com.drew.imaging.ImageMetadataReader
-import com.drew.metadata.Metadata
-import com.drew.lang.GeoLocation
-import com.drew.metadata.exif.ExifIFD0Directory
-import com.drew.metadata.exif.ExifSubIFDDirectory
-import com.drew.metadata.exif.GpsDirectory
-import com.drew.metadata.exif.makernotes.PanasonicMakernoteDirectory
-import com.drew.metadata.jpeg.JpegDirectory
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
-import com.gxstar.stargallery.R
+import com.gxstar.stargallery.data.local.db.PhotoDao
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.databinding.LayoutPhotoInfoBottomSheetBinding
+import com.gxstar.stargallery.ui.util.DateUtils
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.DecimalFormat
-import java.text.SimpleDateFormat
-import java.util.Locale
+import javax.inject.Inject
 
 /**
  * 图片信息详情弹窗
- * 优先使用数据库中的元数据，降级时使用 Metadata-extractor 解析
+ * 数据来源：Room 数据库（由全量扫描 + EXIF 批量提取预先填充）
  */
+@AndroidEntryPoint
 class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
+
+    @Inject lateinit var photoDao: PhotoDao
 
     private var _binding: LayoutPhotoInfoBottomSheetBinding? = null
     private val binding get() = _binding!!
@@ -44,260 +42,259 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        photo?.let { loadPhotoInfo(it) }
+        val p = photo ?: return
+        loadFromDatabase(p)
     }
 
-    private fun loadPhotoInfo(photo: Photo) {
-        setupBaseInfo(photo)
-
+    private fun loadFromDatabase(photo: Photo) {
         CoroutineScope(Dispatchers.Main).launch {
-            val exifMetadata = extractMetadata(photo)
-            exifMetadata?.let { updateExifInfo(it, photo) }
-        }
-    }
-
-    private fun setupBaseInfo(photo: Photo) {
-        CoroutineScope(Dispatchers.Main).launch {
-            val fullName = withContext(Dispatchers.IO) { getFullFileName(photo.uri) }
-            binding.tvFilename.text = fullName ?: ""
-        }
-
-        CoroutineScope(Dispatchers.Main).launch {
-            val brand = withContext(Dispatchers.IO) { readCameraMake(photo) }
-            if (!brand.isNullOrBlank()) {
-                binding.tvBrand.text = brand
-                binding.tvBrand.visibility = View.VISIBLE
-            } else {
-                binding.tvBrand.visibility = View.GONE
+            val entity = withContext(Dispatchers.IO) {
+                photoDao.getPhotoById(photo.id)
             }
+            if (entity == null) return@launch
+            bindData(photo, entity)
         }
+    }
 
-        val sdf = SimpleDateFormat("yyyy年MM月dd日", Locale.CHINA)
+    private fun bindData(photo: Photo, entity: com.gxstar.stargallery.data.local.db.PhotoEntity) {
+        // 文件名
+        binding.tvTitle.text = entity.displayName ?: ""
+
+        // 格式徽章
+        val formatName = resolveFormatName(entity.mimeType)
+        setupFormatBadge(formatName)
+
+        // 日期
         val dateMs = when {
             photo.dateTaken > 0 -> photo.dateTaken
-            else -> photo.dateModified * 1000
+            photo.dateModified > 0 -> photo.dateModified * 1000L
+            else -> System.currentTimeMillis()
         }
-        binding.tvDate.text = sdf.format(dateMs)
-    }
+        val sizeStr = formatFileSize(photo.size)
+        binding.tvDate.text = "${DateUtils.formatDate(dateMs)}  ${DateUtils.formatTime(dateMs)}  •  $sizeStr"
 
-    private fun updateExifInfo(exifMetadata: Metadata, photo: Photo) {
-        try {
-            val exifIFD0 = exifMetadata.getFirstDirectoryOfType(ExifIFD0Directory::class.java)
-            val subIFD = exifMetadata.getFirstDirectoryOfType(ExifSubIFDDirectory::class.java)
-            val panasonicMakernote = exifMetadata.getFirstDirectoryOfType(PanasonicMakernoteDirectory::class.java)
-            
-            val make = exifIFD0?.getString(ExifIFD0Directory.TAG_MAKE)?.trim()
-            val model = exifIFD0?.getString(ExifIFD0Directory.TAG_MODEL)?.trim()
-            val cameraDisplay = when {
-                model.isNullOrBlank() && make.isNullOrBlank() -> null
-                model.isNullOrBlank() -> make
-                model?.contains(make ?: "", true) == true -> model
-                !make.isNullOrBlank() -> "$make $model"
-                else -> model
-            }
-            if (!cameraDisplay.isNullOrBlank()) {
-                binding.tvCamera.text = cameraDisplay
-                binding.tvCamera.visibility = View.VISIBLE
-            } else {
-                binding.tvCamera.visibility = View.GONE
-            }
-            
-            val lens = subIFD?.getString(ExifSubIFDDirectory.TAG_LENS_MODEL)?.trim()
-                ?: panasonicMakernote?.getString(0x0051)?.trim()
-            if (!lens.isNullOrBlank()) {
-                binding.tvLens.text = lens
-                binding.tvLens.visibility = View.VISIBLE
-            } else {
-                binding.tvLens.visibility = View.GONE
-            }
-            
-            val exifWidth = subIFD?.getInteger(ExifSubIFDDirectory.TAG_EXIF_IMAGE_WIDTH) ?: 0
-            val exifHeight = subIFD?.getInteger(ExifSubIFDDirectory.TAG_EXIF_IMAGE_HEIGHT) ?: 0
-            val width = if (exifWidth > 0) exifWidth else photo.width
-            val height = if (exifHeight > 0) exifHeight else photo.height
-            if (width > 0 && height > 0) {
-                val megapixels = (width.toLong() * height.toLong()) / 1_000_000.0
-                val pixelsStr = DecimalFormat("0.0").format(megapixels) + " MP"
-                val sizeStr = formatFileSize(photo.size)
-                binding.tvResolution.text = "${pixelsStr} • ${width} × ${height} • $sizeStr"
-                binding.tvResolution.visibility = View.VISIBLE
-            } else {
-                binding.tvResolution.visibility = View.GONE
-            }
-
-            // GPS 坐标 — 优先从数据库的 Photo 对象读取，降级从 EXIF 解析
-            val locationText = buildLocationText(photo, exifMetadata)
-            if (locationText != null) {
-                binding.tvLocation.text = locationText
-                binding.tvLocation.visibility = View.VISIBLE
-            } else {
-                binding.tvLocation.visibility = View.GONE
-            }
-
-            val exposureParts = mutableListOf<String>()
-            
-            val iso = subIFD?.getInteger(ExifSubIFDDirectory.TAG_ISO_EQUIVALENT)
-            if (iso != null && iso > 0) {
-                exposureParts.add("ISO $iso")
-            }
-            
-            val focalLengthDesc = subIFD?.getDescription(ExifSubIFDDirectory.TAG_FOCAL_LENGTH)
-            val equivFocalLength = subIFD?.getInteger(ExifSubIFDDirectory.TAG_35MM_FILM_EQUIV_FOCAL_LENGTH)
-            if (!focalLengthDesc.isNullOrBlank()) {
-                val match = Regex("(\\d+(?:\\.\\d+)?)").find(focalLengthDesc)
-                val physicalFocal = match?.let { it.groupValues[1].removeSuffix(".0") } ?: focalLengthDesc
-                val physicalFocalNum = physicalFocal.toFloatOrNull()
-                val focalStr = if (equivFocalLength != null && equivFocalLength > 0 && physicalFocalNum?.toInt() != equivFocalLength) {
-                    "${physicalFocal} mm (${equivFocalLength} mm)"
-                } else {
-                    "${physicalFocal} mm"
-                }
-                exposureParts.add(focalStr)
-            }
-            
-            val fNumberDesc = subIFD?.getDescription(ExifSubIFDDirectory.TAG_FNUMBER)
-            if (!fNumberDesc.isNullOrBlank()) {
-                val match = Regex("[fF]/?(\\d+(?:\\.\\d+)?)").find(fNumberDesc)
-                exposureParts.add("f/${match?.let { it.groupValues[1] } ?: fNumberDesc}")
-            }
-            
-            val shutterSpeedDesc = subIFD?.getDescription(ExifSubIFDDirectory.TAG_SHUTTER_SPEED)
-            val exposureTimeDesc = subIFD?.getDescription(ExifSubIFDDirectory.TAG_EXPOSURE_TIME)
-            val shutterStr = if (!shutterSpeedDesc.isNullOrBlank()) {
-                val apexValue = shutterSpeedDesc.toFloatOrNull()
-                if (apexValue != null) {
-                    val exposureTime = Math.pow(2.0, -apexValue.toDouble())
-                    if (exposureTime >= 1) {
-                        "${String.format("%.1f", exposureTime)} s"
-                    } else {
-                        val denominator = (1.0 / exposureTime).toInt()
-                        "1/${denominator} s"
-                    }
-                } else {
-                    shutterSpeedDesc
-                }
-            } else if (!exposureTimeDesc.isNullOrBlank()) {
-                val exposureValue = exposureTimeDesc.toFloatOrNull()
-                if (exposureValue != null) {
-                    if (exposureValue >= 1) {
-                        "${String.format("%.1f", exposureValue)} s"
-                    } else {
-                        val denominator = (1.0 / exposureValue).toInt()
-                        "1/${denominator} s"
-                    }
-                } else {
-                    exposureTimeDesc
-                }
-            } else {
-                null
-            }
-            shutterStr?.let { exposureParts.add(it) }
-            
-            if (exposureParts.isNotEmpty()) {
-                binding.tvExposureParams.text = exposureParts.joinToString(" • ")
-                binding.tvExposureParams.visibility = View.VISIBLE
-            } else {
-                binding.tvExposureParams.visibility = View.GONE
-            }
-            
-            val lut1 = panasonicMakernote?.getString(0x00F1)
-            if (!lut1.isNullOrBlank()) {
-                binding.tvLut1.text = "LUT1: $lut1"
-                binding.tvLut1.visibility = View.VISIBLE
-            } else {
-                binding.tvLut1.visibility = View.GONE
-            }
-            
-            val lut2 = panasonicMakernote?.getString(0x00F4)
-            if (!lut2.isNullOrBlank()) {
-                binding.tvLut2.text = "LUT2: $lut2"
-                binding.tvLut2.visibility = View.VISIBLE
-            } else {
-                binding.tvLut2.visibility = View.GONE
-            }
-            
-        } catch (e: Exception) {
-            e.printStackTrace()
+        // 拍摄设备
+        val make = entity.cameraMake?.trim()
+        val model = entity.cameraModel?.trim()
+        val cameraDisplay = when {
+            model.isNullOrBlank() && make.isNullOrBlank() -> null
+            model.isNullOrBlank() -> make
+            model?.contains(make ?: "", ignoreCase = true) == true -> model
+            !make.isNullOrBlank() -> "$make $model"
+            else -> model
         }
-    }
-
-    private fun getFullFileName(uri: android.net.Uri): String? {
-        return try {
-            requireContext().contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
-                if (cursor.moveToFirst()) {
-                    cursor.getString(0)
-                } else null
-            }
-        } catch (e: Exception) {
-            null
+        if (!cameraDisplay.isNullOrBlank()) {
+            binding.tvCameraValue.text = cameraDisplay
+            binding.tvCameraValue.visibility = View.VISIBLE
+        } else {
+            binding.tvCameraValue.visibility = View.GONE
         }
-    }
 
-    private suspend fun extractMetadata(photo: Photo) = withContext(Dispatchers.IO) {
-        try {
-            val originalUri = try {
-                MediaStore.setRequireOriginal(photo.uri)
-            } catch (_: Exception) {
-                photo.uri
-            }
-            val inputStream = requireContext().contentResolver.openInputStream(originalUri)
-            inputStream?.use { ImageMetadataReader.readMetadata(it) }
-        } catch (e: Exception) {
-            null
+        val lens = entity.lensModel?.trim()
+        if (!lens.isNullOrBlank()) {
+            binding.tvLensValue.text = lens
+            binding.rowLens.visibility = View.VISIBLE
+        } else {
+            binding.rowLens.visibility = View.GONE
         }
-    }
 
-    private suspend fun readCameraMake(photo: Photo): String? = withContext(Dispatchers.IO) {
-        try {
-            requireContext().contentResolver.openInputStream(photo.uri)?.use { inputStream ->
-                val metadata = ImageMetadataReader.readMetadata(inputStream)
-                val exifIFD0 = metadata.getFirstDirectoryOfType(ExifIFD0Directory::class.java)
-                val make = exifIFD0?.getString(ExifIFD0Directory.TAG_MAKE)?.trim()
-
-                if (make.isNullOrBlank()) return@withContext null
-
-                val cleaned = make
-                    .removeSuffix("CORPORATION").trim()
-                    .removeSuffix("CORP.").trim()
-                    .removeSuffix("CO., LTD").trim()
-                    .removeSuffix("CO.,LTD").trim()
-                    .removeSuffix("DIGITAL CAMERA").trim()
-                    .removeSuffix("ELECTRONICS").trim()
-                    .removePrefix("NIKON ").trim()
-                    .removePrefix("Canon ").trim()
-                    .removePrefix("SONY ").trim()
-                    .removePrefix("FUJIFILM ").trim()
-
-                cleaned.takeIf { it.isNotBlank() } ?: make
-            }
-        } catch (e: Exception) {
-            null
+        // 分辨率 + 文件大小
+        val exifWidth = entity.exifImageWidth ?: 0
+        val exifHeight = entity.exifImageHeight ?: 0
+        val dispWidth = if (exifWidth > 0) exifWidth else photo.width
+        val dispHeight = if (exifHeight > 0) exifHeight else photo.height
+        if (dispWidth > 0 && dispHeight > 0) {
+            val mp = (dispWidth.toLong() * dispHeight.toLong()) / 1_000_000.0
+            val mpStr = DecimalFormat("0.0").format(mp)
+            binding.tvResolutionValue.text = "${dispWidth} × ${dispHeight}  •  ${mpStr} MP"
+            binding.tvResolutionValue.visibility = View.VISIBLE
+        } else {
+            binding.tvResolutionValue.visibility = View.GONE
         }
-    }
 
-    /**
-     * 构建位置文本：优先用 Photo 中已缓存的坐标，降级从 EXIF 实时解析
-     */
-    private fun buildLocationText(photo: Photo, exifMetadata: Metadata): String? {
-        val lat = photo.latitude
-        val lng = photo.longitude
+        // 拍摄参数
+        val iso = entity.isoEquivalent
+        val fNumber = entity.fNumber
+        val shutterSpeed = entity.shutterSpeed
+        val focalLength = entity.focalLength
+        val equivFocal = entity.focalLength35mmEquiv
+
+        if (iso != null && iso > 0) {
+            binding.tvIsoValue.text = iso.toString()
+        } else {
+            binding.tvIsoValue.text = null
+        }
+
+        if (fNumber != null && fNumber > 0f) {
+            binding.tvApertureValue.text = "f/${String.format("%.1f", fNumber)}"
+        } else {
+            binding.tvApertureValue.text = null
+        }
+
+        if (shutterSpeed != null && shutterSpeed > 0f) {
+            binding.tvShutterValue.text = formatShutterSpeed(shutterSpeed)
+            // 从 EXIF 读取精确的描述字符串覆盖浮点换算值
+            readExposureTimeFromExif(photo)
+        } else {
+            binding.tvShutterValue.text = null
+        }
+
+        if (focalLength != null && focalLength > 0f) {
+            val focalStr = if (equivFocal != null && equivFocal > 0 && focalLength.toInt() != equivFocal) {
+                "${focalLength.toInt()} mm (${equivFocal} mm)"
+            } else {
+                "${focalLength.toInt()} mm"
+            }
+            binding.tvFocalValue.text = focalStr
+        } else {
+            binding.tvFocalValue.text = null
+        }
+
+        // 如果没有任何曝光参数，隐藏整个卡片
+        val hasExposure = (iso != null && iso > 0) ||
+                (fNumber != null && fNumber > 0f) ||
+                (shutterSpeed != null && shutterSpeed > 0f) ||
+                (focalLength != null && focalLength > 0f)
+        if (!hasExposure) {
+            binding.cardExposure.visibility = View.GONE
+        }
+
+        // 位置信息
+        val lat = entity.latitude
+        val lng = entity.longitude
         if (lat != null && lng != null && lat != 0.0 && lng != 0.0) {
-            return "${GeoLocation.decimalToDegreesMinutesSecondsString(lat)} • ${
-                if (lat >= 0) "N" else "S"
-            }  ${GeoLocation.decimalToDegreesMinutesSecondsString(lng)} • ${
-                if (lng >= 0) "E" else "W"
-            }"
+            binding.cardLocation.visibility = View.VISIBLE
+            val latStr = decimalToDms(lat) + if (lat >= 0) " N" else " S"
+            val lngStr = decimalToDms(lng) + if (lng >= 0) " E" else " W"
+            binding.tvLocationCoords.text = "$latStr  $lngStr"
+
+            binding.tvLocationCoords.setOnClickListener {
+                openInMap(lat, lng)
+            }
+        } else {
+            binding.cardLocation.visibility = View.GONE
         }
-        val gpsDir = exifMetadata.getFirstDirectoryOfType(GpsDirectory::class.java)
-        val geo = gpsDir?.getGeoLocation()
-        if (geo != null && !geo.isZero()) {
-            val latStr = GeoLocation.decimalToDegreesMinutesSecondsString(geo.latitude)
-            val lngStr = GeoLocation.decimalToDegreesMinutesSecondsString(geo.longitude)
-            val latDir = if (geo.latitude >= 0) "N" else "S"
-            val lngDir = if (geo.longitude >= 0) "E" else "W"
-            return "$latStr • $latDir  $lngStr • $lngDir"
+
+        // LUT
+        val lut1 = entity.lut1?.trim()?.takeIf { it.isNotBlank() }
+        val lut2 = entity.lut2?.trim()?.takeIf { it.isNotBlank() }
+        if (lut1 != null || lut2 != null) {
+            binding.containerLuts.visibility = View.VISIBLE
+            if (lut1 != null) {
+                binding.chipLut1.text = "LUT1: $lut1"
+                binding.chipLut1.visibility = View.VISIBLE
+            } else {
+                binding.chipLut1.visibility = View.GONE
+            }
+            if (lut2 != null) {
+                binding.chipLut2.text = "LUT2: $lut2"
+                binding.chipLut2.visibility = View.VISIBLE
+            } else {
+                binding.chipLut2.visibility = View.GONE
+            }
+        } else {
+            binding.containerLuts.visibility = View.GONE
         }
-        return null
+    }
+
+    private fun resolveFormatName(mimeType: String): String {
+        return when {
+            mimeType == "image/jpeg" -> "JPG"
+            mimeType == "image/png" -> "PNG"
+            mimeType == "image/gif" -> "GIF"
+            mimeType == "image/webp" -> "WebP"
+            mimeType == "image/avif" -> "AVIF"
+            mimeType == "image/heic" -> "HEIC"
+            mimeType == "image/heif" -> "HEIF"
+            mimeType == "image/bmp" || mimeType == "image/x-ms-bmp" -> "BMP"
+            mimeType == "image/x-adobe-dng" -> "DNG"
+            mimeType == "image/x-sony-arw" -> "ARW"
+            mimeType == "image/x-canon-cr2" -> "CR2"
+            mimeType == "image/x-canon-cr3" -> "CR3"
+            mimeType == "image/x-nikon-nef" -> "NEF"
+            mimeType == "image/x-olympus-orf" -> "ORF"
+            mimeType == "image/x-panasonic-rw2" -> "RW2"
+            mimeType.startsWith("video/") -> "视频"
+            mimeType.startsWith("image/x-") -> "RAW"
+            else -> mimeType.substringAfterLast("/").uppercase()
+        }
+    }
+
+    private fun setupFormatBadge(format: String) {
+        if (format.isBlank()) {
+            binding.badgeFormat.visibility = View.GONE
+            return
+        }
+        binding.badgeFormat.visibility = View.VISIBLE
+        binding.badgeFormat.text = format
+
+        val color = when (format) {
+            "JPG", "JPEG" -> 0xFF007AFF.toInt()
+            "PNG" -> 0xFF8E8E93.toInt()
+            "GIF" -> 0xFFFF9500.toInt()
+            "WebP" -> 0xFF00BFA5.toInt()
+            "AVIF" -> 0xFF34C759.toInt()
+            "HEIC", "HEIF" -> 0xFFAF52DE.toInt()
+            "BMP" -> 0xFF8E8E93.toInt()
+            "DNG", "ARW", "CR2", "CR3", "NEF", "ORF", "RW2", "RAW" -> 0xFFFF9500.toInt()
+            "视频" -> 0xFFFF3B30.toInt()
+            else -> 0xFF007AFF.toInt()
+        }
+        val drawable = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = 8f * resources.displayMetrics.density
+            setColor(color)
+        }
+        binding.badgeFormat.background = drawable
+    }
+
+    private fun readExposureTimeFromExif(photo: Photo) {
+        CoroutineScope(Dispatchers.Main).launch {
+            val desc = withContext(Dispatchers.IO) {
+                try {
+                    val originalUri = try {
+                        MediaStore.setRequireOriginal(photo.uri)
+                    } catch (_: Exception) {
+                        photo.uri
+                    }
+                    requireContext().contentResolver.openInputStream(originalUri)?.use { stream ->
+                        val metadata = com.drew.imaging.ImageMetadataReader.readMetadata(stream)
+                        val subIFD = metadata.getFirstDirectoryOfType(com.drew.metadata.exif.ExifSubIFDDirectory::class.java)
+                        subIFD?.getDescription(com.drew.metadata.exif.ExifSubIFDDirectory.TAG_EXPOSURE_TIME)
+                    }
+                } catch (_: Exception) { null }
+            }
+            if (!desc.isNullOrBlank()) {
+                binding.tvShutterValue.text = desc.removeSuffix(" s").removeSuffix("sec").trim()
+            }
+        }
+    }
+
+    private fun formatShutterSpeed(seconds: Float): String {
+        return if (seconds >= 1f) {
+            "${String.format("%.1f", seconds)} s"
+        } else {
+            val denominator = (1.0 / seconds).let { kotlin.math.round(it).toInt() }
+            if (denominator > 0) "1/${denominator} s" else "${String.format("%.3f", seconds)} s"
+        }
+    }
+
+    private fun decimalToDms(decimal: Double): String {
+        val degrees = decimal.toInt()
+        val minutesFull = (decimal - degrees) * 60
+        val minutes = minutesFull.toInt()
+        val seconds = (minutesFull - minutes) * 60
+        return "${degrees}°${minutes}'${String.format("%.1f", seconds)}\""
+    }
+
+    private fun openInMap(lat: Double, lng: Double) {
+        try {
+            val geoUri = Uri.parse("geo:${lat},${lng}?q=${lat},${lng}")
+            val intent = Intent(Intent.ACTION_VIEW, geoUri)
+            startActivity(intent)
+        } catch (_: Exception) {
+            // 没有地图应用
+        }
     }
 
     private fun formatFileSize(size: Long): String {

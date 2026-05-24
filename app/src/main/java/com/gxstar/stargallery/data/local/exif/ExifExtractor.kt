@@ -15,7 +15,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.math.pow
 
 /**
  * EXIF 信息提取器
@@ -99,11 +98,9 @@ class ExifExtractor @Inject constructor(
         val fNumber = parseFNumber(fNumberDesc)
         android.util.Log.v("ExifExtractor", "fNumber: desc=$fNumberDesc, parsed=$fNumber")
 
-        // shutterSpeed - APEX 转换为秒
-        val shutterSpeedDesc = subIFD?.getDescription(ExifSubIFDDirectory.TAG_SHUTTER_SPEED)
-        val exposureTimeDesc = subIFD?.getDescription(ExifSubIFDDirectory.TAG_EXPOSURE_TIME)
-        val shutterSpeed = parseShutterSpeed(shutterSpeedDesc, exposureTimeDesc)
-        android.util.Log.v("ExifExtractor", "shutterSpeed: desc=$shutterSpeedDesc, exposure=$exposureTimeDesc, parsed=$shutterSpeed")
+        // shutterSpeed — 优先用曝光时间有理数（精确分数），降级 APEX 换算
+        val shutterSpeed = parseShutterSpeed(subIFD)
+        android.util.Log.v("ExifExtractor", "shutterSpeed: parsed=$shutterSpeed")
 
         // exifImageWidth / exifImageHeight
         val exifImageWidth = subIFD?.getInteger(ExifSubIFDDirectory.TAG_EXIF_IMAGE_WIDTH)?.takeIf { it > 0 }
@@ -180,24 +177,11 @@ class ExifExtractor @Inject constructor(
         }
     }
 
-    /**
-     * 从快门速度描述转换为秒
-     * APEX 值: 2^(-apex) = exposure time
-     * 例如 APEX 10 -> 1/1024 秒 -> 0.0009765625f
-     */
-    private fun parseShutterSpeed(shutterSpeedDesc: String?, exposureTimeDesc: String?): Float? {
-        val apexValue = shutterSpeedDesc?.toFloatOrNull()
-        if (apexValue != null) {
-            val exposureTime = 2.0.pow(-apexValue.toDouble()).toFloat()
-            return exposureTime
+    private fun parseShutterSpeed(subIFD: ExifSubIFDDirectory?): Float? {
+        val rational = subIFD?.getRational(ExifSubIFDDirectory.TAG_EXPOSURE_TIME)
+        if (rational != null && rational.denominator > 0L && rational.numerator > 0L) {
+            return rational.numerator.toFloat() / rational.denominator.toFloat()
         }
-
-        // 尝试从曝光时间直接解析
-        val exposureValue = exposureTimeDesc?.toFloatOrNull()
-        if (exposureValue != null) {
-            return exposureValue
-        }
-
         return null
     }
 

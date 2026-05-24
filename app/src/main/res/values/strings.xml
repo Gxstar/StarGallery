@@ -231,4 +231,17 @@
     <string name="filter_selected_count">已选 %d 项</string>
     <string name="privacy_section_9_title">六、政策更新</string>
     <string name="privacy_section_9_content">我们可能会不时更新本隐私政策。更新时，我们会在应用内发布更新通知。建议您定期查看本政策以了解最新内容。重大变更将通过应用更新日志通知您。</string>
+
+    <!-- 图片信息弹窗 -->
+    <string name="photo_info_device">拍摄设备</string>
+    <string name="photo_info_camera">相机</string>
+    <string name="photo_info_lens">镜头</string>
+    <string name="photo_info_resolution">分辨率</string>
+    <string name="photo_info_exposure">拍摄参数</string>
+    <string name="photo_info_iso">ISO</string>
+    <string name="photo_info_aperture">光圈</string>
+    <string name="photo_info_shutter">快门</string>
+    <string name="photo_info_focal">焦距</string>
+    <string name="photo_info_location">位置信息</string>
+    <string name="photo_info_open_map">在地图中查看</string>
 </resources>
