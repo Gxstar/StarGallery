@@ -71,7 +71,8 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
             else -> System.currentTimeMillis()
         }
         val sizeStr = formatFileSize(photo.size)
-        binding.tvDate.text = "${DateUtils.formatDate(dateMs)}  ${DateUtils.formatTime(dateMs)}  •  $sizeStr"
+        val flashStr = if (entity.flash == true) "  •  ⚡" else ""
+        binding.tvDate.text = "${DateUtils.formatDate(dateMs)}  ${DateUtils.formatTime(dateMs)}  •  $sizeStr$flashStr"
 
         // 拍摄设备
         val make = entity.cameraMake?.trim()

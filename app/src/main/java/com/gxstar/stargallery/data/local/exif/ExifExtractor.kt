@@ -110,6 +110,14 @@ class ExifExtractor @Inject constructor(
         val lut1 = panasonicMakernote?.getString(0x00F1)?.trim()?.takeIf { it.isNotBlank() }
         val lut2 = panasonicMakernote?.getString(0x00F4)?.trim()?.takeIf { it.isNotBlank() }
 
+        // flash — TAG_FLASH 非 0 表示闪光灯触发
+        val flashRaw = subIFD?.getInteger(ExifSubIFDDirectory.TAG_FLASH)
+        val flash = when {
+            flashRaw == null -> null
+            flashRaw and 0x0001 != 0 -> true  // bit 0 set = flash fired
+            else -> false
+        }
+
         // GPS 坐标 — 使用 GeoLocation 自动处理 DMS→十进制转换和 N/S/E/W 方向
         val geoLocation = gpsDirectory?.getGeoLocation()
         val latitude = geoLocation?.takeIf { !it.isZero() }?.latitude
@@ -130,7 +138,8 @@ class ExifExtractor @Inject constructor(
             lut1 = lut1,
             lut2 = lut2,
             latitude = latitude,
-            longitude = longitude
+            longitude = longitude,
+            flash = flash
         )
     }
 
@@ -202,14 +211,15 @@ class ExifExtractor @Inject constructor(
         val lut1: String? = null,
         val lut2: String? = null,
         val latitude: Double? = null,
-        val longitude: Double? = null
+        val longitude: Double? = null,
+        val flash: Boolean? = null
     ) {
         fun isAllNull(): Boolean {
             return cameraMake == null && cameraModel == null && lensModel == null &&
                     isoEquivalent == null && focalLength == null && focalLength35mmEquiv == null &&
                     fNumber == null && shutterSpeed == null && exifImageWidth == null &&
                     exifImageHeight == null && lut1 == null && lut2 == null &&
-                    latitude == null && longitude == null
+                    latitude == null && longitude == null && flash == null
         }
     }
 
@@ -232,7 +242,8 @@ class ExifExtractor @Inject constructor(
                 lut1 = exifData.lut1,
                 lut2 = exifData.lut2,
                 latitude = exifData.latitude,
-                longitude = exifData.longitude
+                longitude = exifData.longitude,
+                flash = exifData.flash
             )
         }
     }

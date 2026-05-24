@@ -56,5 +56,6 @@ data class PhotoEntity(
     val exifImageWidth: Int? = null,
     val exifImageHeight: Int? = null,
     val lut1: String? = null,
-    val lut2: String? = null
+    val lut2: String? = null,
+    val flash: Boolean? = null
 )
