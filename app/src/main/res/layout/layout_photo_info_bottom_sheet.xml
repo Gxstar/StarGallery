@@ -51,16 +51,10 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
+            android:layout_marginBottom="12dp"
             android:textColor="@color/text_tertiary"
             android:textSize="13sp"
             android:text="---" />
-
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:background="@color/divider"
-            android:layout_marginTop="14dp"
-            android:layout_marginBottom="14dp" />
 
         <!-- Card 1: 拍摄设备 -->
         <LinearLayout
@@ -71,15 +65,6 @@
             android:background="@drawable/bg_card_light"
             android:padding="16dp"
             android:layout_marginBottom="12dp">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textColor="@color/text_primary"
-                android:textSize="15sp"
-                android:fontFamily="sans-serif-medium"
-                android:layout_marginBottom="12dp"
-                android:text="@string/photo_info_device" />
 
             <!-- Camera -->
             <LinearLayout
@@ -339,7 +324,8 @@
             android:id="@+id/cardLocation"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
             android:background="@drawable/bg_card_light"
             android:padding="16dp"
             android:layout_marginBottom="12dp"
@@ -347,33 +333,17 @@
             android:focusable="true"
             android:visibility="gone">
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:layout_marginBottom="8dp">
-
-                <ImageView
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:src="@drawable/ic_location"
-                    app:tint="@color/accent" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/photo_info_location"
-                    android:textColor="@color/text_primary"
-                    android:textSize="15sp"
-                    android:fontFamily="sans-serif-medium"
-                    android:layout_marginStart="8dp" />
-            </LinearLayout>
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/ic_location"
+                app:tint="@color/accent" />
 
             <TextView
                 android:id="@+id/tvLocationCoords"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginStart="10dp"
                 android:textColor="@color/accent"
                 android:textSize="14sp"
                 android:fontFamily="sans-serif-medium"
