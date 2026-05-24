@@ -242,6 +242,8 @@
     <string name="photo_info_aperture">光圈</string>
     <string name="photo_info_shutter">快门</string>
     <string name="photo_info_focal">焦距</string>
+    <string name="photo_info_exposure_comp">曝光补偿</string>
+    <string name="photo_info_metering_mode">测光模式</string>
     <string name="photo_info_location">位置信息</string>
     <string name="photo_info_open_map">在地图中查看</string>
 </resources>

@@ -119,6 +119,8 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
         val shutterSpeed = entity.shutterSpeed
         val focalLength = entity.focalLength
         val equivFocal = entity.focalLength35mmEquiv
+        val exposureComp = entity.exposureCompensation
+        val meteringMode = entity.meteringMode
 
         if (iso != null && iso > 0) {
             binding.tvIsoValue.text = iso.toString()
@@ -140,22 +142,53 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
             binding.tvShutterValue.text = null
         }
 
+        // 焦距：默认显示等效焦距，点击切换物理/等效
+        var showPhysicalFocal = false
         if (focalLength != null && focalLength > 0f) {
-            val focalStr = if (equivFocal != null && equivFocal > 0 && focalLength.toInt() != equivFocal) {
-                "${focalLength.toInt()} mm (${equivFocal} mm)"
-            } else {
-                "${focalLength.toInt()} mm"
+            val hasEquiv = equivFocal != null && equivFocal > 0 && focalLength.toInt() != equivFocal
+            fun updateFocalDisplay() {
+                if (showPhysicalFocal) {
+                    binding.tvFocalLabel.text = "物理焦距"
+                    binding.tvFocalValue.text = "${focalLength.toInt()} mm"
+                } else if (hasEquiv) {
+                    binding.tvFocalLabel.text = "等效焦距"
+                    binding.tvFocalValue.text = "${equivFocal} mm"
+                } else {
+                    binding.tvFocalLabel.text = "焦距"
+                    binding.tvFocalValue.text = "${focalLength.toInt()} mm"
+                }
             }
-            binding.tvFocalValue.text = focalStr
+            updateFocalDisplay()
+            binding.tvFocalValue.setOnClickListener {
+                showPhysicalFocal = !showPhysicalFocal
+                updateFocalDisplay()
+            }
         } else {
+            binding.tvFocalLabel.text = "焦距"
             binding.tvFocalValue.text = null
+            binding.tvFocalValue.setOnClickListener(null)
+        }
+
+        if (exposureComp != null) {
+            val sign = if (exposureComp >= 0f) "+" else ""
+            binding.tvExposureCompValue.text = "${sign}${String.format("%.1f", exposureComp)} EV"
+        } else {
+            binding.tvExposureCompValue.text = null
+        }
+
+        if (!meteringMode.isNullOrBlank()) {
+            binding.tvMeteringModeValue.text = resolveMeteringMode(meteringMode)
+        } else {
+            binding.tvMeteringModeValue.text = null
         }
 
         // 如果没有任何曝光参数，隐藏整个卡片
         val hasExposure = (iso != null && iso > 0) ||
                 (fNumber != null && fNumber > 0f) ||
                 (shutterSpeed != null && shutterSpeed > 0f) ||
-                (focalLength != null && focalLength > 0f)
+                (focalLength != null && focalLength > 0f) ||
+                exposureComp != null ||
+                !meteringMode.isNullOrBlank()
         if (!hasExposure) {
             binding.cardExposure.visibility = View.GONE
         }
@@ -195,6 +228,26 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
             }
         } else {
             binding.containerLuts.visibility = View.GONE
+        }
+    }
+
+    private fun isChineseLocale(): Boolean {
+        val locale = resources.configuration.locales.get(0)
+        return locale.language == "zh"
+    }
+
+    private fun resolveMeteringMode(mode: String): String {
+        if (!isChineseLocale()) return mode
+        return when (mode) {
+            "Unknown" -> "未知"
+            "Average" -> "平均"
+            "Center weighted average" -> "中央重点"
+            "Spot" -> "点"
+            "Multi-spot" -> "多点"
+            "Multi-segment" -> "多分区"
+            "Partial" -> "局部"
+            "(Other)" -> "其他"
+            else -> mode
         }
     }
 

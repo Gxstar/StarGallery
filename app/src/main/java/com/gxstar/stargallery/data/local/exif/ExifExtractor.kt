@@ -110,6 +110,15 @@ class ExifExtractor @Inject constructor(
         val lut1 = panasonicMakernote?.getString(0x00F1)?.trim()?.takeIf { it.isNotBlank() }
         val lut2 = panasonicMakernote?.getString(0x00F4)?.trim()?.takeIf { it.isNotBlank() }
 
+        // exposureCompensation
+        val exposureCompensation = subIFD?.getRational(ExifSubIFDDirectory.TAG_EXPOSURE_BIAS)
+            ?.let { if (it.denominator != 0L) it.numerator.toFloat() / it.denominator.toFloat() else null }
+            ?: subIFD?.getFloatObject(ExifSubIFDDirectory.TAG_EXPOSURE_BIAS)
+
+        // meteringMode — 用 getDescription() 获取人类可读字符串
+        val meteringMode = subIFD?.getDescription(ExifSubIFDDirectory.TAG_METERING_MODE)
+            ?.trim()?.takeIf { it.isNotBlank() }
+
         // flash — TAG_FLASH 非 0 表示闪光灯触发
         val flashRaw = subIFD?.getInteger(ExifSubIFDDirectory.TAG_FLASH)
         val flash = when {
@@ -139,7 +148,9 @@ class ExifExtractor @Inject constructor(
             lut2 = lut2,
             latitude = latitude,
             longitude = longitude,
-            flash = flash
+            flash = flash,
+            exposureCompensation = exposureCompensation,
+            meteringMode = meteringMode
         )
     }
 
@@ -212,14 +223,17 @@ class ExifExtractor @Inject constructor(
         val lut2: String? = null,
         val latitude: Double? = null,
         val longitude: Double? = null,
-        val flash: Boolean? = null
+        val flash: Boolean? = null,
+        val exposureCompensation: Float? = null,
+        val meteringMode: String? = null
     ) {
         fun isAllNull(): Boolean {
             return cameraMake == null && cameraModel == null && lensModel == null &&
                     isoEquivalent == null && focalLength == null && focalLength35mmEquiv == null &&
                     fNumber == null && shutterSpeed == null && exifImageWidth == null &&
                     exifImageHeight == null && lut1 == null && lut2 == null &&
-                    latitude == null && longitude == null && flash == null
+                    latitude == null && longitude == null && flash == null &&
+                    exposureCompensation == null && meteringMode == null
         }
     }
 
@@ -243,7 +257,9 @@ class ExifExtractor @Inject constructor(
                 lut2 = exifData.lut2,
                 latitude = exifData.latitude,
                 longitude = exifData.longitude,
-                flash = exifData.flash
+                flash = exifData.flash,
+                exposureCompensation = exifData.exposureCompensation,
+                meteringMode = exifData.meteringMode
             )
         }
     }
