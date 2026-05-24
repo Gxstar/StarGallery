@@ -2,10 +2,12 @@ package com.gxstar.stargallery.data.local.exif
 
 import android.content.Context
 import android.net.Uri
+import android.provider.MediaStore
 import com.drew.imaging.ImageMetadataReader
 import com.drew.metadata.Metadata
 import com.drew.metadata.exif.ExifIFD0Directory
 import com.drew.metadata.exif.ExifSubIFDDirectory
+import com.drew.metadata.exif.GpsDirectory
 import com.drew.metadata.exif.makernotes.PanasonicMakernoteDirectory
 import com.gxstar.stargallery.data.local.db.PhotoEntity
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -30,7 +32,14 @@ class ExifExtractor @Inject constructor(
      */
     suspend fun extractExif(uri: Uri): ExifData? = withContext(Dispatchers.IO) {
         try {
-            val inputStream = context.contentResolver.openInputStream(uri)
+            // 使用 setRequireOriginal 请求未被红删（含 GPS）的原始文件
+            // ACCESS_MEDIA_LOCATION 权限不足时抛出 SecurityException，降级到普通流
+            val originalUri = try {
+                MediaStore.setRequireOriginal(uri)
+            } catch (_: Exception) {
+                uri
+            }
+            val inputStream = context.contentResolver.openInputStream(originalUri)
             if (inputStream == null) {
                 android.util.Log.w("ExifExtractor", "openInputStream returned null for $uri")
                 return@withContext null
@@ -56,6 +65,7 @@ class ExifExtractor @Inject constructor(
         val exifIFD0 = metadata.getFirstDirectoryOfType(ExifIFD0Directory::class.java)
         val subIFD = metadata.getFirstDirectoryOfType(ExifSubIFDDirectory::class.java)
         val panasonicMakernote = metadata.getFirstDirectoryOfType(PanasonicMakernoteDirectory::class.java)
+        val gpsDirectory = metadata.getFirstDirectoryOfType(GpsDirectory::class.java)
 
         // cameraMake - 清理特殊后缀
         val rawMake = exifIFD0?.getString(ExifIFD0Directory.TAG_MAKE)?.trim()
@@ -103,6 +113,12 @@ class ExifExtractor @Inject constructor(
         val lut1 = panasonicMakernote?.getString(0x00F1)?.trim()?.takeIf { it.isNotBlank() }
         val lut2 = panasonicMakernote?.getString(0x00F4)?.trim()?.takeIf { it.isNotBlank() }
 
+        // GPS 坐标 — 使用 GeoLocation 自动处理 DMS→十进制转换和 N/S/E/W 方向
+        val geoLocation = gpsDirectory?.getGeoLocation()
+        val latitude = geoLocation?.takeIf { !it.isZero() }?.latitude
+        val longitude = geoLocation?.takeIf { !it.isZero() }?.longitude
+        android.util.Log.v("ExifExtractor", "GPS: lat=$latitude, lng=$longitude")
+
         return ExifData(
             cameraMake = cameraMake,
             cameraModel = cameraModel,
@@ -115,7 +131,9 @@ class ExifExtractor @Inject constructor(
             exifImageWidth = exifImageWidth,
             exifImageHeight = exifImageHeight,
             lut1 = lut1,
-            lut2 = lut2
+            lut2 = lut2,
+            latitude = latitude,
+            longitude = longitude
         )
     }
 
@@ -198,13 +216,16 @@ class ExifExtractor @Inject constructor(
         val exifImageWidth: Int? = null,
         val exifImageHeight: Int? = null,
         val lut1: String? = null,
-        val lut2: String? = null
+        val lut2: String? = null,
+        val latitude: Double? = null,
+        val longitude: Double? = null
     ) {
         fun isAllNull(): Boolean {
             return cameraMake == null && cameraModel == null && lensModel == null &&
                     isoEquivalent == null && focalLength == null && focalLength35mmEquiv == null &&
                     fNumber == null && shutterSpeed == null && exifImageWidth == null &&
-                    exifImageHeight == null && lut1 == null && lut2 == null
+                    exifImageHeight == null && lut1 == null && lut2 == null &&
+                    latitude == null && longitude == null
         }
     }
 
@@ -225,7 +246,9 @@ class ExifExtractor @Inject constructor(
                 exifImageWidth = exifData.exifImageWidth,
                 exifImageHeight = exifData.exifImageHeight,
                 lut1 = exifData.lut1,
-                lut2 = exifData.lut2
+                lut2 = exifData.lut2,
+                latitude = exifData.latitude,
+                longitude = exifData.longitude
             )
         }
     }

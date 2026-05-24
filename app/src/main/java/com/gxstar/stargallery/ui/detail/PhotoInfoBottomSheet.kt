@@ -2,13 +2,16 @@ package com.gxstar.stargallery.ui.detail
 
 import android.content.Context
 import android.os.Bundle
+import android.provider.MediaStore
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import com.drew.imaging.ImageMetadataReader
 import com.drew.metadata.Metadata
+import com.drew.lang.GeoLocation
 import com.drew.metadata.exif.ExifIFD0Directory
 import com.drew.metadata.exif.ExifSubIFDDirectory
+import com.drew.metadata.exif.GpsDirectory
 import com.drew.metadata.exif.makernotes.PanasonicMakernoteDirectory
 import com.drew.metadata.jpeg.JpegDirectory
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
@@ -121,7 +124,16 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
             } else {
                 binding.tvResolution.visibility = View.GONE
             }
-            
+
+            // GPS 坐标 — 优先从数据库的 Photo 对象读取，降级从 EXIF 解析
+            val locationText = buildLocationText(photo, exifMetadata)
+            if (locationText != null) {
+                binding.tvLocation.text = locationText
+                binding.tvLocation.visibility = View.VISIBLE
+            } else {
+                binding.tvLocation.visibility = View.GONE
+            }
+
             val exposureParts = mutableListOf<String>()
             
             val iso = subIFD?.getInteger(ExifSubIFDDirectory.TAG_ISO_EQUIVALENT)
@@ -223,7 +235,12 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
 
     private suspend fun extractMetadata(photo: Photo) = withContext(Dispatchers.IO) {
         try {
-            val inputStream = requireContext().contentResolver.openInputStream(photo.uri)
+            val originalUri = try {
+                MediaStore.setRequireOriginal(photo.uri)
+            } catch (_: Exception) {
+                photo.uri
+            }
+            val inputStream = requireContext().contentResolver.openInputStream(originalUri)
             inputStream?.use { ImageMetadataReader.readMetadata(it) }
         } catch (e: Exception) {
             null
@@ -256,6 +273,31 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
         } catch (e: Exception) {
             null
         }
+    }
+
+    /**
+     * 构建位置文本：优先用 Photo 中已缓存的坐标，降级从 EXIF 实时解析
+     */
+    private fun buildLocationText(photo: Photo, exifMetadata: Metadata): String? {
+        val lat = photo.latitude
+        val lng = photo.longitude
+        if (lat != null && lng != null && lat != 0.0 && lng != 0.0) {
+            return "${GeoLocation.decimalToDegreesMinutesSecondsString(lat)} • ${
+                if (lat >= 0) "N" else "S"
+            }  ${GeoLocation.decimalToDegreesMinutesSecondsString(lng)} • ${
+                if (lng >= 0) "E" else "W"
+            }"
+        }
+        val gpsDir = exifMetadata.getFirstDirectoryOfType(GpsDirectory::class.java)
+        val geo = gpsDir?.getGeoLocation()
+        if (geo != null && !geo.isZero()) {
+            val latStr = GeoLocation.decimalToDegreesMinutesSecondsString(geo.latitude)
+            val lngStr = GeoLocation.decimalToDegreesMinutesSecondsString(geo.longitude)
+            val latDir = if (geo.latitude >= 0) "N" else "S"
+            val lngDir = if (geo.longitude >= 0) "E" else "W"
+            return "$latStr • $latDir  $lngStr • $lngDir"
+        }
+        return null
     }
 
     private fun formatFileSize(size: Long): String {

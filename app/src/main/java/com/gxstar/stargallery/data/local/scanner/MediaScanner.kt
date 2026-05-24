@@ -130,8 +130,8 @@ class MediaScanner @Inject constructor(
                             size = item.size,
                             bucketId = item.bucketId,
                             bucketName = item.bucketName,
-                            latitude = null,
-                            longitude = null,
+                            latitude = exif?.latitude,
+                            longitude = exif?.longitude,
                             orientation = item.orientation,
                             isFavorite = item.isFavorite,
                             isHidden = item.id in hiddenIds,
@@ -211,7 +211,9 @@ class MediaScanner @Inject constructor(
                         if (photo == null) {
                             return@forEach
                         }
-                        if (photo.cameraMake != null || photo.cameraModel != null) {
+                        val hasCameraData = photo.cameraMake != null || photo.cameraModel != null
+                        val hasGpsData = photo.latitude != null || photo.longitude != null
+                        if (hasCameraData && hasGpsData) {
                             return@forEach
                         }
 

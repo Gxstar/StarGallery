@@ -150,10 +150,12 @@ interface PhotoDao {
         val exifImageWidth: Int?,
         val exifImageHeight: Int?,
         val lut1: String?,
-        val lut2: String?
+        val lut2: String?,
+        val latitude: Double?,
+        val longitude: Double?
     )
 
-    @Query("SELECT id, cameraMake, cameraModel, lensModel, isoEquivalent, focalLength, focalLength35mmEquiv, fNumber, shutterSpeed, exifImageWidth, exifImageHeight, lut1, lut2 FROM photos")
+    @Query("SELECT id, cameraMake, cameraModel, lensModel, isoEquivalent, focalLength, focalLength35mmEquiv, fNumber, shutterSpeed, exifImageWidth, exifImageHeight, lut1, lut2, latitude, longitude FROM photos")
     suspend fun getExifSnapshots(): List<ExifSnapshot>
 
     // ==================== 完整性检查 ====================

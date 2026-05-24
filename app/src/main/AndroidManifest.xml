@@ -10,6 +10,8 @@
     <!-- Android 11-12 读取存储权限 -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
+    <!-- Android 11+ 访问未经红删（含 GPS）的原始 EXIF 元数据 -->
+    <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" />
 
     <application
         android:name=".StarGalleryApp"

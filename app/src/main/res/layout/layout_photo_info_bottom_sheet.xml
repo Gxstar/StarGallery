@@ -111,7 +111,7 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:layout_marginBottom="14dp">
+            android:layout_marginBottom="8dp">
 
             <TextView
                 android:id="@+id/tvResolution"
@@ -119,6 +119,24 @@
                 android:layout_height="wrap_content"
                 android:textColor="#8E8E93"
                 android:textSize="13sp"
+                android:text="---" />
+        </LinearLayout>
+
+        <!-- Location -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="14dp">
+
+            <TextView
+                android:id="@+id/tvLocation"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="#8E8E93"
+                android:textSize="13sp"
+                android:visibility="gone"
                 android:text="---" />
         </LinearLayout>
 
