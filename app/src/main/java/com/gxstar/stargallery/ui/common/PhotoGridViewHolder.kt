@@ -30,11 +30,9 @@ class PhotoGridViewHolder(
 
     private var currentPhoto: Photo? = null
     private var isClickProcessing = false
-    private var currentPosition: Int = RecyclerView.NO_POSITION
 
     fun bind(photo: Photo, position: Int) {
         currentPhoto = photo
-        currentPosition = position
 
         val isSelectionMode = isSelectionModeProvider()
         val isSelected = isSelectedProvider(position)
@@ -60,7 +58,10 @@ class PhotoGridViewHolder(
             if (config.useClickProcessing) {
                 isClickProcessing = true
             }
-            onPhotoLongClick(currentPosition)
+            val pos = bindingAdapterPosition
+            if (pos != RecyclerView.NO_POSITION) {
+                onPhotoLongClick(pos)
+            }
             true
         }
     }

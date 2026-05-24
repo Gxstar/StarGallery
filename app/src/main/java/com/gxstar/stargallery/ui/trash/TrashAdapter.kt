@@ -1,7 +1,6 @@
 package com.gxstar.stargallery.ui.trash
 
 import android.view.LayoutInflater
-import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
@@ -16,7 +15,7 @@ class TrashAdapter(
     private val onPhotoLongClick: (Int) -> Unit,
     private val isSelectionModeProvider: () -> Boolean,
     private val isSelectedProvider: (Int) -> Boolean
-) : ListAdapter<Photo, TrashAdapter.TrashViewHolder>(TrashDiffCallback()) {
+) : ListAdapter<Photo, PhotoGridViewHolder>(TrashDiffCallback()) {
 
     init {
         setHasStableIds(true)
@@ -31,9 +30,9 @@ class TrashAdapter(
         notifyDataSetChanged()
     }
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): TrashViewHolder {
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PhotoGridViewHolder {
         val binding = ItemPhotoBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-        return TrashViewHolder(
+        return PhotoGridViewHolder(
             binding,
             { itemSize },
             onPhotoClick,
@@ -52,11 +51,11 @@ class TrashAdapter(
         )
     }
 
-    override fun onBindViewHolder(holder: TrashViewHolder, position: Int) {
+    override fun onBindViewHolder(holder: PhotoGridViewHolder, position: Int) {
         holder.bind(getItem(position), position)
     }
 
-    override fun onBindViewHolder(holder: TrashViewHolder, position: Int, payloads: MutableList<Any>) {
+    override fun onBindViewHolder(holder: PhotoGridViewHolder, position: Int, payloads: MutableList<Any>) {
         if (payloads.isEmpty()) {
             super.onBindViewHolder(holder, position, payloads)
             return
@@ -64,32 +63,11 @@ class TrashAdapter(
         holder.updateSelectionState(position)
     }
 
-    class TrashViewHolder(
-        private val binding: ItemPhotoBinding,
-        private val itemSizeProvider: () -> Int,
-        private val onPhotoClick: (Photo) -> Unit,
-        private val onPhotoLongClick: (Int) -> Unit,
-        private val isSelectionModeProvider: () -> Boolean,
-        private val isSelectedProvider: (Int) -> Boolean,
-        private val config: PhotoGridViewHolder.ViewHolderConfig
-    ) : RecyclerView.ViewHolder(binding.root) {
-
-        private val viewHolder = PhotoGridViewHolder(
-            binding,
-            itemSizeProvider,
-            onPhotoClick,
-            onPhotoLongClick,
-            isSelectionModeProvider,
-            isSelectedProvider,
-            config
-        )
-
-        fun bind(photo: Photo, position: Int) {
-            viewHolder.bind(photo, position)
-        }
-
-        fun updateSelectionState(position: Int) {
-            viewHolder.updateSelectionState(position)
+    override fun onViewAttachedToWindow(holder: PhotoGridViewHolder) {
+        super.onViewAttachedToWindow(holder)
+        val position = holder.bindingAdapterPosition
+        if (position != RecyclerView.NO_POSITION) {
+            holder.updateSelectionState(position)
         }
     }
 }

@@ -372,8 +372,8 @@ class MediaRepository @Inject constructor(
 
             putString(ContentResolver.QUERY_ARG_SQL_SELECTION, selection)
 
-            // 按拍摄时间降序
-            putStringArray(ContentResolver.QUERY_ARG_SORT_COLUMNS, arrayOf(MediaStore.Files.FileColumns.DATE_TAKEN))
+            // 按到期时间降序（最新进入回收站的排最前）
+            putStringArray(ContentResolver.QUERY_ARG_SORT_COLUMNS, arrayOf(MediaStore.MediaColumns.DATE_EXPIRES))
             putInt(ContentResolver.QUERY_ARG_SORT_DIRECTION, ContentResolver.QUERY_SORT_DIRECTION_DESCENDING)
         }
 
