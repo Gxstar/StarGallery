@@ -319,7 +319,13 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
                 } catch (_: Exception) { null }
             }
             if (!desc.isNullOrBlank()) {
-                binding.tvShutterValue.text = desc.removeSuffix(" s").removeSuffix("sec").trim()
+                val cleaned = desc.removeSuffix(" s").removeSuffix("sec").trim()
+                // 避免过长的分数（如 "1054277/1000000000"），改用 formatShutterSpeed 的简洁格式
+                val isLongFraction = cleaned.contains("/") && cleaned.replace("/", "").any { it.isDigit() } &&
+                        cleaned.length > 12
+                if (!isLongFraction) {
+                    binding.tvShutterValue.text = cleaned
+                }
             }
         }
     }
