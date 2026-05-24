@@ -1,6 +1,7 @@
 package com.gxstar.stargallery.data.local.exif
 
 import com.drew.metadata.Metadata
+import com.drew.metadata.exif.makernotes.CanonMakernoteDirectory
 import com.drew.metadata.exif.makernotes.PanasonicMakernoteDirectory
 import com.drew.metadata.exif.makernotes.SonyType1MakernoteDirectory
 
@@ -19,8 +20,17 @@ object PhotoStyleResolver {
                     ?.let { PANASONIC[it] }
             make.contains("sony") || make.contains("ilce") || make.contains("ilca") ->
                 readSonyColorMode(metadata)
+            make.contains("canon") ->
+                readCanonAmbience(metadata)
             else -> null
         }
+    }
+
+    private fun readCanonAmbience(metadata: Metadata): String? {
+        val dir = metadata.getFirstDirectoryOfType(CanonMakernoteDirectory::class.java) ?: return null
+        val arr = dir.getIntArray(0x4020) ?: return null
+        if (arr.isEmpty()) return null
+        return CANON[arr[0]]
     }
 
     private fun readSonyColorMode(metadata: Metadata): String? {
@@ -44,6 +54,18 @@ object PhotoStyleResolver {
         15 to "L. Monochrome D",
         17 to "V-Log",
         18 to "Cinelike D2"
+    )
+
+    private val CANON = mapOf(
+        0 to "Standard",
+        1 to "Vivid",
+        2 to "Warm",
+        3 to "Soft",
+        4 to "Cool",
+        5 to "Intense",
+        6 to "Brighter",
+        7 to "Darker",
+        8 to "Monochrome"
     )
 
     private val SONY = mapOf(
