@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -408,10 +409,41 @@ class MediaScanner @Inject constructor(
     /**
      * 为指定照片批量提取 EXIF 信息
      * 全量扫描仍在提取时不重复工作（最终会被全量覆盖）
+     * 失败的照片 5 秒后重试一次（覆盖相机后处理未完成的场景）
      */
     private suspend fun extractExifForPhotos(photoIds: List<Long>) = withContext(Dispatchers.IO) {
         if (exifJob?.isActive == true) return@withContext
 
+        val batchUpdates = mutableListOf<PhotoEntity>()
+        val failedIds = mutableListOf<Long>()
+
+        photoIds.forEach { id ->
+            val photo = photoDao.getPhotoById(id) ?: return@forEach
+            val uri = android.net.Uri.parse(photo.uri)
+            val exifData = exifExtractor.extractExif(uri)
+            if (exifData != null) {
+                batchUpdates.add(ExifExtractor.applyToEntity(photo, exifData))
+            } else {
+                failedIds.add(id)
+            }
+        }
+        if (batchUpdates.isNotEmpty()) {
+            photoDao.updateAll(batchUpdates)
+        }
+
+        // 失败的照片延迟重试，给相机后处理留出完成时间
+        if (failedIds.isNotEmpty()) {
+            Log.w(TAG, "EXIF extraction failed for ${failedIds.size} photos, retrying in 5s")
+            delay(5000)
+            retryExtractExif(failedIds)
+        }
+    }
+
+    /**
+     * 重试失败的 EXIF 提取
+     * 通常发生在照片文件尚未完全写入或后处理未完成时
+     */
+    private suspend fun retryExtractExif(photoIds: List<Long>) = withContext(Dispatchers.IO) {
         val batchUpdates = mutableListOf<PhotoEntity>()
         photoIds.forEach { id ->
             val photo = photoDao.getPhotoById(id) ?: return@forEach
@@ -422,7 +454,10 @@ class MediaScanner @Inject constructor(
             }
         }
         if (batchUpdates.isNotEmpty()) {
+            Log.i(TAG, "Retry EXIF succeeded for ${batchUpdates.size}/${photoIds.size} photos")
             photoDao.updateAll(batchUpdates)
+        } else {
+            Log.w(TAG, "Retry EXIF still failed for all ${photoIds.size} photos")
         }
     }
 
