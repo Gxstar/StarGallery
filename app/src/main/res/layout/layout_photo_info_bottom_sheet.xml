@@ -433,7 +433,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:gravity="center_vertical">
+                android:gravity="center_vertical"
+                android:layout_marginBottom="10dp">
 
                 <TextView
                     android:id="@+id/tvPhotoStyleLabel"
@@ -454,14 +455,32 @@
                     android:text="---" />
             </LinearLayout>
 
-            <!-- LUT rows -->
+            <!-- LUT row -->
             <LinearLayout
-                android:id="@+id/containerLuts"
+                android:id="@+id/rowLuts"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:layout_marginTop="8dp"
+                android:gravity="center_vertical"
                 android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/tvLutLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="松下LUT"
+                    android:textColor="@color/text_tertiary"
+                    android:textSize="13sp" />
+
+                <LinearLayout
+                    android:id="@+id/containerLuts"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="horizontal"
+                    android:gravity="start"
+                    android:layout_marginStart="10dp">
+
 
                 <TextView
                     android:id="@+id/chipLut1"
@@ -495,7 +514,9 @@
                     android:text="---" />
             </LinearLayout>
 
+            </LinearLayout>
+
         </LinearLayout>
 
-    </LinearLayout>
+        </LinearLayout>
 </androidx.core.widget.NestedScrollView>

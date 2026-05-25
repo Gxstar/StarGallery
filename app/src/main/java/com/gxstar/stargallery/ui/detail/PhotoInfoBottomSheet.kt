@@ -171,7 +171,7 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
 
         if (exposureComp != null) {
             val sign = if (exposureComp >= 0f) "+" else ""
-            binding.tvExposureCompValue.text = "${sign}${String.format("%.1f", exposureComp)} EV"
+            binding.tvExposureCompValue.text = "${sign}${String.format("%.2f", exposureComp)} EV"
         } else {
             binding.tvExposureCompValue.text = null
         }
@@ -225,23 +225,24 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
                 binding.tvPhotoStyleValue.text = null
             }
             if (hasLut) {
-                binding.containerLuts.visibility = View.VISIBLE
+                binding.rowLuts.visibility = View.VISIBLE
                 if (lut1 != null) {
-                    binding.chipLut1.text = "LUT1: $lut1"
+                    binding.chipLut1.text = lut1
                     binding.chipLut1.visibility = View.VISIBLE
                 } else {
                     binding.chipLut1.visibility = View.GONE
                 }
                 if (lut2 != null) {
-                    binding.chipLut2.text = "LUT2: $lut2"
+                    binding.chipLut2.text = lut2
                     binding.chipLut2.visibility = View.VISIBLE
                 } else {
                     binding.chipLut2.visibility = View.GONE
                 }
             } else {
-                binding.containerLuts.visibility = View.GONE
+                binding.rowLuts.visibility = View.GONE
             }
         } else {
+            binding.rowLuts.visibility = View.GONE
             binding.cardPhotoStyle.visibility = View.GONE
         }
     }
