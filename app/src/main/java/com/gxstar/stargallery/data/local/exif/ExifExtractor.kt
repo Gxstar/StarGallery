@@ -13,6 +13,8 @@ import com.gxstar.stargallery.data.local.db.PhotoEntity
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -136,6 +138,14 @@ class ExifExtractor @Inject constructor(
         val longitude = geoLocation?.takeIf { !it.isZero() }?.longitude
         android.util.Log.v("ExifExtractor", "GPS: lat=$latitude, lng=$longitude")
 
+        // 拍摄日期 — 优先级：DateTimeOriginal → DateTimeDigitized → IFD0 DateTime
+        // getDateOriginal() 使用 "yyyy:MM:dd HH:mm:ss"（EXIF 标准），
+        // 部分软件写入横线格式，需降级到 getString() + 多格式手动解析
+        val dateTimeOriginal = parseExifDate(subIFD?.getDateOriginal(), subIFD, ExifSubIFDDirectory.TAG_DATETIME_ORIGINAL)
+        val dateTimeDigitized = parseExifDate(subIFD?.getDateDigitized(), subIFD, ExifSubIFDDirectory.TAG_DATETIME_DIGITIZED)
+        val ifd0DateTime = parseExifDate(exifIFD0?.getDate(ExifIFD0Directory.TAG_DATETIME), exifIFD0, ExifIFD0Directory.TAG_DATETIME)
+        android.util.Log.v("ExifExtractor", "dates: original=$dateTimeOriginal digitized=$dateTimeDigitized ifd0=$ifd0DateTime")
+
         return ExifData(
             cameraMake = cameraMake,
             cameraModel = cameraModel,
@@ -154,7 +164,10 @@ class ExifExtractor @Inject constructor(
             flash = flash,
             exposureCompensation = exposureCompensation,
             meteringMode = meteringMode,
-            photoStyle = photoStyle
+            photoStyle = photoStyle,
+            dateTimeOriginal = dateTimeOriginal,
+            dateTimeDigitized = dateTimeDigitized,
+            ifd0DateTime = ifd0DateTime
         )
     }
 
@@ -175,6 +188,30 @@ class ExifExtractor @Inject constructor(
             .removePrefix("SONY ").trim()
             .removePrefix("FUJIFILM ").trim()
             .takeIf { it.isNotBlank() } ?: make
+    }
+
+    /**
+     * 解析 EXIF 拍摄日期（毫秒时间戳）
+     * getDateOriginal() 只认 "yyyy:MM:dd HH:mm:ss"（冒号分隔）,
+     * 遇到横线/斜杠格式会返回 null，降级到 getString() + 多格式手动解析
+     */
+    private fun parseExifDate(dateObj: java.util.Date?, dir: com.drew.metadata.Directory?, tag: Int): Long? {
+        if (dateObj != null) return dateObj.time
+        val raw = dir?.getString(tag)?.trim() ?: return null
+        if (raw.isBlank()) return null
+        val formats = arrayOf(
+            "yyyy:MM:dd HH:mm:ss",
+            "yyyy-MM-dd HH:mm:ss",
+            "yyyy/MM/dd HH:mm:ss",
+            "yyyy:MM:dd",
+            "yyyy-MM-dd"
+        )
+        for (fmt in formats) {
+            try {
+                return SimpleDateFormat(fmt, Locale.US).parse(raw)?.time
+            } catch (_: Exception) { }
+        }
+        return null
     }
 
     /**
@@ -230,7 +267,10 @@ class ExifExtractor @Inject constructor(
         val flash: Boolean? = null,
         val exposureCompensation: Float? = null,
         val meteringMode: String? = null,
-        val photoStyle: String? = null
+        val photoStyle: String? = null,
+        val dateTimeOriginal: Long? = null,
+        val dateTimeDigitized: Long? = null,
+        val ifd0DateTime: Long? = null
     ) {
         fun isAllNull(): Boolean {
             return cameraMake == null && cameraModel == null && lensModel == null &&
@@ -238,7 +278,8 @@ class ExifExtractor @Inject constructor(
                     fNumber == null && shutterSpeed == null && exifImageWidth == null &&
                     exifImageHeight == null && lut1 == null && lut2 == null &&
                     latitude == null && longitude == null && flash == null &&
-                    exposureCompensation == null && meteringMode == null && photoStyle == null
+                    exposureCompensation == null && meteringMode == null && photoStyle == null &&
+                    dateTimeOriginal == null && dateTimeDigitized == null && ifd0DateTime == null
         }
     }
 
@@ -247,6 +288,7 @@ class ExifExtractor @Inject constructor(
          * 将 ExifData 应用到 PhotoEntity，返回更新后的 PhotoEntity
          */
         fun applyToEntity(entity: PhotoEntity, exifData: ExifData): PhotoEntity {
+            val dateTaken = resolveBestDate(exifData, entity.dateTaken)
             return entity.copy(
                 cameraMake = exifData.cameraMake,
                 cameraModel = exifData.cameraModel,
@@ -265,8 +307,20 @@ class ExifExtractor @Inject constructor(
                 flash = exifData.flash,
                 exposureCompensation = exifData.exposureCompensation,
                 meteringMode = exifData.meteringMode,
-                photoStyle = exifData.photoStyle
+                photoStyle = exifData.photoStyle,
+                dateTaken = dateTaken
             )
+        }
+
+        /**
+         * 按优先级解析最佳拍摄日期（毫秒时间戳）：
+         * DateTimeOriginal → DateTimeDigitized → IFD0 DateTime → 当前 dateTaken（修改时间）
+         */
+        fun resolveBestDate(exifData: ExifData, currentDateTaken: Long): Long {
+            return exifData.dateTimeOriginal
+                ?: exifData.dateTimeDigitized
+                ?: exifData.ifd0DateTime
+                ?: currentDateTaken
         }
     }
 }

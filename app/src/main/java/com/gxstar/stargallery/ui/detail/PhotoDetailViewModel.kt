@@ -206,6 +206,14 @@ class PhotoDetailViewModel @Inject constructor(
         }
     }
 
+    fun hideCurrentPhoto() {
+        _currentPhoto.value?.let { photo ->
+            viewModelScope.launch {
+                photoDao.updateHiddenBatch(listOf(photo.id), true)
+            }
+        }
+    }
+
     /**
      * 从列表中移除指定位置的照片
      * @param position 要移除的照片位置

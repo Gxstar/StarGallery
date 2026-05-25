@@ -210,7 +210,27 @@ class PhotoDetailFragment : Fragment() {
     }
 
     private fun showMoreOptionsDialog() {
-        // TODO: 后续添加更多选项
+        val items = arrayOf(getString(R.string.hide))
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+            .setItems(items) { _, which ->
+                when (which) {
+                    0 -> confirmHidePhoto()
+                }
+            }
+            .show()
+    }
+
+    private fun confirmHidePhoto() {
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.hide)
+            .setMessage(getString(R.string.hide_selected_confirm, 1))
+            .setPositiveButton(R.string.hide) { _, _ ->
+                viewModel.hideCurrentPhoto()
+                Toast.makeText(requireContext(), R.string.hidden_success, Toast.LENGTH_SHORT).show()
+                findNavController().navigateUp()
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
     }
     
     private fun showDeleteOptionsDialog() {
