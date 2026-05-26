@@ -2,6 +2,7 @@ package com.gxstar.stargallery.data.local.exif
 
 import android.util.Log
 import com.drew.metadata.Metadata
+import com.drew.metadata.exif.ExifIFD0Directory
 import com.drew.metadata.exif.makernotes.CanonMakernoteDirectory
 import com.drew.metadata.exif.makernotes.CanonMakernoteDirectory.CameraSettings
 import com.drew.metadata.exif.makernotes.FujifilmMakernoteDirectory
@@ -59,23 +60,86 @@ object PhotoStyleResolver {
     // ==================== 佳能 ====================
 
     private fun readCanon(metadata: Metadata): String? {
-        val dir = metadata.getFirstDirectoryOfType(CanonMakernoteDirectory::class.java) ?: return null
+        val dir = metadata.getFirstDirectoryOfType(CanonMakernoteDirectory::class.java)
 
-        // 1. 优先 CameraSettings → TAG_PHOTO_EFFECT (CanonMakernoteDescriptor.getPhotoEffectDescription)
-        dir.getInteger(CameraSettings.TAG_PHOTO_EFFECT)?.let { value ->
-            if (value != 0) { // 0 = Off，跳过
-                CANON[value]?.let { return it }
+        if (dir != null) {
+            // 1. CameraSettings → TAG_PHOTO_EFFECT
+            dir.getInteger(CameraSettings.TAG_PHOTO_EFFECT)?.let { value ->
+                if (value != 0) {
+                    CANON[value]?.let { return it }
+                }
             }
+
+            // 2. PictureStylePC (0x4009) — int16u[3]
+            resolveCanonPictureStyle(dir, 0x4009)?.let { return it }
+
+            // 3. PictureStyleUserDef (0x4008) — 同上
+            resolveCanonPictureStyle(dir, 0x4008)?.let { return it }
         }
-        // 2. 降级到 PictureStylePC (raw tag 0x4009)，现代 EOS/R 系列相机
-        dir.getIntArray(0x4009)?.firstOrNull()?.let { value ->
-            CANON_PICTURE_STYLE[value]?.let { return it }
+
+        // 4. 兜底：直接从 ExifIFD0 的 MakerNote 原始字节解析 0x4008/0x4009
+        val exifDir = metadata.getFirstDirectoryOfType(ExifIFD0Directory::class.java)
+        val makernoteBytes = exifDir?.getByteArray(0x927C)
+        if (makernoteBytes != null) {
+            parseCanonMakernote(makernoteBytes)?.let { return it }
         }
-        // 3. 降级到 PictureStyleUserDef (raw tag 0x4008)
-        dir.getIntArray(0x4008)?.firstOrNull()?.let { value ->
-            CANON_PICTURE_STYLE[value]?.let { return it }
+
+        return null
+    }
+
+    /**
+     * 从 Canon MakerNote 原始字节中直接解析 PictureStyle。
+     * Canon MakerNote 结构：前 8 字节为 "Canon\0\0\0" 头，后续为标准 TIFF IFD。
+     * IFD 条目格式：12 字节/条目 (tag:2, type:2, count:4, value/offset:4)
+     * 遍历 IFD 查找 tag 0x4008/0x4009（int16u[3]），取第一个值。
+     */
+    private fun parseCanonMakernote(bytes: ByteArray): String? {
+        if (bytes.size < 10) return null
+
+        // 跳过 "Canon\0\0\0"（8 字节魔数头）
+        val ifdStart = 8
+        if (ifdStart + 2 > bytes.size) return null
+
+        val entryCount = ((bytes[ifdStart + 1].toInt() and 0xFF) shl 8) or (bytes[ifdStart].toInt() and 0xFF)
+
+        for (i in 0 until entryCount) {
+            val pos = ifdStart + 2 + i * 12
+            if (pos + 12 > bytes.size) break
+
+            val tag = ((bytes[pos + 1].toInt() and 0xFF) shl 8) or (bytes[pos].toInt() and 0xFF)
+            val type = ((bytes[pos + 3].toInt() and 0xFF) shl 8) or (bytes[pos + 2].toInt() and 0xFF)
+            val count = ((bytes[pos + 7].toInt() and 0xFF) shl 24) or
+                    ((bytes[pos + 6].toInt() and 0xFF) shl 16) or
+                    ((bytes[pos + 5].toInt() and 0xFF) shl 8) or
+                    (bytes[pos + 4].toInt() and 0xFF)
+
+            if (tag != 0x4008 && tag != 0x4009) continue
+            if (type != 3 || count < 1) continue // type 3 = unsigned short (2 bytes)
+
+            // value 区域包含第一个 int16u 值（little-endian）
+            val valPos = pos + 8
+            if (valPos + 2 > bytes.size) continue
+            val value = ((bytes[valPos + 1].toInt() and 0xFF) shl 8) or (bytes[valPos].toInt() and 0xFF)
+            val result = CANON_PICTURE_STYLE[value]
+            if (result != null) Log.d(TAG, "Canon makernote raw parse: tag=0x${tag.toString(16)}, value=$value → $result")
+            return result
         }
         return null
+    }
+
+    /**
+     * 从 CanonMakernoteDirectory 中取 PictureStyle 值。
+     * metadata-extractor 可能把 0x4008/0x4009 存为 intArray 或 Integer 或 byteArray。
+     */
+    private fun resolveCanonPictureStyle(dir: CanonMakernoteDirectory, tag: Int): String? {
+        val value = dir.getIntArray(tag)?.firstOrNull()
+            ?: dir.getInteger(tag)
+            ?: dir.getByteArray(tag)?.let { bytes ->
+                if (bytes.size >= 2) ((bytes[1].toInt() and 0xFF) shl 8) or (bytes[0].toInt() and 0xFF)
+                else null
+            }
+            ?: return null
+        return CANON_PICTURE_STYLE[value]
     }
 
     // ==================== 尼康 ====================
