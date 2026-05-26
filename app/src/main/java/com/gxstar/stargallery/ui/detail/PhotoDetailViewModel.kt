@@ -11,13 +11,17 @@ import com.gxstar.stargallery.data.repository.MediaRepository
 import com.gxstar.stargallery.ui.util.SortUtils
 import com.gxstar.stargallery.ui.util.DateUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class PhotoDetailViewModel @Inject constructor(
     private val mediaRepository: MediaRepository,
@@ -58,6 +62,9 @@ class PhotoDetailViewModel @Inject constructor(
     private val _currentPosition = MutableStateFlow(0)
     val currentPosition: StateFlow<Int> = _currentPosition.asStateFlow()
 
+    // 当前浏览的照片 ID（用于 Flow 观察数据库更新）
+    private val _currentPhotoId = MutableStateFlow(initialPhotoId)
+
     // 日期文本
     private val _dateText = MutableStateFlow("")
     val dateText: StateFlow<String> = _dateText.asStateFlow()
@@ -85,6 +92,18 @@ class PhotoDetailViewModel @Inject constructor(
         }
         // 后台渐进加载所有照片，加载完成后自动刷新列表
         loadPhotosInBackground()
+
+        // 响应式观察当前照片的数据库变更（例如 EXIF 扫描完成更新 dateTaken 后自动刷新日期显示）
+        viewModelScope.launch {
+            _currentPhotoId.flatMapLatest { id ->
+                photoDao.getPhotoByIdFlow(id)
+            }.collectLatest { entity ->
+                if (entity != null) {
+                    _dateText.value = DateUtils.formatDate(entity.dateTaken)
+                    _infoText.value = DateUtils.formatTime(entity.dateTaken)
+                }
+            }
+        }
     }
 
     private fun loadPhotosInBackground() {
@@ -160,6 +179,7 @@ class PhotoDetailViewModel @Inject constructor(
             _currentPosition.value = position
             val photo = photoList[position]
             _currentPhoto.value = photo
+            _currentPhotoId.value = photo.id
             updateDateInfo(photo)
         }
     }
@@ -238,8 +258,10 @@ class PhotoDetailViewModel @Inject constructor(
         }
 
         _currentPosition.value = newPosition
-        _currentPhoto.value = currentList[newPosition]
-        updateDateInfo(currentList[newPosition])
+        val newPhoto = currentList[newPosition]
+        _currentPhoto.value = newPhoto
+        _currentPhotoId.value = newPhoto.id
+        updateDateInfo(newPhoto)
 
         return true
     }

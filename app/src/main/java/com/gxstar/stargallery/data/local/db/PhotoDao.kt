@@ -41,6 +41,9 @@ interface PhotoDao {
     @Query("SELECT * FROM photos WHERE id = :photoId")
     suspend fun getPhotoById(photoId: Long): PhotoEntity?
 
+    @Query("SELECT * FROM photos WHERE id = :photoId")
+    fun getPhotoByIdFlow(photoId: Long): Flow<PhotoEntity?>
+
     @Query("SELECT * FROM photos WHERE id IN (:photoIds)")
     suspend fun getPhotosByIds(photoIds: List<Long>): List<PhotoEntity>
 

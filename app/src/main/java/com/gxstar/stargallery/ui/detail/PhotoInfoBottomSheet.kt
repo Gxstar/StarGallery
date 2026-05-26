@@ -65,10 +65,10 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
         val formatName = resolveFormatName(entity.mimeType)
         setupFormatBadge(formatName)
 
-        // 日期
+        // 日期（优先使用数据库中最新值，而非传入的快照对象）
         val dateMs = when {
-            photo.dateTaken > 0 -> photo.dateTaken
-            photo.dateModified > 0 -> photo.dateModified * 1000L
+            entity.dateTaken > 0 -> entity.dateTaken
+            entity.dateModified > 0 -> entity.dateModified * 1000L
             else -> System.currentTimeMillis()
         }
         val sizeStr = formatFileSize(photo.size)

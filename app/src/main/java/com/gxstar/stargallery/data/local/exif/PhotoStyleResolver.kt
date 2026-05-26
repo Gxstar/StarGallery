@@ -178,17 +178,29 @@ object PhotoStyleResolver {
     )
 
     // Canon PictureStyle (tag 0x4008/0x4009) — ExifTool Canon PictureStyle values
+    // 含两个范围：0x01-0x07（早期机型）和 0x81-0x88（现代 EOS/R 系列）
     private val CANON_PICTURE_STYLE = mapOf(
-        1 to "Standard",
-        2 to "Portrait",
-        3 to "Landscape",
-        4 to "Neutral",
-        5 to "Faithful",
-        6 to "Monochrome",
-        7 to "User Def. 1",
-        8 to "User Def. 2",
-        9 to "User Def. 3",
-        33 to "Auto"
+        0x01 to "Standard",
+        0x02 to "Portrait",
+        0x03 to "High Saturation",
+        0x04 to "Adobe RGB",
+        0x05 to "Low Saturation",
+        0x06 to "CM Set 1",
+        0x07 to "CM Set 2",
+        0x21 to "User Def. 1",
+        0x22 to "User Def. 2",
+        0x23 to "User Def. 3",
+        0x41 to "PC 1",
+        0x42 to "PC 2",
+        0x43 to "PC 3",
+        0x81 to "Standard",
+        0x82 to "Portrait",
+        0x83 to "Landscape",
+        0x84 to "Neutral",
+        0x85 to "Faithful",
+        0x86 to "Monochrome",
+        0x87 to "Auto",
+        0x88 to "Fine Detail"
     )
 
     // FujifilmMakernoteDescriptor.getFilmModeDescription 的实际值
