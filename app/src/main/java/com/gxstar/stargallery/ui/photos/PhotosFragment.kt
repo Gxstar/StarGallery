@@ -33,6 +33,7 @@ import com.bumptech.glide.util.ViewPreloadSizeProvider
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.gxstar.stargallery.R
 import com.gxstar.stargallery.data.model.Photo
+import com.gxstar.stargallery.data.local.preferences.ScanPreferences
 import com.gxstar.stargallery.data.repository.MediaRepository
 import com.gxstar.stargallery.databinding.FragmentPhotosBinding
 import com.gxstar.stargallery.ui.photos.filter.FilterBottomSheet
@@ -78,6 +79,9 @@ class PhotosFragment : Fragment() {
 
     @Inject
     lateinit var mediaRepository: MediaRepository
+
+    @Inject
+    lateinit var scanPreferences: ScanPreferences
 
     // 状态
     private var currentSpanCount = GridSpanCalculator.MIN_SPAN_COUNT
@@ -135,6 +139,7 @@ class PhotosFragment : Fragment() {
         observeData()
         observeSelectionState()
         checkPermissions()
+        showFirstLaunchDialog()
     }
 
     /**
@@ -681,6 +686,19 @@ class PhotosFragment : Fragment() {
         if (!allGranted) {
             permissionLauncher.launch(permissions)
         }
+    }
+
+    /**
+     * 首次启动提示：仅当首次扫描未完成且从未展示过时，弹一次提示
+     */
+    private fun showFirstLaunchDialog() {
+        if (scanPreferences.isScanCompleted || scanPreferences.isFirstLaunchDialogShown) return
+        scanPreferences.isFirstLaunchDialogShown = true
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.first_launch_title)
+            .setMessage(R.string.first_launch_message)
+            .setPositiveButton(android.R.string.ok, null)
+            .show()
     }
 
     private fun showPopupMenu(view: View) {

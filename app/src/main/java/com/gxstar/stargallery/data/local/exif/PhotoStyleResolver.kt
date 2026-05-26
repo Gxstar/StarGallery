@@ -84,24 +84,55 @@ object PhotoStyleResolver {
         val exifDir = metadata.getFirstDirectoryOfType(ExifIFD0Directory::class.java)
         val makernoteBytes = exifDir?.getByteArray(0x927C)
         if (makernoteBytes != null) {
-            parseCanonMakernote(makernoteBytes)?.let { return it }
+            parseMakerNoteInt16(makernoteBytes, intArrayOf(0x4009, 0x4008))?.let { value ->
+                CANON_PICTURE_STYLE[value]?.let { return it }
+            }
         }
 
         return null
     }
 
     /**
-     * 从 Canon MakerNote 原始字节中直接解析 PictureStyle。
-     * Canon MakerNote 结构：前 8 字节为 "Canon\0\0\0" 头，后续为标准 TIFF IFD。
-     * IFD 条目格式：12 字节/条目 (tag:2, type:2, count:4, value/offset:4)
-     * 遍历 IFD 查找 tag 0x4008/0x4009（int16u[3]），取第一个值。
+     * 从 MakerNote 原始字节中查找指定 tag（int16u 类型）的值。
+     * MakerNote 头后接标准 TIFF IFD：
+     *   entryCount: 2 bytes LE
+     *   entries: 12 bytes each (tag:2, type:2, count:4, value/offset:4)
+     * 遍历 entries 查找 tagIds 中首个匹配的 int16u 值返回。
+     * 已知头部格式：
+     *   Canon: 8 字节 "Canon\0\0\0" → 跳过 8
+     *   Pentax: "PENTAX \0" (8字节) → 跳过 8
+     *   Pentax: "AOC\0" (4字节) → 跳过 4
+     *   其他: 从字节 0 开始搜索有效 entryCount
      */
-    private fun parseCanonMakernote(bytes: ByteArray): String? {
-        if (bytes.size < 10) return null
+    private fun parseMakerNoteInt16(bytes: ByteArray, tagIds: IntArray): Int? {
+        if (bytes.size < 12) return null
 
-        // 跳过 "Canon\0\0\0"（8 字节魔数头）
-        val ifdStart = 8
-        if (ifdStart + 2 > bytes.size) return null
+        val ifdStart = when {
+            // Canon: "Canon\0\0\0" (43 61 6e 6f 6e 00 00 00)
+            bytes.size >= 8 && bytes[0] == 0x43.toByte() && bytes[1] == 0x61.toByte()
+                    && bytes[2] == 0x6E.toByte() && bytes[3] == 0x6F.toByte()
+                    && bytes[4] == 0x6E.toByte() && bytes[5] == 0x00.toByte() -> 8
+            // Pentax: "PENTAX \0" (50 45 4E 54 41 58 20 00)
+            bytes.size >= 8 && bytes[0] == 0x50.toByte() && bytes[1] == 0x45.toByte()
+                    && bytes[2] == 0x4E.toByte() && bytes[3] == 0x54.toByte()
+                    && bytes[4] == 0x41.toByte() && bytes[5] == 0x58.toByte() -> 8
+            // Pentax "AOC\0" (41 4F 43 00)
+            bytes.size >= 4 && bytes[0] == 0x41.toByte() && bytes[1] == 0x4F.toByte()
+                    && bytes[2] == 0x43.toByte() && bytes[3] == 0x00.toByte() -> 4
+            // 其他: 从字节 0 向后扫描有效 entryCount
+            else -> {
+                var found = -1
+                for (offset in 0..minOf(16, bytes.size - 2)) {
+                    val candidate = ((bytes[offset + 1].toInt() and 0xFF) shl 8) or (bytes[offset].toInt() and 0xFF)
+                    if (candidate in 1..200) {
+                        found = offset
+                        break
+                    }
+                }
+                found
+            }
+        }
+        if (ifdStart < 0 || ifdStart + 2 > bytes.size) return null
 
         val entryCount = ((bytes[ifdStart + 1].toInt() and 0xFF) shl 8) or (bytes[ifdStart].toInt() and 0xFF)
 
@@ -116,16 +147,12 @@ object PhotoStyleResolver {
                     ((bytes[pos + 5].toInt() and 0xFF) shl 8) or
                     (bytes[pos + 4].toInt() and 0xFF)
 
-            if (tag != 0x4008 && tag != 0x4009) continue
-            if (type != 3 || count < 1) continue // type 3 = unsigned short (2 bytes)
+            if (!tagIds.contains(tag)) continue
+            if (type != 3 || count < 1) continue // type 3 = unsigned short
 
-            // value 区域包含第一个 int16u 值（little-endian）
             val valPos = pos + 8
             if (valPos + 2 > bytes.size) continue
-            val value = ((bytes[valPos + 1].toInt() and 0xFF) shl 8) or (bytes[valPos].toInt() and 0xFF)
-            val result = CANON_PICTURE_STYLE[value]
-            if (result != null) Log.d(TAG, "Canon makernote raw parse: tag=0x${tag.toString(16)}, value=$value → $result")
-            return result
+            return ((bytes[valPos + 1].toInt() and 0xFF) shl 8) or (bytes[valPos].toInt() and 0xFF)
         }
         return null
     }
@@ -186,9 +213,41 @@ object PhotoStyleResolver {
     // ==================== 宾得 ====================
 
     private fun readPentax(metadata: Metadata): String? {
-        // Pentax 的照片风格是 ImageTone（0x004f），非 PictureMode（0x000b，后者是拍摄模式）
-        val dir = metadata.getFirstDirectoryOfType(PentaxMakernoteDirectory::class.java) ?: return null
-        return dir.getInteger(0x004f)?.let { PENTAX[it] }
+        val dir = metadata.getFirstDirectoryOfType(PentaxMakernoteDirectory::class.java)
+
+        if (dir != null) {
+            // 尝试读取 ImageTone (0x004f)
+            dir.getInteger(0x004f)?.let { return PENTAX[it] }
+
+            // 部分旧机型将 ImageTone 存在 PictureMode (0x000b) 中
+            // metadata-extractor 将其命名为 TAG_SHARPNESS，但实际是 PictureMode
+            dir.getInteger(0x000b)?.let { value ->
+                PENTAX_PICTURE_MODE[value]?.let { return it }
+            }
+
+            // 尝试 PictureMode 0x0033 (int8u[3])—第一个字节是主场景模式
+            dir.getByteArray(0x0033)?.let { bytes ->
+                if (bytes.isNotEmpty()) {
+                    val value = bytes[0].toInt() and 0xFF
+                    PENTAX_ALT_PICTURE_MODE[value]?.let { return it }
+                }
+            }
+        }
+
+        // 兜底：从 Makernote 原始字节解析
+        val exifDir = metadata.getFirstDirectoryOfType(ExifIFD0Directory::class.java)
+        val makernoteBytes = exifDir?.getByteArray(0x927C)
+        if (makernoteBytes != null) {
+            // 先试 ImageTone (0x004f)
+            parseMakerNoteInt16(makernoteBytes, intArrayOf(0x004f))?.let { value ->
+                return PENTAX[value]
+            }
+            // 再试 PictureMode (0x000b)
+            parseMakerNoteInt16(makernoteBytes, intArrayOf(0x000b))?.let { value ->
+                return PENTAX_PICTURE_MODE[value]
+            }
+        }
+        return null
     }
 
     // ==================== 值映射表（来自 metadata-extractor 各品牌 Descriptor 源码） ====================
@@ -349,5 +408,39 @@ object PhotoStyleResolver {
         32769 to "Hard",
         32770 to "Soft",
         33024 to "Monochrome"
+    )
+
+    // Pentax PictureMode（0x000b）— 备选：部分旧机型将风格存在此标签中
+    private val PENTAX_PICTURE_MODE = mapOf(
+        5 to "Portrait",
+        6 to "Landscape",
+        8 to "Sport",
+        9 to "Night Scene",
+        11 to "Soft",
+        12 to "Surf & Snow",
+        14 to "Autumn",
+        15 to "Macro",
+        21 to "B&W",
+        30 to "Self Portrait",
+        35 to "Night Scene Portrait",
+        40 to "Green Mode"
+    )
+
+    // Pentax PictureMode（0x0033 int8u[3]）— 进一步备选
+    private val PENTAX_ALT_PICTURE_MODE = mapOf(
+        4 to "Standard",
+        5 to "Portrait",
+        6 to "Landscape",
+        7 to "Macro",
+        8 to "Sport",
+        9 to "Night Scene Portrait",
+        12 to "Surf & Snow",
+        14 to "Sunset",
+        15 to "Kids",
+        19 to "Food",
+        21 to "Night Snap",
+        23 to "Blue Sky",
+        24 to "Sunset",
+        27 to "HDR"
     )
 }

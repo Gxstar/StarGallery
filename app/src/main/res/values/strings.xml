@@ -152,6 +152,8 @@
     <string name="scanning_warning">请勿关闭应用，这可能需要几分钟</string>
     <string name="scanning_total">共扫描 %d 张照片</string>
     <string name="scanning_hide">后台运行</string>
+    <string name="first_launch_title">提示</string>
+    <string name="first_launch_message">初次启动需等待扫描完成后才能正确显示所有内容</string>
 
     <!-- 关于页面 -->
     <string name="about">关于</string>

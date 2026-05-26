@@ -21,6 +21,7 @@ class ScanPreferences @Inject constructor(
         private const val KEY_LAST_SCAN_TIME = "last_scan_time"
         private const val KEY_LAST_MEDIA_COUNT = "last_media_count"
         private const val KEY_INCREMENTAL_SINCE_DELETION_CHECK = "incremental_since_deletion_check"
+        private const val KEY_FIRST_LAUNCH_DIALOG_SHOWN = "first_launch_dialog_shown"
         private const val DELETION_CHECK_INTERVAL = 50 // 每 50 次增量扫描检查一次删除
     }
 
@@ -72,4 +73,11 @@ class ScanPreferences @Inject constructor(
     fun reset() {
         prefs.edit().clear().apply()
     }
+
+    /**
+     * 首次启动提示弹窗是否已展示过（仅首次扫描前展示一次）
+     */
+    var isFirstLaunchDialogShown: Boolean
+        get() = prefs.getBoolean(KEY_FIRST_LAUNCH_DIALOG_SHOWN, false)
+        set(value) = prefs.edit().putBoolean(KEY_FIRST_LAUNCH_DIALOG_SHOWN, value).apply()
 }
