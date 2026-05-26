@@ -12,6 +12,7 @@ import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.gxstar.stargallery.data.local.db.PhotoDao
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.databinding.LayoutPhotoInfoBottomSheetBinding
+import com.gxstar.stargallery.ui.util.CoordinateUtils
 import com.gxstar.stargallery.ui.util.DateUtils
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -365,9 +366,45 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
 
     private fun openInMap(lat: Double, lng: Double) {
         try {
-            val geoUri = Uri.parse("geo:${lat},${lng}?q=${lat},${lng}")
-            val intent = Intent(Intent.ACTION_VIEW, geoUri)
-            startActivity(intent)
+            val (gcjLat, gcjLng) = CoordinateUtils.wgs84ToGcj02(lat, lng)
+
+            val intents = mutableListOf<Intent>()
+
+            // 高德 — WGS-84 + dev=1（由高德内部转换 GCJ-02）
+            Intent(Intent.ACTION_VIEW,
+                Uri.parse("androidamap://viewMap?lat=$lat&lon=$lng&dev=1")).also {
+                it.setPackage("com.autonavi.minimap")
+                intents.add(it)
+            }
+
+            // 腾讯 — WGS-84（原始值）
+            Intent(Intent.ACTION_VIEW,
+                Uri.parse("qqmap://map/geocoder?coord=$lat,$lng&referer=StarGallery")).also {
+                it.setPackage("com.tencent.map")
+                intents.add(it)
+            }
+
+            // 百度 — WGS-84（原始值）
+            Intent(Intent.ACTION_VIEW,
+                Uri.parse("baidumap://map/geocoder?location=$lat,$lng")).also {
+                it.setPackage("com.baidu.BaiduMap")
+                intents.add(it)
+            }
+
+            // 谷歌 — GCJ-02
+            Intent(Intent.ACTION_VIEW,
+                Uri.parse("geo:$gcjLat,$gcjLng?q=$gcjLat,$gcjLng")).also {
+                it.setPackage("com.google.android.apps.maps")
+                intents.add(it)
+            }
+
+            // 兜底 — WGS-84（RFC geo: URI 标准）
+            val fallback = Intent(Intent.ACTION_VIEW,
+                Uri.parse("geo:$lat,$lng?q=$lat,$lng"))
+
+            val chooser = Intent.createChooser(fallback, "选择地图")
+            chooser.putExtra(Intent.EXTRA_INITIAL_INTENTS, intents.toTypedArray())
+            startActivity(chooser)
         } catch (_: Exception) {
             // 没有地图应用
         }
