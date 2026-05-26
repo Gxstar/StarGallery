@@ -10,6 +10,7 @@ import com.drew.metadata.exif.makernotes.NikonPictureControl1Directory
 import com.drew.metadata.exif.makernotes.NikonPictureControl2Directory
 import com.drew.metadata.exif.makernotes.OlympusCameraSettingsMakernoteDirectory
 import com.drew.metadata.exif.makernotes.PanasonicMakernoteDirectory
+import com.drew.metadata.exif.makernotes.PentaxMakernoteDirectory
 import com.drew.metadata.exif.makernotes.SonyType1MakernoteDirectory
 
 object PhotoStyleResolver {
@@ -35,6 +36,8 @@ object PhotoStyleResolver {
                 readFujifilm(metadata)
             make.contains("olympus") || make.contains("om system") ->
                 readOlympus(metadata)
+            make.contains("pentax") || make.contains("ricoh") || make.contains("asahi") ->
+                readPentax(metadata)
             else -> null
         }
         if (result != null) {
@@ -180,6 +183,14 @@ object PhotoStyleResolver {
         return null
     }
 
+    // ==================== 宾得 ====================
+
+    private fun readPentax(metadata: Metadata): String? {
+        // Pentax 的照片风格是 ImageTone（0x004f），非 PictureMode（0x000b，后者是拍摄模式）
+        val dir = metadata.getFirstDirectoryOfType(PentaxMakernoteDirectory::class.java) ?: return null
+        return dir.getInteger(0x004f)?.let { PENTAX[it] }
+    }
+
     // ==================== 值映射表（来自 metadata-extractor 各品牌 Descriptor 源码） ====================
 
     private val PANASONIC = mapOf(
@@ -306,5 +317,37 @@ object PhotoStyleResolver {
         260 to "Portrait (Adobe RGB)",
         261 to "Monotone (Adobe RGB)",
         262 to "Sepia (Adobe RGB)"
+    )
+
+    // Pentax ImageTone（0x004f）— ExifTool Pentax ImageTone Values
+    private val PENTAX = mapOf(
+        0 to "Natural",
+        1 to "Bright",
+        2 to "Portrait",
+        3 to "Landscape",
+        4 to "Vibrant",
+        5 to "Monochrome",
+        6 to "Muted",
+        7 to "Reversal Film",
+        8 to "Bleach Bypass",
+        9 to "Radiant",
+        10 to "Cross Processing",
+        11 to "Flat",
+        256 to "Standard",
+        257 to "Vivid",
+        258 to "Monotone",
+        259 to "Soft Monotone",
+        260 to "Hard Monotone",
+        261 to "Hi-contrast B&W",
+        262 to "Positive Film",
+        263 to "Bleach Bypass 2",
+        264 to "Retro",
+        265 to "HDR Tone",
+        266 to "Cross Processing 2",
+        267 to "Negative Film",
+        32768 to "Standard",
+        32769 to "Hard",
+        32770 to "Soft",
+        33024 to "Monochrome"
     )
 }
