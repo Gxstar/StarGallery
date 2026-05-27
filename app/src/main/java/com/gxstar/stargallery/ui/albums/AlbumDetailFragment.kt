@@ -236,43 +236,37 @@ class AlbumDetailFragment : Fragment() {
         val photos = selectionManager.getSelectedPhotos()
         if (photos.isEmpty()) return
 
-        val photosToFavorite = mutableListOf<Photo>()
-        val photosToUnfavorite = mutableListOf<Photo>()
-
-        photos.forEach { photo ->
-            if (photo.isFavorite) photosToUnfavorite.add(photo)
-            else photosToFavorite.add(photo)
-        }
+        val photosToFavorite = photos.filter { !it.isFavorite }
+        val photosToUnfavorite = photos.filter { it.isFavorite }
 
         val hasFavorite = photosToFavorite.isNotEmpty()
         val hasUnfavorite = photosToUnfavorite.isNotEmpty()
-        pendingFavoriteAction = when {
-            hasFavorite && hasUnfavorite -> 3
-            hasFavorite -> 1
-            hasUnfavorite -> 2
-            else -> 0
-        }
 
-        if (pendingFavoriteAction == 0) {
+        if (!hasFavorite && !hasUnfavorite) {
             exitSelectionMode()
             return
         }
 
+        // 混合方向时仅发起一次 IntentSender（取数量较多的方向），避免多次 launch 互相覆盖
+        val (targetPhotos, targetState) = when {
+            hasFavorite && hasUnfavorite -> {
+                if (photosToFavorite.size >= photosToUnfavorite.size) photosToFavorite to true
+                else photosToUnfavorite to false
+            }
+            hasFavorite -> photosToFavorite to true
+            else -> photosToUnfavorite to false
+        }
+
+        pendingFavoriteAction = when {
+            hasFavorite && hasUnfavorite -> 3
+            hasFavorite -> 1
+            else -> 2
+        }
+
         try {
-            var hasRequest = false
-            if (hasFavorite) {
-                mediaRepository.setFavorite(photosToFavorite, true)?.let {
-                    favoriteRequestLauncher.launch(IntentSenderRequest.Builder(it).build())
-                    hasRequest = true
-                }
-            }
-            if (hasUnfavorite) {
-                mediaRepository.setFavorite(photosToUnfavorite, false)?.let {
-                    favoriteRequestLauncher.launch(IntentSenderRequest.Builder(it).build())
-                    hasRequest = true
-                }
-            }
-            if (!hasRequest) {
+            mediaRepository.setFavorite(targetPhotos, targetState)?.let { intentSender ->
+                favoriteRequestLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
+            } ?: run {
                 pendingFavoriteAction = 0
                 Toast.makeText(requireContext(), R.string.add_to_favorite_failed, Toast.LENGTH_SHORT).show()
                 exitSelectionMode()
@@ -566,7 +560,7 @@ class AlbumDetailFragment : Fragment() {
 
     private fun showColumnsDialog() {
         val options = arrayOf("3", "4", "5", "6", "7", "8")
-        val checkedItem = currentSpanCount - 3
+        val checkedItem = (currentSpanCount - 3).coerceIn(0, options.size - 1)
 
         MaterialAlertDialogBuilder(requireContext())
             .setTitle(R.string.select_columns)

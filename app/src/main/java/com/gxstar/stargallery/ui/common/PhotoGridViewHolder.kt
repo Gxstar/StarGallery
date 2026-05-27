@@ -33,6 +33,7 @@ class PhotoGridViewHolder(
 
     fun bind(photo: Photo, position: Int) {
         currentPhoto = photo
+        isClickProcessing = false
 
         val isSelectionMode = isSelectionModeProvider()
         val isSelected = isSelectedProvider(position)

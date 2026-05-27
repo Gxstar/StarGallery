@@ -1,21 +1,33 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# Glide
+-keep public class * implements com.bumptech.glide.module.GlideModule
+-keep class com.bumptech.glide.** { *; }
+-keep class com.bumptech.glide.load.resource.bitmap.** { *; }
+-keep class * extends com.bumptech.glide.module.AppGlideModule { *; }
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# Room
+-keep class * extends androidx.room.RoomDatabase { *; }
+-keep @androidx.room.Entity class *
+-keep @androidx.room.Dao class *
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# Hilt / Dagger
+-keep class dagger.hilt.** { *; }
+-keep class javax.inject.** { *; }
+-keep class * extends dagger.hilt.android.internal.managers.ViewComponentManager$FragmentContextWrapper { *; }
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# Parcelable
+-keep class * implements android.os.Parcelable { public static final android.os.Parcelable$Creator *; }
+-keepclassmembers class * implements android.os.Parcelable { public static final android.os.Parcelable$Creator *; }
+
+# metadata-extractor
+-keep class com.drew.** { *; }
+
+# ZoomImage
+-keep class com.github.panpf.zoomimage.** { *; }
+
+# Kotlin Coroutines
+-keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}
+-keepnames class kotlinx.coroutines.CoroutineExceptionHandler {}
+
+# Keep line numbers for crash tracing
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile

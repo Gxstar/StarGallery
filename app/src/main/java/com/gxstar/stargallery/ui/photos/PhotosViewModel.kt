@@ -142,8 +142,11 @@ class PhotosViewModel @Inject constructor(
         viewModelScope.launch {
             if (!scanPreferences.isScanCompleted) {
                 _isScanning.value = true
-                mediaScanner.performFullScan()
-                _isScanning.value = false
+                try {
+                    mediaScanner.performFullScan()
+                } finally {
+                    _isScanning.value = false
+                }
             }
         }
     }
@@ -211,8 +214,11 @@ class PhotosViewModel @Inject constructor(
      * 镜头→型号：选镜头时自动勾选对应型号
      * 镜头/型号→品牌：选镜头或型号时自动勾选对应品牌
      */
+    private var recomputeJob: kotlinx.coroutines.Job? = null
+
     private fun recomputeEffective() {
-        viewModelScope.launch {
+        recomputeJob?.cancel()
+        recomputeJob = viewModelScope.launch {
             val explicitMakes = _explicitCameraMake.value
             val explicitModels = _explicitCameraModel.value
             val explicitLenses = _explicitLensModel.value
@@ -245,8 +251,11 @@ class PhotosViewModel @Inject constructor(
     fun rescanAfterPermissionGranted() {
         viewModelScope.launch {
             _isScanning.value = true
-            mediaScanner.performFullScan()
-            _isScanning.value = false
+            try {
+                mediaScanner.performFullScan()
+            } finally {
+                _isScanning.value = false
+            }
         }
     }
 
@@ -257,8 +266,11 @@ class PhotosViewModel @Inject constructor(
     fun requestIncrementalScan() {
         viewModelScope.launch {
             _isScanning.value = true
-            mediaScanner.performIncrementalScan()
-            _isScanning.value = false
+            try {
+                mediaScanner.performIncrementalScan()
+            } finally {
+                _isScanning.value = false
+            }
         }
     }
 

@@ -131,7 +131,7 @@ class BatchActionHandler(
     /**
      * 移至回收站
      */
-    private fun moveToTrash(
+    fun moveToTrash(
         photos: List<Photo>,
         trashLauncher: ActivityResultLauncher<IntentSenderRequest>,
         onComplete: () -> Unit
@@ -161,7 +161,7 @@ class BatchActionHandler(
     /**
      * 永久删除
      */
-    private fun deletePermanently(
+    fun deletePermanently(
         photos: List<Photo>,
         deleteLauncher: ActivityResultLauncher<IntentSenderRequest>,
         onComplete: () -> Unit

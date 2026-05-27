@@ -109,6 +109,7 @@ class AlbumDetailViewModel @Inject constructor(
             _isLoading.value = true
             try {
                 val photos = mediaRepository.getPhotosByBucket(currentAlbumId)
+                if (_albumId.value != currentAlbumId) return@launch
                 val hiddenIds = photoDao.getHiddenPhotoIds().toSet()
                 _photos.value = photos.filter { it.id !in hiddenIds }
                 _photoCount.value = _photos.value.size

@@ -453,36 +453,37 @@ class PhotosFragment : Fragment() {
 
     private fun handleDeleteAction() {
         val photos = getSelectedPhotosOrShowToast() ?: return
-
         val selectedIds = photos.map { it.id }
-
-        intentSenderManager.setTrashCallback { success ->
-            if (success) {
-                Toast.makeText(requireContext(), R.string.moved_to_trash, Toast.LENGTH_SHORT).show()
-                selectionManager.exitSelectionMode()
-                viewModel.deletePhotos(selectedIds)
-                // 抑制 ContentObserver 延迟 500ms 后的重复刷新
-                lastExplicitRefreshTime = System.currentTimeMillis()
-            }
-        }
-
-        intentSenderManager.setDeleteCallback { success ->
-            if (success) {
-                Toast.makeText(requireContext(), R.string.deleted, Toast.LENGTH_SHORT).show()
-                selectionManager.exitSelectionMode()
-                viewModel.deletePhotos(selectedIds)
-                // 抑制 ContentObserver 延迟 500ms 后的重复刷新
-                lastExplicitRefreshTime = System.currentTimeMillis()
-            }
-        }
-
-        batchActionHandler.showDeleteOptions(
-            photos,
-            intentSenderManager.trashLauncher,
-            intentSenderManager.deleteLauncher
-        ) {
+        val onSuccess: () -> Unit = {
             selectionManager.exitSelectionMode()
+            viewModel.deletePhotos(selectedIds)
+            lastExplicitRefreshTime = System.currentTimeMillis()
         }
+
+        com.gxstar.stargallery.ui.common.DeleteOptionsBottomSheet.newInstance(
+            onMoveToTrash = {
+                intentSenderManager.setTrashCallback { success ->
+                    if (success) {
+                        Toast.makeText(requireContext(), R.string.moved_to_trash, Toast.LENGTH_SHORT).show()
+                        onSuccess()
+                    }
+                }
+                batchActionHandler.moveToTrash(photos, intentSenderManager.trashLauncher) {
+                    selectionManager.exitSelectionMode()
+                }
+            },
+            onDeletePermanently = {
+                intentSenderManager.setDeleteCallback { success ->
+                    if (success) {
+                        Toast.makeText(requireContext(), R.string.deleted, Toast.LENGTH_SHORT).show()
+                        onSuccess()
+                    }
+                }
+                batchActionHandler.deletePermanently(photos, intentSenderManager.deleteLauncher) {
+                    selectionManager.exitSelectionMode()
+                }
+            }
+        ).show(childFragmentManager, com.gxstar.stargallery.ui.common.DeleteOptionsBottomSheet.TAG)
     }
 
     private fun calculateFavoriteAction(photos: List<Photo>): Int {

@@ -147,7 +147,11 @@ class MediaScanner @Inject constructor(
                             exifImageWidth = exif?.exifImageWidth,
                             exifImageHeight = exif?.exifImageHeight,
                             lut1 = exif?.lut1,
-                            lut2 = exif?.lut2
+                            lut2 = exif?.lut2,
+                            flash = exif?.flash,
+                            exposureCompensation = exif?.exposureCompensation,
+                            meteringMode = exif?.meteringMode,
+                            photoStyle = exif?.photoStyle
                         )
                     }
                     photoDao.insertAll(entities)
@@ -285,8 +289,8 @@ class MediaScanner @Inject constructor(
                         size = item.size,
                         bucketId = item.bucketId,
                         bucketName = item.bucketName,
-                        latitude = null,
-                        longitude = null,
+                        latitude = exif?.latitude,
+                        longitude = exif?.longitude,
                         orientation = item.orientation,
                         isFavorite = item.isFavorite,
                         isHidden = item.id in hiddenIds,
@@ -301,7 +305,11 @@ class MediaScanner @Inject constructor(
                         exifImageWidth = exif?.exifImageWidth,
                         exifImageHeight = exif?.exifImageHeight,
                         lut1 = exif?.lut1,
-                        lut2 = exif?.lut2
+                        lut2 = exif?.lut2,
+                        flash = exif?.flash,
+                        exposureCompensation = exif?.exposureCompensation,
+                        meteringMode = exif?.meteringMode,
+                        photoStyle = exif?.photoStyle
                     )
                 }
                 photoDao.insertAll(entities)
@@ -370,8 +378,8 @@ class MediaScanner @Inject constructor(
                 size = item.size,
                 bucketId = item.bucketId,
                 bucketName = item.bucketName,
-                latitude = null,
-                longitude = null,
+                latitude = exif?.latitude,
+                longitude = exif?.longitude,
                 orientation = item.orientation,
                 isFavorite = item.isFavorite,
                 isHidden = item.id in hiddenIds,
@@ -386,7 +394,11 @@ class MediaScanner @Inject constructor(
                 exifImageWidth = exif?.exifImageWidth,
                 exifImageHeight = exif?.exifImageHeight,
                 lut1 = exif?.lut1,
-                lut2 = exif?.lut2
+                lut2 = exif?.lut2,
+                flash = exif?.flash,
+                exposureCompensation = exif?.exposureCompensation,
+                meteringMode = exif?.meteringMode,
+                photoStyle = exif?.photoStyle
             )
         }
         photoDao.insertAll(entities)
@@ -412,8 +424,6 @@ class MediaScanner @Inject constructor(
      * 失败的照片 5 秒后重试一次（覆盖相机后处理未完成的场景）
      */
     private suspend fun extractExifForPhotos(photoIds: List<Long>) = withContext(Dispatchers.IO) {
-        if (exifJob?.isActive == true) return@withContext
-
         val batchUpdates = mutableListOf<PhotoEntity>()
         val failedIds = mutableListOf<Long>()
 
@@ -621,6 +631,7 @@ class MediaScanner @Inject constructor(
     }
 
     private fun queryMediaByIds(photoIds: List<Long>): List<MediaStoreItem> {
+        if (photoIds.isEmpty()) return emptyList()
         val items = mutableListOf<MediaStoreItem>()
         val uri = MediaStore.Files.getContentUri("external")
 

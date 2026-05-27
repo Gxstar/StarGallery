@@ -413,7 +413,6 @@ class PhotoPageViewHolder(
     }
 
     fun isImageZoomed(): Boolean {
-        // 简化实现，ZoomImageView 内部处理缩放状态
         return false
     }
 
