@@ -62,4 +62,35 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 ---
 
+# 项目专属说明
+
+**StarGallery** — 现代化 Android 本地图库应用。详见 `AGENTS.md` 获取完整技术参考。
+
+## 快速参考
+
+### 构建
+```powershell
+.\gradlew.bat assembleDebug          # Debug APK
+.\gradlew.bat testDebugUnitTest       # 单元测试
+```
+
+### 导航
+`nav_graph.xml` 定义所有路由，SafeArgs 传递参数，禁止手动 Bundle。
+
+### 关键约束
+- ViewBinding 替代 findViewById
+- Hilt DI 用 KSP（非 kapt）
+- 数据流：Room Flow → ViewModel combine → ListAdapter.submitList()
+- MediaStore 操作通过 IntentSender（用户确认后执行）
+- 排列统一用 `SortUtils.sortPhotos()`（网格 + 详情页一致）
+- 预加载量 = currentSpanCount × 3（图片）/ × 4（布局预取）
+
+### 代码风格
+- Kotlin 命名：`lowerCamelCase` 变量/方法，`PascalCase` 类
+- 不写注释（除非解释 WHY，而非 WHAT）
+- 不写空行分隔方法
+- 字符串资源放在 `strings.xml`
+
+---
+
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.

@@ -12,7 +12,7 @@
 ```
 
 单模块 `:app`，版本目录 `gradle/libs.versions.toml`。依赖通过腾讯镜像加速（`settings.gradle.kts`）。
-Kotlin 2.3.20，AGP 9.2.1，minSdk 30，compileSdk 36，Java 21。
+Kotlin 2.3.20，AGP 9.2.1，minSdk 30，compileSdk 36，targetSdk 35，Java 21。
 
 ## 架构要点
 
@@ -21,13 +21,14 @@ Kotlin 2.3.20，AGP 9.2.1，minSdk 30，compileSdk 36，Java 21。
 - Hilt 用 **KSP**（非 kapt）：`ksp(libs.hilt.compiler)`
 - Navigation 用 **SafeArgs**，参数定义在 `nav_graph.xml`，禁止手动 Bundle
 - **ViewBinding** 替代 findViewById，使用 `viewBinding.root` 访问根视图
+- 插件：`com.android.application`、`navigation.safeargs`、`ksp`、`hilt`、`kotlin.parcelize`
 
 ## 数据加载模式（非 Paging 3）
 
 **项目已从 Paging 3 迁移到 Room Flow + ListAdapter 模式：**
 
 - `PhotoDao.getAllPhotosFlow()` 返回 `Flow<List<PhotoEntity>>`，Room 自动监听表变化推送更新
-- `PhotosViewModel.photoListFlow` 通过 `combine` 合并排序、收藏过滤、EXIF 过滤、分组等状态，在内存中排序/过滤/插入 `SeparatorItem`
+- `PhotosViewModel.photoListFlow` 通过 `combine` 合并排序、收藏过滤、EXIF 过滤、分组、搜索等状态，在内存中排序/过滤/插入 `SeparatorItem`
 - `PhotoListAdapter` 继承 `ListAdapter<PhotoModel, RecyclerView.ViewHolder>`，使用 `submitList()` 提交数据
 - 数据收集使用 `lifecycleScope.launch` + `repeatOnLifecycle(STARTED)` 组合
 
@@ -82,79 +83,202 @@ Kotlin 2.3.20，AGP 9.2.1，minSdk 30，compileSdk 36，Java 21。
 ## 图片加载
 
 - **Glide** 缩略图/GIF + `RecyclerViewPreloader` 预加载
+- **动态预加载数量**：`currentSpanCount * 3`（`RecyclerViewPreloader` 预加载图片数）、`currentSpanCount * 4`（`GridLayoutManager.initialPrefetchItemCount` 布局预取数），切换列数时自动重建预加载器
 - **ZoomImageView**（ZoomImage 1.4.0）大图子采样（>=2000px 启用）
-- **ExoPlayerManager**：全局单例，页面切换保持播放状态
+- **ExoPlayerManager**：全局单例，跨页面保持播放状态
 
 ## RecyclerView 网格
 
-- `GridLayoutManager` 3-8 列可配置，`spanSizeLookup` 控制 SeparatorItem 占整行
+- `GridLayoutManager` 3-8 列可配置（`GridSpanCalculator` 支持 3-10 列，UI 限制 3-8），`spanSizeLookup` 控制 SeparatorItem 占整行
 - `setHasFixedSize(true)` + `setItemViewCacheSize(8)`
 - `supportsChangeAnimations = false` 避免变更动画残影
+- `PhotoItemAnimator` 删除动画：缩小+渐隐（仅 TYPE_PHOTO）
 - 扫描时 `itemAnimator = null` 防快速刷新乱跳，扫描完成后恢复
+
+## 搜索功能
+
+- `btnSearch` 进入搜索模式，`etSearch` + TextWatcher + IME_ACTION_SEARCH
+- `viewModel.setSearchQuery(query)` 在 `photoListFlow` combine 链中过滤 `displayName` 和 `bucketName`
+- 搜索工具栏显示 `tvSearchSubtitle`：`"搜索：查询词 — N张"`
+
+## 照片详情页
+
+- **ViewPager2 + PhotoPagerAdapter** 滑动翻页，DiffUtil 处理列表变化
+- **顶部工具栏**（AutoHide）：btnBack / tvDate / tvInfo / **btnMore（PopupMenu → 隐藏）**
+- **底部工具栏**：btnSend（分享）/ btnFavorite（收藏）/ btnDelete（删除→DeleteOptionsBottomSheet）/ btnInfo（PhotoInfoBottomSheet）
+- **全屏切换**：单点切换，Alpha 动画 200ms，WindowInsetsController 隐藏系统栏
+- **下滑关闭**：垂直滑动 > 200px 触发 navigateUp()，透明度跟随滑动距离
+- **PhotoPageViewHolder**：ZoomImageView 子采样 + Glide 加载 + ExoPlayer 视频 + GIF + HDR 检测
+- **400ms 加载延迟**：`PhotoDetailViewModel.loadPhotosInBackground()` 等待导航动画完成，避免掉帧
+
+## HDR 检测（PhotoPageViewHolder）
+
+三重检测逻辑：
+1. Android 14+ `Bitmap.hasGainmap()` → Ultra HDR
+2. `Bitmap.Config.RGBA_F16` → 高位深 HDR
+3. `ColorSpace` 名称检测（BT2020, BT2020_HLG, BT2020_PQ 等）+ `isWideGamut`
+
+## EXIF 处理
+
+- **ExifExtractor**（326 行）：提取 20+ EXIF 字段，按优先级解析最佳日期（DateTimeOriginal → DateTimeDigitized → IFD0 DateTime → dateTaken）
+- **PhotoStyleResolver**（446 行）：7 大品牌照片风格/色彩模式/胶片模拟映射
+  - 松下（Panasonic）：TAG_PHOTO_STYLE，19 种（Standard/Vivid/Cinelike/V-Log 等）
+  - 索尼（Sony）：TAG_COLOR_MODE，25+ 种（Standard/Vivid/FL/IN/SH 等）
+  - 佳能（Canon）：TAG_PHOTO_EFFECT + PictureStyle，18 种（含 R 系列 Fine Detail）
+  - 尼康（Nikon）：PictureControl，从 MakerNote 描述字符串提取
+  - 富士（Fujifilm）：TAG_FILM_MODE，12 种胶片模拟（Provia/Velvia/Classic Chrome/Eterna/Classic Negative/Nostalgic Neg 等）
+  - 奥林巴斯（Olympus）：TagPictureMode，18 种（含 Art Filter）
+  - 宾得（Pentax）：ImageTone + PictureMode，20+ 种
+- **PhotoInfoBottomSheet**（433 行）：Hilt 注入 PhotoDao，显示全量 EXIF 信息，地图 App 跳转（高德/腾讯/百度/谷歌），坐标 WGS84→GCJ02 转换
+- **CoordinateUtils**：WGS84→GCJ02 坐标转换，用于中国地图显示
+
+## PhotoGridViewHolder 配置系统
+
+```kotlin
+data class ViewHolderConfig(
+    val fixedSize: Boolean = false,
+    val itemSize: Int = 0,
+    val useClickProcessing: Boolean = true,
+    val showFavorite: Boolean = true,
+    val showVideoIndicator: Boolean = true,
+    val showFormatTag: Boolean = true,
+    val showExpirationTag: Boolean = false  // 回收站专用
+)
+```
+- Photos/Albums 默认显示所有状态
+- Trash：`showExpirationTag=true`，显示剩余天数
+- Hidden：全关
+
+## PhotoListAdapter
+
+- `ListAdapter<PhotoModel, RecyclerView.ViewHolder>`
+- 2 种 ViewType：`TYPE_HEADER(0)` → HeaderViewHolder（日期分隔符），`TYPE_PHOTO(1)` → PhotoGridViewHolder
+- DiffUtil：`areItemsTheSame` PhotoItem → id，SeparatorItem → dateText；`areContentsTheSame` → equals
+
+## 扫描机制
+
+- **MediaScanner**（737 行）：全量扫描 + 增量扫描 + 精确同步
+- **全量扫描**：查询 MediaStore → 批量写入 Room → 删除孤立记录 → 后台 EXIF 提取
+- **增量扫描**：按 lastScanTime 查询变更 → 写入 Room → 双向同步（清理孤立 + 补充缺失记录）→ EXIF 提取
+- **双向同步**：增量扫描同时删除 MediaStore 中已消失的记录，恢复从回收站还原的记录
+- **EXIF 批量提取**：`EXIF_BATCH_SIZE = 20`，跳过已有 EXIF 数据，失败 5 秒后重试
+- **ScanState**（SharedFlow）：`Idle` / `Scanning(current, total, progress)` / `Completed` / `Error`
+- **ScanningProgressDialog**：DialogFragment，底部卡片进度条，含完成动画，1.5 秒自动关闭
+- **ScanViewModel**：ActivityViewModels，管理扫描生命周期
+- 初始化触发：`PhotosViewModel.init` 检查 `!scanPreferences.isScanCompleted` → 执行全量扫描
+
+## ScanPreferences 键
+
+| 键 | 类型 | 默认值 | 说明 |
+|----|------|--------|------|
+| `scan_completed` | Boolean | false | 首次扫描是否完成 |
+| `last_scan_time` | Long | 0L | 最后扫描时间（秒） |
+| `last_media_count` | Int | 0 | 最后扫描媒体数量 |
+| `incremental_since_deletion_check` | Int | 0 | 上次删除检查后的增量扫描次数 |
+
+删除检查：每 50 次增量扫描执行一次（`DELETION_CHECK_INTERVAL = 50`）
+
+## 回收站
+
+- `TrashFragment`：GridLayoutManager + TrashAdapter（ListAdapter<Photo>），TrashSelectionManager
+- 恢复操作：`mediaRepository.restorePhotos()`（IntentSender）
+- 永久删除：`mediaRepository.deletePhotos()`（IntentSender）
+- `TrashPhotoPreviewDialog`：全屏 ZoomImageView 预览，内联恢复/删除按钮
+- `dateExpiration` 回退规则：`DATE_EXPIRES > 0 → expires*1000`，否则 `(dateModified+30天)*1000`
+
+## 隐藏照片
+
+- `HiddenFragment`：BiometricPrompt 认证（BIOMETRIC_STRONG + DEVICE_CREDENTIAL），认证失败自动返回
+- 数据源：Room Flow（`photoDao.getAllPhotosFlow()` → filter `isHidden`）
+- 恢复操作：`photoDao.updateHiddenBatch(ids, false)`（无需 IntentSender，直接写 Room）
+
+## 相册管理
+
+- `AlbumsFragment`：内置 AlbumAdapter（ListAdapter<Album>），3 列 Grid，Glide 封面
+- `AlbumDetailFragment`：复用 `fragment_photos.xml` 布局，自有独立的 `SharedPreferences` 键（album_span_count / album_sort_type / album_group_type），从 MediaStore 直接查询（非 Room），手动排序/分组
+- `AlbumDetailAdapter`：与 `PhotoListAdapter` 结构完全一致（ListAdapter<PhotoModel>），共享 `PhotoGridViewHolder`
 
 ## 导航图
 
 ```
 photosFragment (start)
-  → photoDetailFragment    (action_photosFragment_to_photoDetailFragment)
-  → trashFragment          (action_photosFragment_to_trashFragment)
-  → hiddenFragment         (action_photosFragment_to_hiddenFragment)  [需生物识别]
-  → aboutFragment          (action_photosFragment_to_aboutFragment)
+  → photoDetailFragment    (slide_in_right/out_left)
+  → trashFragment
+  → hiddenFragment         [需生物识别]
+  → aboutFragment
 
 albumsFragment
-  → albumDetailFragment    (action_albumsFragment_to_albumDetailFragment)
-  → photoDetailFragment
+  → albumDetailFragment
+  → photoDetailFragment    (slide)
 
 albumDetailFragment
-  → photoDetailFragment    (action_albumDetailFragment_to_photoDetailFragment)
+  → photoDetailFragment    (slide)
 
 hiddenFragment
-  → photoDetailFragment    (action_hiddenFragment_to_photoDetailFragment)
+  → photoDetailFragment    (slide)
 
 aboutFragment
   → privacyPolicyFragment, permissionsFragment, thirdPartyLibrariesFragment, contactFragment, licenseFragment
 ```
 
-`photoDetailFragment` 参数：`initialPhoto`、`photoId`、`sortType`、`bucketId`、`favoritesOnly`、`filterCameraMake`、`filterCameraModel`、`filterLensModel`
+`photoDetailFragment` 参数：`initialPhoto`（Photo?）、`photoId`（long）、`sortType`（int）、`bucketId`（long, default=-1）、`favoritesOnly`（boolean, default=false）、`filterCameraMake`（string?）、`filterCameraModel`（string?）、`filterLensModel`（string?）
+
+EXIF 筛选参数以 `\n` 分隔 `Set<String>` 编码传递，详情页解码后复用一致过滤逻辑。
 
 ## 关键目录
 
 ```
 app/src/main/java/com/gxstar/stargallery/
+├── MainActivity.kt
+├── StarGalleryApp.kt
 ├── data/
-│   ├── model/              # Photo, Album
-│   ├── repository/         # MediaRepository
-│   └── local/
-│       ├── db/             # PhotoDao, PhotoEntity, AppDatabase (Room)
-│       ├── scanner/        # MediaScanner (全量/增量扫描)
-│       ├── exif/           # ExifExtractor
-│       └── preferences/    # ScanPreferences
+│   ├── local/
+│   │   ├── db/             # PhotoDao, PhotoEntity, AppDatabase (Room, v7)
+│   │   ├── scanner/        # MediaScanner (全量/增量扫描)
+│   │   ├── exif/           # ExifExtractor, PhotoStyleResolver (7品牌)
+│   │   └── preferences/    # ScanPreferences (4 keys)
+│   ├── model/              # Photo (Parcelable, 25+ fields), Album
+│   └── repository/         # MediaRepository (MediaStore 操作)
 ├── di/                     # Hilt 模块 (AppModule, DatabaseModule, PreferenceModule)
 ├── ui/
-│   ├── photos/             # 首页网格 (PhotosFragment, PhotosViewModel, PhotoListAdapter)
-│   │   ├── action/         # BatchActionHandler
-│   │   ├── animation/      # PhotoItemAnimator
-│   │   ├── filter/         # FilterBottomSheet (EXIF 多选筛选)
-│   │   ├── launcher/       # IntentSenderManager
-│   │   ├── model/          # PhotoModel (PhotoItem, SeparatorItem)
+│   ├── photos/             # 首页网格 (PhotosFragment 1027行, PhotosViewModel 438行)
+│   │   ├── action/         # BatchActionHandler (6种操作)
+│   │   ├── animation/      # PhotoItemAnimator (DefaultItemAnimator)
+│   │   ├── filter/         # FilterBottomSheet (EXIF 三维多选)
+│   │   ├── launcher/       # IntentSenderManager (3个 Launcher)
+│   │   ├── model/          # PhotoModel (PhotoItem + SeparatorItem)
 │   │   ├── refresh/        # MediaChangeDetector (ContentObserver)
 │   │   ├── scanner/        # ScanningProgressDialog, ScanViewModel
-│   │   └── selection/      # PhotoSelectionManager
-│   ├── albums/             # 相册列表和详情
-│   ├── detail/             # 照片详情 (ViewPager2 + ZoomImageView + ExoPlayer)
-│   ├── trash/              # 回收站
-│   ├── hidden/             # 隐藏照片 (需生物识别认证)
-│   ├── about/              # 关于页面组
-│   └── common/             # 共享组件 (BaseSelectionManager, GridSpanCalculator, PhotoGridViewHolder)
-├── MainActivity.kt
-└── StarGalleryApp.kt
+│   │   ├── selection/      # PhotoSelectionManager
+│   │   ├── GridSpacingItemDecoration.kt
+│   │   ├── PhotoListAdapter.kt
+│   │   └── PhotoPreloadModelProvider.kt
+│   ├── albums/             # 相册列表 (AlbumsFragment) + 详情 (AlbumDetailFragment)
+│   ├── detail/             # 照片详情 (ViewPager2 + ZoomImageView + ExoPlayer + HDR)
+│   │   ├── ExoPlayerManager.kt        # 单例
+│   │   ├── PhotoDetailFragment.kt     # 438行
+│   │   ├── PhotoDetailViewModel.kt    # 296行
+│   │   ├── PhotoInfoBottomSheet.kt    # 433行 (EXIF + 地图)
+│   │   ├── PhotoPagerAdapter.kt       # DiffUtil
+│   │   └── PhotoPageViewHolder.kt     # 468行 (缩放/视频/GIF/HDR)
+│   ├── trash/              # 回收站 (TrashFragment)
+│   ├── hidden/             # 隐藏照片 (HiddenFragment, 需生物识别)
+│   ├── about/              # 6个子页面
+│   ├── common/             # 共享组件
+│   │   ├── BaseSelectionManager.kt
+│   │   ├── DeleteOptionsBottomSheet.kt
+│   │   ├── Extensions.kt
+│   │   ├── GridSpanCalculator.kt
+│   │   ├── PhotoGridViewHolder.kt     (含 ViewHolderConfig)
+│   │   └── PhotoSelectionTracker.kt
+│   └── util/               # CoordinateUtils, DateUtils, SortUtils
 ```
 
 ## 内存泄漏
 
 - Debug 构建含 LeakCanary
 - `lifecycleScope.launch` 的 Flow 收集需确保 ViewModel `onCleared` 时清理
-- Fragment `onDestroyView` 中需清理 RecyclerView 引用（adapter/layoutManager/itemAnimator 置 null）
+- Fragment `onDestroyView` 中需清理 RecyclerView 引用（adapter/layoutManager/itemAnimator 置 null），ExoPlayerManager.release()
 - `BaseSelectionManager.clear()` 清理所有引用
 
 ## 测试
@@ -164,10 +288,15 @@ app/src/main/java/com/gxstar/stargallery/
 
 ## 特殊功能
 
-- **RAW 格式识别**：DNG/ARW/CR2/CR3/NEF 等，同名 JPG+RAW 自动配对
+- **RAW 格式识别**：DNG/ARW/CR2/CR3/NEF/ORF/RAF/RW2/PEF 等，同名 JPG+RAW 自动配对
 - **EXIF 多选筛选**：按相机品牌/型号/镜头型号多选过滤，级联自动推导，维度间 AND + 维度内 OR
 - **排序一致性**：`SortUtils.sortPhotos()` 三级排序，网格与详情页完全统一
 - **张数实时显示**：`filteredPhotoCount` 从 `photoListFlow` 派生，始终精确反映当前屏幕显示数量
 - **隐藏照片**：`HiddenFragment` 进入需 BiometricPrompt 认证（指纹/设备密码）
 - **拖动多选**：`drag-select-recyclerview` 库 + 基于 photo ID 的选中追踪，删除后位置不错乱
-- **快速滚动条**：FastScroller，滚动时显示日期分隔符预览
+- **快速滚动条**：FastScroller（1.3.0），滚动时显示日期分隔符预览
+- **搜索**：按文件名/文件夹名实时过滤
+- **HDR 检测**：三重检测（Ultra HDR / RGBA_F16 / ColorSpace）
+- **照片风格解析**：7 大相机品牌照片风格/胶片模拟映射
+- **坐标转换**：WGS84→GCJ02，适配中国地图
+- **动态预加载**：预加载量随列数自动调整（列数 × 3/4）
