@@ -72,6 +72,7 @@ class PhotosFragment : Fragment() {
     private var photoAdapter: PhotoListAdapter? = null
     private var gridLayoutManager: GridLayoutManager? = null
     private var photoItemAnimator: PhotoItemAnimator? = null
+    private var glidePreloader: RecyclerViewPreloader<Uri>? = null
 
     @Inject
     lateinit var sharedPreferences: SharedPreferences
@@ -214,7 +215,7 @@ class PhotosFragment : Fragment() {
             }
             isItemPrefetchEnabled = true
             isMeasurementCacheEnabled = true
-            initialPrefetchItemCount = PREFETCH_ITEM_COUNT
+            initialPrefetchItemCount = currentSpanCount * 4
         }
 
         binding.rvPhotos.apply {
@@ -269,6 +270,7 @@ class PhotosFragment : Fragment() {
 
     private fun setupGlidePreloader() {
         val adapter = photoAdapter ?: return
+        val preloadCount = currentSpanCount * 3
         val glideRequest = Glide.with(this)
         val preloadSizeProvider = ViewPreloadSizeProvider<Uri>()
         val preloader = RecyclerViewPreloader(
@@ -279,9 +281,11 @@ class PhotosFragment : Fragment() {
                 itemSize
             ),
             preloadSizeProvider,
-            PRELOAD_ITEM_COUNT
+            preloadCount
         )
+        glidePreloader?.let { binding.rvPhotos.removeOnScrollListener(it) }
         binding.rvPhotos.addOnScrollListener(preloader)
+        glidePreloader = preloader
     }
 
     private fun setupClickListeners() {
@@ -812,13 +816,18 @@ class PhotosFragment : Fragment() {
         sharedPreferences.edit().putInt(KEY_SPAN_COUNT, newSpanCount).apply()
 
         calculateItemSize()
-        gridLayoutManager?.spanCount = newSpanCount
+        gridLayoutManager?.apply {
+            spanCount = newSpanCount
+            initialPrefetchItemCount = newSpanCount * 4
+        }
         photoAdapter?.updateItemSize(itemSize)
 
         while (binding.rvPhotos.itemDecorationCount > 0) {
             binding.rvPhotos.removeItemDecorationAt(0)
         }
         binding.rvPhotos.addItemDecoration(GridSpacingItemDecoration(newSpanCount, GridSpanCalculator.dpToPx(2, resources.displayMetrics), true))
+
+        setupGlidePreloader()
     }
 
     /**
@@ -1008,8 +1017,6 @@ class PhotosFragment : Fragment() {
 
     companion object {
         private const val ITEM_VIEW_CACHE_SIZE = 24
-        private const val PRELOAD_ITEM_COUNT = 6
-        private const val PREFETCH_ITEM_COUNT = 12
 
         private const val KEY_SPAN_COUNT = "span_count"
         private const val KEY_SORT_TYPE = "sort_type"
