@@ -205,19 +205,23 @@ class PhotoDetailFragment : Fragment() {
         }
 
         binding.btnMore.setOnClickListener {
-            showMoreOptionsDialog()
+            showPopupMenu(it)
         }
     }
 
-    private fun showMoreOptionsDialog() {
-        val items = arrayOf(getString(R.string.hide))
-        com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
-            .setItems(items) { _, which ->
-                when (which) {
-                    0 -> confirmHidePhoto()
+    private fun showPopupMenu(view: View) {
+        val popupMenu = android.widget.PopupMenu(requireContext(), view)
+        popupMenu.menuInflater.inflate(R.menu.menu_photo_detail, popupMenu.menu)
+        popupMenu.setOnMenuItemClickListener { menuItem ->
+            when (menuItem.itemId) {
+                R.id.action_hide -> {
+                    confirmHidePhoto()
+                    true
                 }
+                else -> false
             }
-            .show()
+        }
+        popupMenu.show()
     }
 
     private fun confirmHidePhoto() {
