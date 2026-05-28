@@ -15,6 +15,7 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 
+import android.app.WallpaperManager
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -214,6 +215,10 @@ class PhotoDetailFragment : Fragment() {
         popupMenu.menuInflater.inflate(R.menu.menu_photo_detail, popupMenu.menu)
         popupMenu.setOnMenuItemClickListener { menuItem ->
             when (menuItem.itemId) {
+                R.id.action_set_wallpaper -> {
+                    setWallpaper()
+                    true
+                }
                 R.id.action_hide -> {
                     confirmHidePhoto()
                     true
@@ -236,7 +241,18 @@ class PhotoDetailFragment : Fragment() {
             .setNegativeButton(R.string.cancel, null)
             .show()
     }
-    
+
+    private fun setWallpaper() {
+        val photo = viewModel.currentPhoto.value ?: return
+        try {
+            val intent = WallpaperManager.getInstance(requireContext())
+                .getCropAndSetWallpaperIntent(photo.uri)
+            startActivity(intent)
+        } catch (e: Exception) {
+            Toast.makeText(requireContext(), R.string.set_wallpaper_failed, Toast.LENGTH_SHORT).show()
+        }
+    }
+
     private fun showDeleteOptionsDialog() {
         DeleteOptionsBottomSheet.newInstance(
             onMoveToTrash = { moveToTrash() },

@@ -32,6 +32,9 @@
     <string name="more">更多</string>
     <string name="set_as">设为</string>
     <string name="wallpaper">壁纸</string>
+    <string name="set_wallpaper">设为壁纸</string>
+    <string name="set_wallpaper_success">壁纸设置成功</string>
+    <string name="set_wallpaper_failed">壁纸设置失败</string>
     <string name="info">详情</string>
 
     <!-- 操作 -->
