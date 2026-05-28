@@ -506,6 +506,9 @@ class MediaScanner @Inject constructor(
                 val allPhotos = photoDao.getAllPhotos()
                 Log.i(TAG, "Starting thumbnail generation for ${allPhotos.size} photos")
 
+                val batchUpdates = mutableListOf<PhotoEntity>()
+                val batchSize = 25
+
                 allPhotos.forEachIndexed { index, photo ->
                     if (photo.thumbnailPath != null && File(photo.thumbnailPath).exists()) {
                         return@forEachIndexed
@@ -517,8 +520,17 @@ class MediaScanner @Inject constructor(
                     }
                     val path = thumbnailManager.generateThumbnail(uri, photo.id, photo.mimeType)
                     if (path != null) {
-                        photoDao.updateThumbnailPath(photo.id, path)
+                        batchUpdates.add(photo.copy(thumbnailPath = path))
                     }
+                    // 每批批量写入 Room，一次 updateAll 只触发一次 Flow
+                    if (batchUpdates.size >= batchSize || index == allPhotos.lastIndex) {
+                        if (batchUpdates.isNotEmpty()) {
+                            photoDao.updateAll(batchUpdates)
+                            batchUpdates.clear()
+                        }
+                    }
+                    // 每张缩略图之间给 CPU 留出呼吸时间
+                    delay(3)
                     if (index % 20 == 0) {
                         _thumbnailProgress.value = index.toFloat() / allPhotos.size.coerceAtLeast(1)
                     }
@@ -554,6 +566,7 @@ class MediaScanner @Inject constructor(
                     if (path != null) {
                         photoDao.updateThumbnailPath(photo.id, path)
                     }
+                    delay(10)
                 }
                 Log.i(TAG, "Incremental thumbnail generation completed for ${photoIds.size} photos")
             } catch (e: Exception) {
