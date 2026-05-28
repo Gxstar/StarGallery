@@ -619,7 +619,12 @@ class MediaScanner @Inject constructor(
                 val dateModified = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_MODIFIED))
                 val dateAdded = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_ADDED))
 
-                val finalDateTaken = if (dateModified > 0) dateModified * 1000L else if (dateAdded > 0) dateAdded * 1000L else System.currentTimeMillis()
+                val finalDateTaken = when {
+                    dateTaken > 0 -> dateTaken
+                    dateModified > 0 -> dateModified * 1000L
+                    dateAdded > 0 -> dateAdded * 1000L
+                    else -> System.currentTimeMillis()
+                }
 
                 items.add(
                     MediaStoreItem(
@@ -694,7 +699,12 @@ class MediaScanner @Inject constructor(
                 val dateModified = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_MODIFIED))
                 val dateAdded = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_ADDED))
 
-                val finalDateTaken = if (dateModified > 0) dateModified * 1000L else if (dateAdded > 0) dateAdded * 1000L else System.currentTimeMillis()
+                val finalDateTaken = when {
+                    dateTaken > 0 -> dateTaken
+                    dateModified > 0 -> dateModified * 1000L
+                    dateAdded > 0 -> dateAdded * 1000L
+                    else -> System.currentTimeMillis()
+                }
 
                 items.add(
                     MediaStoreItem(
@@ -767,7 +777,12 @@ class MediaScanner @Inject constructor(
                 val dateModified = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_MODIFIED))
                 val dateAdded = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_ADDED))
 
-                val finalDateTaken = if (dateModified > 0) dateModified * 1000L else if (dateAdded > 0) dateAdded * 1000L else System.currentTimeMillis()
+                val finalDateTaken = when {
+                    dateTaken > 0 -> dateTaken
+                    dateModified > 0 -> dateModified * 1000L
+                    dateAdded > 0 -> dateAdded * 1000L
+                    else -> System.currentTimeMillis()
+                }
 
                 items.add(
                     MediaStoreItem(
