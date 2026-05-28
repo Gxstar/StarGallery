@@ -262,7 +262,7 @@ class PhotosFragment : Fragment() {
                 popupView.setTextColor(0xFFFFFFFF.toInt())
                 popupView.textSize = 12f
                 popupView.includeFontPadding = false
-                popupView.translationY = -(16 * context.resources.displayMetrics.density)
+                popupView.translationX = -(32 * context.resources.displayMetrics.density)
             }
             .setTrackDrawable(ContextCompat.getDrawable(context, R.drawable.fastscroll_track)!!)
             .setThumbDrawable(ContextCompat.getDrawable(context, R.drawable.fastscroll_thumb)!!)
