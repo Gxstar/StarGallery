@@ -215,14 +215,12 @@ class PhotoPageViewHolder(
         val isPotentialHdr = photo.isHeic || photo.isAvif || photo.isUltraHdr
         val maxDimension = maxOf(photo.width, photo.height)
 
-        // 判断是否需要子采样：大图或 RAW 格式启用子采样
+        // 大图或 RAW 格式启用子采样（AVIF 通过 AvifRegionDecoder 使用 ImageDecoder 解码）
         val needSubsampling = maxDimension >= 2000 || photo.isRaw
 
         if (!needSubsampling) {
-            // 小图直接加载原图
             loadFullImage(photo, isPotentialHdr)
         } else {
-            // 大图使用子采样策略
             loadWithSubsampling(photo, isPotentialHdr)
         }
     }
@@ -257,14 +255,22 @@ class PhotoPageViewHolder(
         val context = binding.root.context
 
         // 第一步: 加载缩略图作为预览
-        Glide.with(context)
+        val previewRequest = Glide.with(context)
             .asBitmap()
             .load(photo.uri)
             .placeholder(android.R.color.black)
             .override(1200) // 只指定一边,Glide 会自动保持比例
             .fitCenter()
             .diskCacheStrategy(DiskCacheStrategy.RESOURCE)
-            .into(object : CustomTarget<Bitmap>() {
+
+        if (isPotentialHdr && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            previewRequest.apply(
+                RequestOptions()
+                    .format(DecodeFormat.PREFER_ARGB_8888)
+            )
+        }
+
+        previewRequest.into(object : CustomTarget<Bitmap>() {
                 override fun onResourceReady(
                     resource: Bitmap,
                     transition: Transition<in Bitmap>?
@@ -296,6 +302,8 @@ class PhotoPageViewHolder(
      */
     private fun enableSubsampling(photo: Photo) {
         try {
+            // 注册 AVIF 自定义区域解码器（使用 ImageDecoder 替代不支持的 BitmapRegionDecoder）
+            binding.ivPhoto.subsampling.setRegionDecoders(listOf(AvifRegionDecoder.Factory()))
             val imageSource = ContentImageSource(binding.root.context, photo.uri)
             binding.ivPhoto.setSubsamplingImage(imageSource)
         } catch (e: Exception) {
