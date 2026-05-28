@@ -105,15 +105,16 @@
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/titleRow" />
 
-                <!-- EXIF 提取进度条（不确定模式，自动左→右扫描动画） -->
+                <!-- EXIF 提取进度条（确定模式，显示已完成/总数比例） -->
                 <ProgressBar
                     android:id="@+id/exifProgressBar"
                     style="?android:attr/progressBarStyleHorizontal"
                     android:layout_width="0dp"
                     android:layout_height="2dp"
-                    android:indeterminate="true"
-                    android:indeterminateTint="#FF64B5F6"
-                    android:indeterminateTintMode="src_in"
+                    android:indeterminate="false"
+                    android:max="100"
+                    android:progress="0"
+                    android:progressTint="#FF64B5F6"
                     android:visibility="gone"
                     app:layout_constraintBottom_toBottomOf="parent"
                     app:layout_constraintEnd_toEndOf="parent"

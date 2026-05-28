@@ -45,6 +45,7 @@ import com.gxstar.stargallery.ui.photos.model.PhotoModel
 import com.gxstar.stargallery.ui.photos.refresh.MediaChangeDetector
 import com.gxstar.stargallery.ui.photos.selection.PhotoSelectionManager
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -613,8 +614,19 @@ class PhotosFragment : Fragment() {
 
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.isExtractingExif.collect { extracting ->
-                    binding.exifProgressBar.visibility = if (extracting) View.VISIBLE else View.GONE
+                combine(
+                    viewModel.isExtractingExif,
+                    viewModel.exifProgress
+                ) { extracting, progress -> extracting to progress }
+                .collect { (extracting, progress) ->
+                    if (extracting) {
+                        binding.exifProgressBar.visibility = View.VISIBLE
+                        binding.exifProgressBar.progress = (progress * 100).toInt()
+                    } else {
+                        binding.exifProgressBar.progress = 100
+                        delay(400)
+                        binding.exifProgressBar.visibility = View.GONE
+                    }
                 }
             }
         }
