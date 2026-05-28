@@ -1,0 +1,303 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 8,
+    "identityHash": "d08cd05d119c51aa8ecac4aa2368b6c7",
+    "entities": [
+      {
+        "tableName": "photos",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `uri` TEXT NOT NULL, `displayName` TEXT, `dateTaken` INTEGER NOT NULL, `dateModified` INTEGER NOT NULL, `dateAdded` INTEGER NOT NULL, `mimeType` TEXT NOT NULL, `width` INTEGER NOT NULL, `height` INTEGER NOT NULL, `size` INTEGER NOT NULL, `bucketId` INTEGER NOT NULL, `bucketName` TEXT NOT NULL, `latitude` REAL, `longitude` REAL, `orientation` INTEGER NOT NULL, `isFavorite` INTEGER NOT NULL, `isHidden` INTEGER NOT NULL, `cameraMake` TEXT, `cameraModel` TEXT, `lensModel` TEXT, `isoEquivalent` INTEGER, `focalLength` REAL, `focalLength35mmEquiv` INTEGER, `fNumber` REAL, `shutterSpeed` REAL, `exifImageWidth` INTEGER, `exifImageHeight` INTEGER, `lut1` TEXT, `lut2` TEXT, `flash` INTEGER, `exposureCompensation` REAL, `meteringMode` TEXT, `photoStyle` TEXT, `thumbnailPath` TEXT, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "uri",
+            "columnName": "uri",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "displayName",
+            "columnName": "displayName",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "dateTaken",
+            "columnName": "dateTaken",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dateModified",
+            "columnName": "dateModified",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dateAdded",
+            "columnName": "dateAdded",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mimeType",
+            "columnName": "mimeType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "width",
+            "columnName": "width",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "height",
+            "columnName": "height",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "size",
+            "columnName": "size",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "bucketId",
+            "columnName": "bucketId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "bucketName",
+            "columnName": "bucketName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "latitude",
+            "columnName": "latitude",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "longitude",
+            "columnName": "longitude",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "orientation",
+            "columnName": "orientation",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isFavorite",
+            "columnName": "isFavorite",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isHidden",
+            "columnName": "isHidden",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "cameraMake",
+            "columnName": "cameraMake",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "cameraModel",
+            "columnName": "cameraModel",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "lensModel",
+            "columnName": "lensModel",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "isoEquivalent",
+            "columnName": "isoEquivalent",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "focalLength",
+            "columnName": "focalLength",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "focalLength35mmEquiv",
+            "columnName": "focalLength35mmEquiv",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "fNumber",
+            "columnName": "fNumber",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "shutterSpeed",
+            "columnName": "shutterSpeed",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "exifImageWidth",
+            "columnName": "exifImageWidth",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "exifImageHeight",
+            "columnName": "exifImageHeight",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "lut1",
+            "columnName": "lut1",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "lut2",
+            "columnName": "lut2",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "flash",
+            "columnName": "flash",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "exposureCompensation",
+            "columnName": "exposureCompensation",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "meteringMode",
+            "columnName": "meteringMode",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "photoStyle",
+            "columnName": "photoStyle",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "thumbnailPath",
+            "columnName": "thumbnailPath",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_photos_dateTaken",
+            "unique": false,
+            "columnNames": [
+              "dateTaken"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_photos_dateTaken` ON `${TABLE_NAME}` (`dateTaken`)"
+          },
+          {
+            "name": "index_photos_dateAdded",
+            "unique": false,
+            "columnNames": [
+              "dateAdded"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_photos_dateAdded` ON `${TABLE_NAME}` (`dateAdded`)"
+          },
+          {
+            "name": "index_photos_isHidden",
+            "unique": false,
+            "columnNames": [
+              "isHidden"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_photos_isHidden` ON `${TABLE_NAME}` (`isHidden`)"
+          },
+          {
+            "name": "index_photos_isFavorite",
+            "unique": false,
+            "columnNames": [
+              "isFavorite"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_photos_isFavorite` ON `${TABLE_NAME}` (`isFavorite`)"
+          },
+          {
+            "name": "index_photos_cameraMake",
+            "unique": false,
+            "columnNames": [
+              "cameraMake"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_photos_cameraMake` ON `${TABLE_NAME}` (`cameraMake`)"
+          },
+          {
+            "name": "index_photos_cameraModel",
+            "unique": false,
+            "columnNames": [
+              "cameraModel"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_photos_cameraModel` ON `${TABLE_NAME}` (`cameraModel`)"
+          },
+          {
+            "name": "index_photos_lensModel",
+            "unique": false,
+            "columnNames": [
+              "lensModel"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_photos_lensModel` ON `${TABLE_NAME}` (`lensModel`)"
+          },
+          {
+            "name": "index_photos_bucketId",
+            "unique": false,
+            "columnNames": [
+              "bucketId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_photos_bucketId` ON `${TABLE_NAME}` (`bucketId`)"
+          },
+          {
+            "name": "index_photos_isHidden_dateTaken",
+            "unique": false,
+            "columnNames": [
+              "isHidden",
+              "dateTaken"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_photos_isHidden_dateTaken` ON `${TABLE_NAME}` (`isHidden`, `dateTaken`)"
+          },
+          {
+            "name": "index_photos_isHidden_isFavorite",
+            "unique": false,
+            "columnNames": [
+              "isHidden",
+              "isFavorite"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_photos_isHidden_isFavorite` ON `${TABLE_NAME}` (`isHidden`, `isFavorite`)"
+          }
+        ]
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'd08cd05d119c51aa8ecac4aa2368b6c7')"
+    ]
+  }
+}

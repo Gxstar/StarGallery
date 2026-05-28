@@ -60,5 +60,8 @@ data class PhotoEntity(
     val flash: Boolean? = null,
     val exposureCompensation: Float? = null,
     val meteringMode: String? = null,
-    val photoStyle: String? = null
+    val photoStyle: String? = null,
+
+    // 缩略图缓存路径（扫描时填充）
+    val thumbnailPath: String? = null
 )

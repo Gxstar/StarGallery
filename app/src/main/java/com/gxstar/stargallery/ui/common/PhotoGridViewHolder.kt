@@ -8,6 +8,7 @@ import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.gxstar.stargallery.R
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.databinding.ItemPhotoBinding
+import java.io.File
 
 /**
  * Unified ViewHolder for displaying photos in a grid.
@@ -78,8 +79,11 @@ class PhotoGridViewHolder(
         val itemSize = itemSizeProvider()
         val ctx = binding.ivPhoto.context
 
+        val thumbFile = photo.thumbnailPath?.let { File(it) }
+        val loadUri = if (thumbFile?.exists() == true) thumbFile else photo.uri
+
         val requestBuilder = Glide.with(ctx)
-            .load(photo.uri)
+            .load(loadUri)
             .placeholder(R.drawable.ic_photo_placeholder)
             .error(R.drawable.ic_photo_error)
             .centerCrop()

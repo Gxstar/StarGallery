@@ -165,6 +165,14 @@ interface PhotoDao {
     @Query("SELECT id, cameraMake, cameraModel, lensModel, isoEquivalent, focalLength, focalLength35mmEquiv, fNumber, shutterSpeed, exifImageWidth, exifImageHeight, lut1, lut2, latitude, longitude, flash, exposureCompensation, meteringMode, photoStyle FROM photos")
     suspend fun getExifSnapshots(): List<ExifSnapshot>
 
+    // ==================== 缩略图 ====================
+
+    @Query("UPDATE photos SET thumbnailPath = :path WHERE id = :photoId")
+    suspend fun updateThumbnailPath(photoId: Long, path: String?)
+
+    @Query("UPDATE photos SET thumbnailPath = NULL WHERE id IN (:photoIds)")
+    suspend fun clearThumbnailPaths(photoIds: List<Long>)
+
     // ==================== 完整性检查 ====================
 
     @Query("SELECT id FROM photos")

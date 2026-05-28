@@ -73,7 +73,7 @@ class PhotosFragment : Fragment() {
     private var photoAdapter: PhotoListAdapter? = null
     private var gridLayoutManager: GridLayoutManager? = null
     private var photoItemAnimator: PhotoItemAnimator? = null
-    private var glidePreloader: RecyclerViewPreloader<Uri>? = null
+    private var glidePreloader: RecyclerViewPreloader<*>? = null
 
     @Inject
     lateinit var sharedPreferences: SharedPreferences
@@ -273,7 +273,7 @@ class PhotosFragment : Fragment() {
         val adapter = photoAdapter ?: return
         val preloadCount = currentSpanCount * 3
         val glideRequest = Glide.with(this)
-        val preloadSizeProvider = ViewPreloadSizeProvider<Uri>()
+        val preloadSizeProvider = ViewPreloadSizeProvider<Any>()
         val preloader = RecyclerViewPreloader(
             glideRequest,
             PhotoPreloadModelProvider(

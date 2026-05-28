@@ -44,7 +44,8 @@ class HiddenViewModel @Inject constructor(
                         longitude = it.longitude,
                         orientation = it.orientation,
                         isFavorite = it.isFavorite,
-                        isHidden = it.isHidden
+                        isHidden = it.isHidden,
+                        thumbnailPath = it.thumbnailPath
                     )
                 }
             }

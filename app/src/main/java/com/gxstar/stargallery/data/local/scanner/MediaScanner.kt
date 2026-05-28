@@ -10,6 +10,7 @@ import android.util.Log
 import com.gxstar.stargallery.data.local.db.AppDatabase
 import com.gxstar.stargallery.data.local.db.PhotoDao
 import com.gxstar.stargallery.data.local.db.PhotoEntity
+import com.gxstar.stargallery.data.local.ThumbnailManager
 import com.gxstar.stargallery.data.local.exif.ExifExtractor
 import com.gxstar.stargallery.data.local.preferences.ScanPreferences
 import com.gxstar.stargallery.data.model.Photo
@@ -29,6 +30,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -44,7 +46,8 @@ class MediaScanner @Inject constructor(
     private val photoDao: PhotoDao,
     private val scanPreferences: ScanPreferences,
     private val exifExtractor: ExifExtractor,
-    private val appDatabase: AppDatabase
+    private val appDatabase: AppDatabase,
+    private val thumbnailManager: ThumbnailManager
 ) {
     companion object {
         private const val TAG = "MediaScanner"
@@ -78,6 +81,17 @@ class MediaScanner @Inject constructor(
     // EXIF 提取进度 (0f ~ 1f)
     private val _exifProgress = MutableStateFlow(0f)
     val exifProgress: StateFlow<Float> = _exifProgress.asStateFlow()
+
+    // 缩略图生成任务引用
+    private var thumbnailJob: Job? = null
+
+    // 缩略图生成是否在进行中
+    private val _isGeneratingThumbnails = MutableStateFlow(false)
+    val isGeneratingThumbnailsFlow: StateFlow<Boolean> = _isGeneratingThumbnails.asStateFlow()
+
+    // 缩略图生成进度 (0f ~ 1f)
+    private val _thumbnailProgress = MutableStateFlow(0f)
+    val thumbnailProgress: StateFlow<Float> = _thumbnailProgress.asStateFlow()
 
     /**
      * 执行全量扫描
@@ -168,6 +182,7 @@ class MediaScanner @Inject constructor(
                 val idsToRemove = roomIds - validIds
                 if (idsToRemove.isNotEmpty()) {
                     idsToRemove.chunked(500).forEach { batch ->
+                        thumbnailManager.deleteThumbnails(batch.toSet())
                         photoDao.deleteByIds(batch)
                     }
                 }
@@ -246,6 +261,7 @@ class MediaScanner @Inject constructor(
                 Log.e(TAG, "EXIF extraction failed", e)
             } finally {
                 _isExtractingExif.value = false
+                generateThumbnailsForAllPhotos()
             }
         }
     }
@@ -315,6 +331,7 @@ class MediaScanner @Inject constructor(
                 photoDao.insertAll(entities)
 
                 extractExifForPhotos(changedMedia.map { it.id })
+                generateThumbnailsForPhotos(changedMedia.map { it.id })
             }
 
             scanPreferences.lastScanTime = System.currentTimeMillis() / 1000
@@ -328,6 +345,7 @@ class MediaScanner @Inject constructor(
             val removedIds = roomIdSet - mediaStoreIdSet
             if (removedIds.isNotEmpty()) {
                 Log.i(TAG, "Removing ${removedIds.size} stale records (permanently deleted)")
+                thumbnailManager.deleteThumbnails(removedIds)
                 photoDao.deleteByIds(removedIds.toList())
             }
 
@@ -402,12 +420,14 @@ class MediaScanner @Inject constructor(
             )
         }
         photoDao.insertAll(entities)
+        generateThumbnailsForPhotos(photoIds)
     }
 
     /**
      * 删除单条媒体记录
      */
     suspend fun deletePhoto(photoId: Long) = withContext(Dispatchers.IO) {
+        thumbnailManager.deleteThumbnail(photoId)
         photoDao.deleteById(photoId)
     }
 
@@ -468,6 +488,77 @@ class MediaScanner @Inject constructor(
             photoDao.updateAll(batchUpdates)
         } else {
             Log.w(TAG, "Retry EXIF still failed for all ${photoIds.size} photos")
+        }
+    }
+
+    // ==================== 缩略图生成 ====================
+
+    /**
+     * 为所有照片生成缩略图（后台）
+     * 在 EXIF 提取完成后异步执行
+     */
+    private fun generateThumbnailsForAllPhotos() {
+        thumbnailJob?.cancel()
+        _thumbnailProgress.value = 0f
+        _isGeneratingThumbnails.value = true
+        thumbnailJob = CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val allPhotos = photoDao.getAllPhotos()
+                Log.i(TAG, "Starting thumbnail generation for ${allPhotos.size} photos")
+
+                allPhotos.forEachIndexed { index, photo ->
+                    if (photo.thumbnailPath != null && File(photo.thumbnailPath).exists()) {
+                        return@forEachIndexed
+                    }
+                    val uri = try {
+                        android.net.Uri.parse(photo.uri)
+                    } catch (e: Exception) {
+                        return@forEachIndexed
+                    }
+                    val path = thumbnailManager.generateThumbnail(uri, photo.id, photo.mimeType)
+                    if (path != null) {
+                        photoDao.updateThumbnailPath(photo.id, path)
+                    }
+                    if (index % 20 == 0) {
+                        _thumbnailProgress.value = index.toFloat() / allPhotos.size.coerceAtLeast(1)
+                    }
+                }
+                _thumbnailProgress.value = 1f
+                Log.i(TAG, "Thumbnail generation completed for ${allPhotos.size} photos")
+            } catch (e: Exception) {
+                Log.e(TAG, "Thumbnail generation failed", e)
+            } finally {
+                _isGeneratingThumbnails.value = false
+            }
+        }
+    }
+
+    /**
+     * 为指定照片列表生成缩略图
+     * 用于增量扫描后为新照片生成缩略图
+     */
+    private fun generateThumbnailsForPhotos(photoIds: List<Long>) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                photoIds.forEach { id ->
+                    val photo = photoDao.getPhotoById(id) ?: return@forEach
+                    if (photo.thumbnailPath != null && File(photo.thumbnailPath).exists()) {
+                        return@forEach
+                    }
+                    val uri = try {
+                        android.net.Uri.parse(photo.uri)
+                    } catch (e: Exception) {
+                        return@forEach
+                    }
+                    val path = thumbnailManager.generateThumbnail(uri, photo.id, photo.mimeType)
+                    if (path != null) {
+                        photoDao.updateThumbnailPath(photo.id, path)
+                    }
+                }
+                Log.i(TAG, "Incremental thumbnail generation completed for ${photoIds.size} photos")
+            } catch (e: Exception) {
+                Log.e(TAG, "Incremental thumbnail generation failed", e)
+            }
         }
     }
 

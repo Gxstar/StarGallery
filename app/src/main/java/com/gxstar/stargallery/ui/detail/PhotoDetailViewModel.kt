@@ -290,7 +290,8 @@ class PhotoDetailViewModel @Inject constructor(
             longitude = longitude,
             orientation = orientation,
             isFavorite = isFavorite,
-            isHidden = isHidden
+            isHidden = isHidden,
+            thumbnailPath = thumbnailPath
         )
     }
 }

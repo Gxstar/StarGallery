@@ -413,7 +413,7 @@ class AlbumDetailFragment : Fragment() {
         }
 
         val glideRequest = Glide.with(this)
-        val preloadSizeProvider = ViewPreloadSizeProvider<Uri>()
+        val preloadSizeProvider = ViewPreloadSizeProvider<Any>()
         val preloader = RecyclerViewPreloader(
             glideRequest,
             PhotoPreloadModelProvider(

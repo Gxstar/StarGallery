@@ -5,6 +5,7 @@ import com.bumptech.glide.ListPreloader
 import com.bumptech.glide.RequestBuilder
 import com.bumptech.glide.RequestManager
 import com.gxstar.stargallery.ui.photos.model.PhotoModel
+import java.io.File
 
 /**
  * Glide预加载ModelProvider
@@ -15,22 +16,21 @@ class PhotoPreloadModelProvider(
     private val requestManager: RequestManager,
     private val getItemAt: (Int) -> PhotoModel.PhotoItem?,
     private val itemSize: Int
-) : ListPreloader.PreloadModelProvider<Uri> {
+) : ListPreloader.PreloadModelProvider<Any> {
 
-    override fun getPreloadItems(position: Int): MutableList<Uri> {
-        val item = getItemAt(position)
-        return if (item != null) {
-            mutableListOf(item.photo.uri)
-        } else {
-            mutableListOf()
-        }
+    override fun getPreloadItems(position: Int): MutableList<Any> {
+        val item = getItemAt(position) ?: return mutableListOf()
+        val thumbFile = item.photo.thumbnailPath?.let { File(it) }
+        return mutableListOf(
+            if (thumbFile?.exists() == true) thumbFile else item.photo.uri
+        )
     }
 
-    override fun getPreloadRequestBuilder(item: Uri): RequestBuilder<*> {
+    override fun getPreloadRequestBuilder(item: Any): RequestBuilder<*> {
         return requestManager
             .load(item)
             .centerCrop()
             .override(itemSize, itemSize)
-            .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.ALL)
+            .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.RESOURCE)
     }
 }
