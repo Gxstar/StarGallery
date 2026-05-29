@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 enum class GroupType {
@@ -340,29 +341,31 @@ class PhotosViewModel @Inject constructor(
         _showFavoritesOnly,
         exifFilterState
     ) { entities, sortType, favoritesOnly, exifFilters ->
-        val (cameraMake, cameraModel, lensModel) = exifFilters
-        var filtered = entities
-        if (favoritesOnly) filtered = filtered.filter { it.isFavorite }
-        filtered = filtered.filter { !it.isHidden }
-        if (cameraMake.isNotEmpty()) {
-            filtered = filtered.filter { entity ->
-                entity.cameraMake in cameraMake ||
-                    ("" in cameraMake && entity.cameraMake.isNullOrBlank())
+        withContext(Dispatchers.Default) {
+            val (cameraMake, cameraModel, lensModel) = exifFilters
+            var filtered = entities
+            if (favoritesOnly) filtered = filtered.filter { it.isFavorite }
+            filtered = filtered.filter { !it.isHidden }
+            if (cameraMake.isNotEmpty()) {
+                filtered = filtered.filter { entity ->
+                    entity.cameraMake in cameraMake ||
+                        ("" in cameraMake && entity.cameraMake.isNullOrBlank())
+                }
             }
-        }
-        if (cameraModel.isNotEmpty()) {
-            filtered = filtered.filter { entity ->
-                entity.cameraModel in cameraModel ||
-                    ("" in cameraModel && entity.cameraModel.isNullOrBlank())
+            if (cameraModel.isNotEmpty()) {
+                filtered = filtered.filter { entity ->
+                    entity.cameraModel in cameraModel ||
+                        ("" in cameraModel && entity.cameraModel.isNullOrBlank())
+                }
             }
-        }
-        if (lensModel.isNotEmpty()) {
-            filtered = filtered.filter { entity ->
-                entity.lensModel in lensModel ||
-                    ("" in lensModel && entity.lensModel.isNullOrBlank())
+            if (lensModel.isNotEmpty()) {
+                filtered = filtered.filter { entity ->
+                    entity.lensModel in lensModel ||
+                        ("" in lensModel && entity.lensModel.isNullOrBlank())
+                }
             }
+            filtered
         }
-        filtered
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val photoListFlow: StateFlow<List<PhotoModel>> = combine(
@@ -371,18 +374,20 @@ class PhotosViewModel @Inject constructor(
         _currentGroupType,
         _searchQuery
     ) { filtered, sortType, groupType, searchQuery ->
-        val queryResult = if (!searchQuery.isNullOrBlank()) {
-            val q = searchQuery.lowercase()
-            filtered.filter { entity ->
-                entity.displayName?.lowercase()?.contains(q) == true ||
-                    entity.bucketName?.lowercase()?.contains(q) == true
+        withContext(Dispatchers.Default) {
+            val queryResult = if (!searchQuery.isNullOrBlank()) {
+                val q = searchQuery.lowercase()
+                filtered.filter { entity ->
+                    entity.displayName?.lowercase()?.contains(q) == true ||
+                        entity.bucketName?.lowercase()?.contains(q) == true
+                }
+            } else {
+                filtered
             }
-        } else {
-            filtered
+            val photos = queryResult.map { it.toPhoto() }
+            val sortedPhotos = SortUtils.sortPhotos(photos, sortType)
+            buildPhotoModelList(sortedPhotos, sortType, groupType)
         }
-        val photos = queryResult.map { it.toPhoto() }
-        val sortedPhotos = SortUtils.sortPhotos(photos, sortType)
-        buildPhotoModelList(sortedPhotos, sortType, groupType)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val filteredPhotoCount: StateFlow<Int> = photoListFlow.map { models ->

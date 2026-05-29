@@ -507,7 +507,7 @@ class MediaScanner @Inject constructor(
                 Log.i(TAG, "Starting thumbnail generation for ${allPhotos.size} photos")
 
                 val batchUpdates = mutableListOf<PhotoEntity>()
-                val batchSize = 25
+                val batchSize = 200
 
                 allPhotos.forEachIndexed { index, photo ->
                     if (photo.thumbnailPath != null && File(photo.thumbnailPath).exists()) {
