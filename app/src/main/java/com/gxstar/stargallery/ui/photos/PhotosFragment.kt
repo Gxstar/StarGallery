@@ -86,7 +86,6 @@ class PhotosFragment : Fragment() {
     private var itemSize = 0
     private var savedScrollPosition = -1
     private var savedScrollOffset = 0
-    private var previousModels: List<PhotoModel>? = null
 
     // 收藏操作类型
     private var pendingFavoriteAction = BatchActionHandler.FAVORITE_ACTION_NONE
@@ -553,24 +552,29 @@ class PhotosFragment : Fragment() {
                 ) { isScanning, isExtractingExif, photoModels ->
                     Triple(isScanning, isExtractingExif, photoModels)
                 }.collect { (isScanning, isExtractingExif, photoModels) ->
-                    val listChanged = previousModels !== photoModels
-                    previousModels = photoModels
+                    // 始终检测用户当前的滚动位置（不依赖 listChanged 分支）
+                    val currentPos = gridLayoutManager?.findFirstVisibleItemPosition() ?: RecyclerView.NO_POSITION
+                    val currentOffset = if (currentPos != RecyclerView.NO_POSITION) {
+                        gridLayoutManager?.findViewByPosition(currentPos)?.top ?: 0
+                    } else 0
+                    val userIsAtTop = currentPos in 0..1 && currentOffset <= 50
 
-                    val savedPos: Int
-                    val savedOffset: Int
-                    if (listChanged) {
-                        savedPos = gridLayoutManager?.findFirstVisibleItemPosition() ?: RecyclerView.NO_POSITION
-                        savedOffset = if (savedPos != RecyclerView.NO_POSITION) {
-                            gridLayoutManager?.findViewByPosition(savedPos)?.top ?: 0
-                        } else 0
-                    } else {
-                        savedPos = -1
-                        savedOffset = 0
+                    // 在 submitList 之前禁用 animator，防止预测动画干扰
+                    if (isScanning || isExtractingExif || userIsAtTop) {
+                        if (binding.rvPhotos.itemAnimator != null) {
+                            binding.rvPhotos.itemAnimator = null
+                        }
                     }
 
                     photoAdapter?.submitList(photoModels) {
-                        if (savedPos in 0..1 && savedOffset <= 50) {
-                            gridLayoutManager?.scrollToPositionWithOffset(savedPos, savedOffset)
+                        // 用户在顶部 → 无论照片如何移动，列表回到顶部
+                        if (userIsAtTop) {
+                            gridLayoutManager?.scrollToPositionWithOffset(0, 0)
+                        }
+
+                        // diff 已应用完成后才恢复 animator
+                        if (!isScanning && !isExtractingExif && binding.rvPhotos.itemAnimator == null && photoItemAnimator != null) {
+                            binding.rvPhotos.itemAnimator = photoItemAnimator
                         }
                     }
 
@@ -579,17 +583,6 @@ class PhotosFragment : Fragment() {
                     binding.scanningView.visibility = if (isScanning && !isEmpty) View.VISIBLE else View.GONE
                     binding.progressBar.visibility = if (isScanning && isEmpty) View.VISIBLE else View.GONE
                     binding.emptyStateView.visibility = if (!isScanning && isEmpty) View.VISIBLE else View.GONE
-
-                    // 扫描或 EXIF 提取时禁用动画，避免数据快速刷新导致界面乱跳和残影
-                    if (isScanning || isExtractingExif) {
-                        if (binding.rvPhotos.itemAnimator != null) {
-                            binding.rvPhotos.itemAnimator = null
-                        }
-                    } else {
-                        if (binding.rvPhotos.itemAnimator == null && photoItemAnimator != null) {
-                            binding.rvPhotos.itemAnimator = photoItemAnimator
-                        }
-                    }
                 }
             }
         }
