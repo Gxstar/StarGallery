@@ -58,7 +58,7 @@ class PhotoPageViewHolder(
     }
 
     private fun setupZoomImageView() {
-        // ZoomImageView 默认配置已足够，无需额外设置
+        binding.ivPhoto.scrollBar = null
     }
 
     private fun setupTapDetection() {
@@ -82,6 +82,7 @@ class PhotoPageViewHolder(
     }
 
     private fun handleTouchEvent(event: MotionEvent) {
+        if (isImageZoomed()) return
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
                 downX = event.x
@@ -281,6 +282,10 @@ class PhotoPageViewHolder(
                     updateEdgeState()
                     setupHdrMode(resource)
 
+                    // 清除 Glide 缩略图缓存引用，减少子采样时的内存压力
+                    Glide.with(binding.root.context).clear(binding.ivPhoto)
+                    binding.ivPhoto.setImageBitmap(resource)
+
                     // 启用子采样 - 避免闪烁: 先设置子采样再清除缩略图
                     enableSubsampling(photo)
                 }
@@ -421,7 +426,14 @@ class PhotoPageViewHolder(
     }
 
     fun isImageZoomed(): Boolean {
-        return false
+        return try {
+            val engine = binding.ivPhoto.zoomable
+            val scale = engine.transformState.value.scaleX
+            val minScale = engine.minScaleState.value
+            scale > minScale + 0.01f
+        } catch (_: Exception) {
+            false
+        }
     }
 
     fun resetZoom() {

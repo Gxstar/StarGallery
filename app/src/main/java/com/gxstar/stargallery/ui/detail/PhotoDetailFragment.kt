@@ -51,6 +51,7 @@ class PhotoDetailFragment : Fragment() {
 
     private var startY = 0f
     private var isDragging = false
+    private var imageWasZoomedOnDown = false
 
     // 是否处于全屏模式
     private var isFullscreen = false
@@ -156,9 +157,8 @@ class PhotoDetailFragment : Fragment() {
         )
 
         binding.viewPager.adapter = pagerAdapter
-        // 增加预加载页数，让滑动更流畅
-        // 预加载左右各 2 页，平衡内存占用与滑动体验
-        binding.viewPager.offscreenPageLimit = 2
+        // 预加载左右各 1 页，大图场景下减少并行解码的内存和 CPU 竞争
+        binding.viewPager.offscreenPageLimit = 1
 
         var lastPosition = -1
 
@@ -339,8 +339,11 @@ class PhotoDetailFragment : Fragment() {
                 MotionEvent.ACTION_DOWN -> {
                     startY = event.rawY
                     isDragging = false
+                    val pos = binding.viewPager.currentItem
+                    imageWasZoomedOnDown = pagerAdapter.getViewHolder(pos)?.isImageZoomed() == true
                 }
                 MotionEvent.ACTION_MOVE -> {
+                    if (imageWasZoomedOnDown) return@setOnTouchListener false
                     val deltaY = event.rawY - startY
                     if (kotlin.math.abs(deltaY) > 50) isDragging = true
                     if (isDragging) {
@@ -350,17 +353,20 @@ class PhotoDetailFragment : Fragment() {
                     }
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    val deltaY = event.rawY - startY
-                    if (kotlin.math.abs(deltaY) > 200) {
-                        findNavController().navigateUp()
-                    } else {
-                        binding.viewPager.animate()
-                            .translationY(0f)
-                            .alpha(1f)
-                            .setDuration(200)
-                            .start()
+                    if (!imageWasZoomedOnDown && isDragging) {
+                        val deltaY = event.rawY - startY
+                        if (kotlin.math.abs(deltaY) > 200) {
+                            findNavController().navigateUp()
+                        } else {
+                            binding.viewPager.animate()
+                                .translationY(0f)
+                                .alpha(1f)
+                                .setDuration(200)
+                                .start()
+                        }
                     }
                     isDragging = false
+                    imageWasZoomedOnDown = false
                 }
             }
             false

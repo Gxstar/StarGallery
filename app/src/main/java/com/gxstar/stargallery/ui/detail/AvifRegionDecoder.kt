@@ -98,7 +98,9 @@ class AvifRegionDecoder(
 
     class Factory : RegionDecoder.Factory {
 
-        override suspend fun accept(subsamplingImage: SubsamplingImage): Boolean = true
+        override suspend fun accept(subsamplingImage: SubsamplingImage): Boolean {
+            return checkSupport(subsamplingImage.imageInfo?.mimeType.orEmpty()) == true
+        }
 
         override fun checkSupport(mimeType: String): Boolean? {
             return if (mimeType == "image/avif" && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
