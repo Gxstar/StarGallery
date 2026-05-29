@@ -1,6 +1,7 @@
 package com.gxstar.stargallery.data.local.exif
 
 import android.content.Context
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.provider.MediaStore
 import com.drew.imaging.ImageMetadataReader
@@ -40,8 +41,38 @@ class ExifExtractor @Inject constructor(
             } catch (_: Exception) {
                 uri
             }
+
+            // 1. 从实际文件获取真实宽高（BitmapFactory 仅解码边界，不加载像素）
+            var realWidth: Int? = null
+            var realHeight: Int? = null
+            try {
+                context.contentResolver.openInputStream(originalUri)?.use { stream ->
+                    val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                    BitmapFactory.decodeStream(stream, null, opts)
+                    if (opts.outWidth > 0 && opts.outHeight > 0) {
+                        realWidth = opts.outWidth
+                        realHeight = opts.outHeight
+                    }
+                }
+            } catch (_: Exception) {}
+
+            // 2. 从实际文件获取真实大小
+            var fileSize: Long? = null
+            try {
+                context.contentResolver.openAssetFileDescriptor(originalUri, "r")?.use { fd ->
+                    val len = fd.length
+                    if (len > 0L) fileSize = len
+                }
+            } catch (_: Exception) {}
+
+            // 3. 解析 EXIF 元数据
             val inputStream = context.contentResolver.openInputStream(originalUri)
             if (inputStream == null) {
+                // 即使 EXIF 解析失败，也返回文件物理信息（宽高/大小）
+                if (realWidth != null || realHeight != null || fileSize != null) {
+                    android.util.Log.w("ExifExtractor", "openInputStream failed but returning file info for $uri")
+                    return@withContext ExifData(width = realWidth, height = realHeight, size = fileSize)
+                }
                 android.util.Log.w("ExifExtractor", "openInputStream returned null for $uri")
                 return@withContext null
             }
@@ -49,12 +80,16 @@ class ExifExtractor @Inject constructor(
                 val metadata = ImageMetadataReader.readMetadata(stream)
                 val result = parseExifMetadata(metadata)
                 android.util.Log.d("ExifExtractor", "EXIF parsed for $uri: $result")
-                // 如果所有字段都是 null，说明没有有效的 EXIF 数据
-                if (result.isAllNull()) {
+                // 没有有效 EXIF 但仍有文件物理信息时也返回
+                if (result.isAllNull() && realWidth == null && realHeight == null && fileSize == null) {
                     android.util.Log.w("ExifExtractor", "All EXIF fields are null for $uri")
                     return@withContext null
                 }
-                return@withContext result
+                return@withContext result.copy(
+                    width = realWidth,
+                    height = realHeight,
+                    size = fileSize
+                )
             }
         } catch (e: Exception) {
             android.util.Log.e("ExifExtractor", "Failed to extract EXIF for $uri", e)
@@ -250,6 +285,9 @@ class ExifExtractor @Inject constructor(
      * EXIF 提取结果数据类
      */
     data class ExifData(
+        val width: Int? = null,
+        val height: Int? = null,
+        val size: Long? = null,
         val cameraMake: String? = null,
         val cameraModel: String? = null,
         val lensModel: String? = null,
@@ -290,6 +328,9 @@ class ExifExtractor @Inject constructor(
         fun applyToEntity(entity: PhotoEntity, exifData: ExifData): PhotoEntity {
             val dateTaken = resolveBestDate(exifData, entity.dateTaken)
             return entity.copy(
+                width = exifData.width ?: entity.width,
+                height = exifData.height ?: entity.height,
+                size = exifData.size ?: entity.size,
                 cameraMake = exifData.cameraMake,
                 cameraModel = exifData.cameraModel,
                 lensModel = exifData.lensModel,

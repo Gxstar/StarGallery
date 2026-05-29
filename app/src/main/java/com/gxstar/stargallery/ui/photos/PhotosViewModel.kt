@@ -318,7 +318,7 @@ class PhotosViewModel @Inject constructor(
      */
     fun deletePhotos(photoIds: List<Long>) {
         viewModelScope.launch {
-            photoIds.forEach { mediaScanner.deletePhoto(it) }
+            mediaScanner.deletePhotos(photoIds)
         }
     }
 

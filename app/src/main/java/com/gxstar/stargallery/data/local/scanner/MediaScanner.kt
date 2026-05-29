@@ -432,6 +432,15 @@ class MediaScanner @Inject constructor(
     }
 
     /**
+     * 批量删除媒体记录（单次事务，避免逐条删除触发多次 Room Flow 重新查询）
+     */
+    suspend fun deletePhotos(photoIds: List<Long>) = withContext(Dispatchers.IO) {
+        if (photoIds.isEmpty()) return@withContext
+        thumbnailManager.deleteThumbnails(photoIds)
+        photoDao.deleteByIds(photoIds)
+    }
+
+    /**
      * 批量更新收藏状态
      */
     suspend fun updateFavorite(photoIds: List<Long>, isFavorite: Boolean) = withContext(Dispatchers.IO) {
