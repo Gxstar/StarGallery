@@ -68,11 +68,6 @@ class ExifExtractor @Inject constructor(
             // 3. 解析 EXIF 元数据
             val inputStream = context.contentResolver.openInputStream(originalUri)
             if (inputStream == null) {
-                // 即使 EXIF 解析失败，也返回文件物理信息（宽高/大小）
-                if (realWidth != null || realHeight != null || fileSize != null) {
-                    android.util.Log.w("ExifExtractor", "openInputStream failed but returning file info for $uri")
-                    return@withContext ExifData(width = realWidth, height = realHeight, size = fileSize)
-                }
                 android.util.Log.w("ExifExtractor", "openInputStream returned null for $uri")
                 return@withContext null
             }
@@ -80,8 +75,7 @@ class ExifExtractor @Inject constructor(
                 val metadata = ImageMetadataReader.readMetadata(stream)
                 val result = parseExifMetadata(metadata)
                 android.util.Log.d("ExifExtractor", "EXIF parsed for $uri: $result")
-                // 没有有效 EXIF 但仍有文件物理信息时也返回
-                if (result.isAllNull() && realWidth == null && realHeight == null && fileSize == null) {
+                if (result.isAllNull()) {
                     android.util.Log.w("ExifExtractor", "All EXIF fields are null for $uri")
                     return@withContext null
                 }
