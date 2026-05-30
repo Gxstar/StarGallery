@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="90 90 340 340" width="100%" height="100%" style="overflow:hidden;">
+  <defs>
+    <linearGradient id="back-mountain-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#D1FAE5" />
+      <stop offset="100%" stop-color="#A7F3D0" />
+    </linearGradient>
+    <linearGradient id="front-mountain-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#A7F3D0" />
+      <stop offset="100%" stop-color="#34D399" />
+    </linearGradient>
+    <linearGradient id="art-white-sky" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FAFAF9" />
+      <stop offset="100%" stop-color="#F5F5F4" />
+    </linearGradient>
+    <g id="sparkle-star-gold">
+      <path d="M 0 -18 C 0 -4, 4 0, 18 0 C 4 0, 0 4, 0 18 C 0 4, -4 0, -18 0 C -4 0, 0 -4, 0 -18 Z" fill="#D97706" opacity="0.1" transform="translate(0, 1)" />
+      <path d="M 0 -18 C 0 -4, 4 0, 18 0 C 4 0, 0 4, 0 18 C 0 4, -4 0, -18 0 C -4 0, 0 -4, 0 -18 Z" fill="#F59E0B" />
+      <path d="M 0 -11 C 0 -2, 2 0, 11 0 C 2 0, 0 2, 0 11 C 0 2, -2 0, -11 0 C -2 0, 0 -2, 0 -11 Z" fill="#FEF08A" />
+    </g>
+  </defs>
+
+  <rect x="90" y="90" width="340" height="340" fill="url(#art-white-sky)" />
+  <use href="#sparkle-star-gold" transform="translate(340, 160) scale(1.6)" />
+  <use href="#sparkle-star-gold" transform="translate(160, 170) scale(1.25)" />
+  <use href="#sparkle-star-gold" transform="translate(260, 220) scale(0.95)" />
+  <polygon points="110,430 220,300 330,430" fill="url(#back-mountain-grad)" />
+  <polygon points="180,430 290,270 410,430" fill="url(#front-mountain-grad)" />
+</svg>

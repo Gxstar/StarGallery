@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- 绿山渐变 1（后山：柔和偏浅） -->
+    <linearGradient id="back-mountain-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#D1FAE5" />
+      <stop offset="100%" stop-color="#A7F3D0" />
+    </linearGradient>
+
+    <!-- 绿山渐变 2（前山：现代绿渐变） -->
+    <linearGradient id="front-mountain-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#A7F3D0" />
+      <stop offset="100%" stop-color="#34D399" />
+    </linearGradient>
+
+    <!-- 艺术白天空渐变 -->
+    <linearGradient id="art-white-sky" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FAFAF9" />
+      <stop offset="100%" stop-color="#F5F5F4" />
+    </linearGradient>
+
+    <!-- 优雅的四角闪烁星（带微投影） -->
+    <g id="sparkle-star-gold">
+      <path d="M 0 -18 C 0 -4, 4 0, 18 0 C 4 0, 0 4, 0 18 C 0 4, -4 0, -18 0 C -4 0, 0 -4, 0 -18 Z" fill="#D97706" opacity="0.1" transform="translate(0, 1)" />
+      <path d="M 0 -18 C 0 -4, 4 0, 18 0 C 4 0, 0 4, 0 18 C 0 4, -4 0, -18 0 C -4 0, 0 -4, 0 -18 Z" fill="#F59E0B" />
+      <path d="M 0 -11 C 0 -2, 2 0, 11 0 C 2 0, 0 2, 0 11 C 0 2, -2 0, -11 0 C -2 0, 0 -2, 0 -11 Z" fill="#FEF08A" />
+    </g>
+  </defs>
+
+  <!-- 1. 亮色应用图标背景（浅灰蓝） -->
+  <rect width="512" height="512" rx="108" fill="#F1F5F9" />
+
+  <!-- 2. 物理阴影层 -->
+  <rect x="106" y="112" width="300" height="300" rx="36" fill="#CBD5E1" opacity="0.5" />
+
+  <!-- 3. 主体纯白色相框 -->
+  <rect x="106" y="106" width="300" height="300" rx="36" fill="#FFFFFF" />
+  
+  <!-- 相框内照片区域 -->
+  <clipPath id="frame-inner">
+    <rect x="126" y="126" width="260" height="260" rx="20" />
+  </clipPath>
+  
+  <g clip-path="url(#frame-inner)">
+    <!-- 4. 艺术白天空 -->
+    <rect x="126" y="126" width="260" height="260" fill="url(#art-white-sky)" />
+
+    <!-- 5. 优雅错落的 5 颗星群 -->
+    <!-- 【大星】右上焦点 -->
+    <use href="#sparkle-star-gold" transform="translate(310, 180) scale(1.35)" />
+    <!-- 【中星】左上遥望 -->
+    <use href="#sparkle-star-gold" transform="translate(180, 200) scale(0.95)" />
+    <!-- 【小星】中心山谷上方 -->
+    <use href="#sparkle-star-gold" transform="translate(245, 220) scale(0.65)" />
+    <!-- 【微星 1】偏左上高空（作为左侧中星的伴星，增加星空深度） -->
+    <use href="#sparkle-star-gold" transform="translate(150, 155) scale(0.45)" />
+    <!-- 【微星 2】偏右侧山坡上方（平衡右侧构图，让右侧大星不孤单） -->
+    <use href="#sparkle-star-gold" transform="translate(345, 215) scale(0.45)" />
+
+    <!-- 6. 无边框渐变绿色山脉 -->
+    <!-- 后山（浅绿色渐变） -->
+    <polygon points="110,390 220,260 330,390" fill="url(#back-mountain-grad)" />
+    
+    <!-- 前山（翠绿色渐变） -->
+    <polygon points="180,390 290,230 410,390" fill="url(#front-mountain-grad)" />
+  </g>
+
+  <!-- 7. 极细浅灰边界分割线 -->
+  <rect x="126" y="126" width="260" height="260" rx="20" fill="none" stroke="#E2E8F0" stroke-width="1.5" />
+</svg>
