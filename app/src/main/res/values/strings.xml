@@ -194,8 +194,6 @@
     <string name="contact_email_title">发送邮件</string>
     <string name="contact_email">gengxing123@qq.com</string>
     <string name="contact_email_subject">相册应用反馈</string>
-    <string name="contact_feedback_title">应用内反馈</string>
-    <string name="contact_feedback_desc">直接在应用内提交反馈和建议</string>
     <string name="send_email">选择邮件应用</string>
 
     <!-- 开源许可 -->
@@ -207,13 +205,13 @@
     <!-- 隐私政策详细章节 -->
     <string name="privacy_policy_date">最后更新：2026年5月17日</string>
     <string name="privacy_section_1_title">一、信息收集</string>
-    <string name="privacy_section_1_content">相册应用仅访问您设备上的本地媒体文件（照片和视频），以提供以下功能：\n\n• 照片浏览：以网格形式展示设备中的照片和视频\n• 相册管理：按文件夹自动整理照片\n• 照片预览：查看照片详情和基本信息\n• 收藏功能：标记您喜欢的照片\n• 回收站：安全删除和恢复已删除的媒体文件\n\n我们不会收集、传输或分享您的任何个人信息到外部服务器。所有数据处理均在您的设备本地完成。</string>
+    <string name="privacy_section_1_content">相册应用仅访问您设备上的本地媒体文件（照片和视频），以提供以下功能：\n\n• 照片浏览：以网格形式展示设备中的照片和视频\n• 相册管理：按文件夹自动整理照片\n• 照片预览：查看照片详情和基本信息\n• 收藏功能：标记您喜欢的照片\n• 隐藏照片：保护您的隐私照片（需生物识别认证）\n• 回收站：安全删除和恢复已删除的媒体文件\n\n我们不会收集、传输或分享您的任何个人信息到外部服务器。所有数据处理均在您的设备本地完成。</string>
     <string name="privacy_section_2_title">二、信息使用</string>
     <string name="privacy_section_2_content">您设备上的媒体文件仅用于以下目的：\n\n• 显示：按照日期、名称等排序展示您的照片\n• 分类：按相册/文件夹组织您的媒体文件\n• 预览：加载和显示照片缩略图和原图\n• 元数据读取：读取EXIF信息（相机型号、拍摄参数等）用于显示标签\n• 搜索：根据文件名搜索您的照片\n\n我们不会将您的照片用于任何其他目的，也不会与任何第三方共享。</string>
     <string name="privacy_section_3_title">三、信息存储</string>
     <string name="privacy_section_3_content">• 本地存储：所有照片数据均存储在您的设备本地存储中，我们不会创建任何额外的照片副本\n• 应用设置：您的偏好设置（如列数、排序方式）存储在应用的私有目录中\n• 缓存数据：为提升加载速度，我们会缓存部分缩略图，缓存文件存储在应用私有目录，可随时清除\n• 不上传：我们的应用不会将您的任何照片或视频上传至服务器</string>
     <string name="privacy_section_5_title">四、第三方服务</string>
-    <string name="privacy_section_5_content">本应用可能包含以下第三方库/服务：\n\n• Glide：图片加载和缓存库\n• ZoomImage：图片缩放查看库\n• ExoPlayer：视频播放库\n• metadata-extractor：EXIF 元数据读取库\n• Room：本地数据库\n• Hilt：依赖注入框架\n• Navigation Component：页面导航库\n• FastScroller：快速滚动条库\n\n这些第三方服务仅在您的设备本地处理数据，不会收集您的个人信息。</string>
+    <string name="privacy_section_5_content">本应用可能包含以下第三方库/服务：\n\n• Glide：图片加载和缓存库\n• ZoomImage：图片缩放查看库\n• ExoPlayer：视频播放库\n• metadata-extractor：EXIF 元数据读取库\n• Room：本地数据库\n• Hilt：依赖注入框架\n• Navigation Component：页面导航库\n• drag-select-recyclerview：拖动多选库\n• FastScroller：快速滚动条库\n• Biometric：生物识别认证库\n• LeakCanary：内存泄漏检测库\n• Kotlinx Coroutines：异步协程框架\n\n这些第三方服务仅在您的设备本地处理数据，不会收集您的个人信息。</string>
     <string name="privacy_section_7_title">五、用户权利</string>
     <string name="privacy_section_7_content">您对您的数据拥有完全控制权：\n\n• 访问权：您可以随时通过应用浏览您的所有照片\n• 删除权：您可以使用系统功能或应用内置的删除功能删除照片\n• 权限控制：您可以在系统设置中管理应用权限\n• 卸载权：您可以随时卸载应用，卸载后所有应用数据将被清除\n• 清除缓存：在应用设置中可以清除所有缓存数据</string>
     <string name="back">返回</string>

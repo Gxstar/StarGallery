@@ -9,8 +9,8 @@ import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.gxstar.stargallery.R
 import com.gxstar.stargallery.databinding.FragmentThirdPartyLibrariesBinding
+import com.gxstar.stargallery.databinding.ItemLibraryBinding
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -75,23 +75,21 @@ class ThirdPartyLibrariesFragment : Fragment() {
         private val onItemClick: (Library) -> Unit
     ) : androidx.recyclerview.widget.RecyclerView.Adapter<LibraryAdapter.ViewHolder>() {
 
-        class ViewHolder(itemView: View) : androidx.recyclerview.widget.RecyclerView.ViewHolder(itemView) {
-            val tvName: android.widget.TextView = itemView.findViewById(R.id.tvName)
-            val tvDescription: android.widget.TextView = itemView.findViewById(R.id.tvDescription)
-            val tvLicense: android.widget.TextView = itemView.findViewById(R.id.tvLicense)
-        }
+        class ViewHolder(val binding: ItemLibraryBinding) :
+            androidx.recyclerview.widget.RecyclerView.ViewHolder(binding.root)
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-            val view = LayoutInflater.from(parent.context)
-                .inflate(R.layout.item_library, parent, false)
-            return ViewHolder(view)
+            val binding = ItemLibraryBinding.inflate(
+                LayoutInflater.from(parent.context), parent, false
+            )
+            return ViewHolder(binding)
         }
 
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
             val library = libraries[position]
-            holder.tvName.text = library.name
-            holder.tvDescription.text = library.description
-            holder.tvLicense.text = library.license
+            holder.binding.tvName.text = library.name
+            holder.binding.tvDescription.text = library.description
+            holder.binding.tvLicense.text = library.license
             holder.itemView.setOnClickListener { onItemClick(library) }
         }
 
