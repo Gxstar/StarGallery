@@ -143,6 +143,9 @@ class PhotosViewModel @Inject constructor(
                 } finally {
                     _isScanning.value = false
                 }
+            } else if (!scanPreferences.isExifExtractionCompleted) {
+                // 全量扫描已完成但 EXIF 提取被中断（如进程被杀），恢复提取
+                mediaScanner.recoverExifExtraction()
             }
         }
     }

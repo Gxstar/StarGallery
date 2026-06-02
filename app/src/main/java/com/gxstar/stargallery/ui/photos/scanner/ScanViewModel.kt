@@ -37,20 +37,16 @@ class ScanViewModel @Inject constructor(
      */
     private fun checkInitialization() {
         viewModelScope.launch {
-            when {
-                !scanPreferences.isScanCompleted -> {
-                    _isInitialized.value = false
-                    startScan()
+            if (scanPreferences.isScanCompleted) {
+                _isInitialized.value = true
+                performIncrementalScan()
+                // 如 EXIF 提取因进程被杀中断，后台恢复
+                if (!scanPreferences.isExifExtractionCompleted) {
+                    mediaScanner.recoverExifExtraction()
                 }
-                scanPreferences.isScanCompleted -> {
-                    _isInitialized.value = true
-                    performIncrementalScan()
-                }
-                else -> {
-                    scanPreferences.isScanCompleted = true
-                    _isInitialized.value = true
-                    performIncrementalScan()
-                }
+            } else {
+                _isInitialized.value = false
+                // 首次全量扫描由 PhotosViewModel 处理，此处不重复触发
             }
         }
     }
@@ -64,7 +60,6 @@ class ScanViewModel @Inject constructor(
                 _scanState.value = state
 
                 if (state is MediaScanner.ScanState.Completed) {
-                    scanPreferences.isScanCompleted = true
                     _isInitialized.value = true
                 }
             }

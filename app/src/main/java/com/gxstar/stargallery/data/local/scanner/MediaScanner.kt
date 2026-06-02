@@ -194,6 +194,7 @@ class MediaScanner @Inject constructor(
             _scanState.emit(ScanState.Completed(total, duration))
             scanPreferences.lastScanTime = System.currentTimeMillis() / 1000
             scanPreferences.isScanCompleted = true
+            scanPreferences.isExifExtractionCompleted = false
 
             // 全量扫描完成后，后台提取 EXIF 信息
             extractExifForAllPhotos()
@@ -261,7 +262,27 @@ class MediaScanner @Inject constructor(
                 Log.e(TAG, "EXIF extraction failed", e)
             } finally {
                 _isExtractingExif.value = false
+                scanPreferences.isExifExtractionCompleted = true
                 generateThumbnailsForAllPhotos()
+            }
+        }
+    }
+
+    /**
+     * 恢复被中断的 EXIF 提取
+     * 当 isScanCompleted = true 但 isExifExtractionCompleted = false 时由 ViewModel 调用
+     */
+    fun recoverExifExtraction() {
+        if (_isExtractingExif.value) {
+            Log.i(TAG, "EXIF extraction already in progress, skipping recovery")
+            return
+        }
+        exifJob?.cancel()
+        exifJob = CoroutineScope(Dispatchers.IO).launch {
+            try {
+                extractExifForAllPhotos()
+            } catch (e: Exception) {
+                Log.e(TAG, "EXIF recovery failed", e)
             }
         }
     }

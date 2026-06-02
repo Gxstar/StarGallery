@@ -21,6 +21,7 @@ class ScanPreferences @Inject constructor(
         private const val KEY_LAST_SCAN_TIME = "last_scan_time"
         private const val KEY_LAST_MEDIA_COUNT = "last_media_count"
         private const val KEY_INCREMENTAL_SINCE_DELETION_CHECK = "incremental_since_deletion_check"
+        private const val KEY_EXIF_EXTRACTION_COMPLETED = "exif_extraction_completed"
         private const val DELETION_CHECK_INTERVAL = 50 // 每 50 次增量扫描检查一次删除
     }
 
@@ -30,6 +31,14 @@ class ScanPreferences @Inject constructor(
     var isScanCompleted: Boolean
         get() = prefs.getBoolean(KEY_SCAN_COMPLETED, false)
         set(value) = prefs.edit().putBoolean(KEY_SCAN_COMPLETED, value).apply()
+
+    /**
+     * EXIF 提取是否已完成
+     * 独立于 isScanCompleted，用于在进程被杀后恢复 EXIF 提取
+     */
+    var isExifExtractionCompleted: Boolean
+        get() = prefs.getBoolean(KEY_EXIF_EXTRACTION_COMPLETED, false)
+        set(value) = prefs.edit().putBoolean(KEY_EXIF_EXTRACTION_COMPLETED, value).apply()
 
     /**
      * 最后扫描时间（秒级 Unix 时间戳，与 MediaStore DATE_MODIFIED 单位一致）
