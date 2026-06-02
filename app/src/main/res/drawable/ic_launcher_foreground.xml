@@ -5,18 +5,30 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
+    <!-- 阴影层：两山合并为一个外轮廓，避免重叠 -->
+    <group android:translateY="2">
+        <path
+            android:fillColor="#000000"
+            android:fillAlpha="0.12"
+            android:pathData="M29,74 L44,46 L64,54 L79,74 Z" />
+        <path
+            android:fillColor="#000000"
+            android:fillAlpha="0.12"
+            android:pathData="M67,33.5 L69.5,37.5 L73.5,40 L69.5,42.5 L67,46.5 L64.5,42.5 L60.5,40 L64.5,37.5 Z" />
+    </group>
+
     <!-- 居中山峰 -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M43.5,36 L68.1817,79.5 L18.8183,79.5 Z" />
+        android:pathData="M44,46 L59,74 L29,74 Z" />
 
     <!-- 右侧山峰 -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M64.5,46 L90.0477,79.75 L38.9523,79.75 Z" />
+        android:pathData="M64,54 L79,74 L49,74 Z" />
 
-    <!-- 右上四芒星 -->
+    <!-- 右上四芒星（加粗） -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M69.5,25.5 L72,31 L78,33.5 L72,36 L69.5,41.5 L67,36 L61,33.5 L67,31 Z" />
+        android:pathData="M67,33.5 L69.5,37.5 L73.5,40 L69.5,42.5 L67,46.5 L64.5,42.5 L60.5,40 L64.5,37.5 Z" />
 </vector>
