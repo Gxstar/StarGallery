@@ -88,6 +88,7 @@ class PhotosFragment : Fragment() {
     private var itemSize = 0
     private var savedScrollPosition = -1
     private var savedScrollOffset = 0
+    private var fastScrollerReady = false
 
     // 收藏操作类型
     private var pendingFavoriteAction = BatchActionHandler.FAVORITE_ACTION_NONE
@@ -238,8 +239,6 @@ class PhotosFragment : Fragment() {
         bindSelectionProviders()
 
         setupGlidePreloader()
-
-        setupFastScroller()
     }
 
     private fun setupFastScroller() {
@@ -577,6 +576,12 @@ class PhotosFragment : Fragment() {
                         // diff 已应用完成后才恢复 animator
                         if (!isScanning && !isExtractingExif && binding.rvPhotos.itemAnimator == null && photoItemAnimator != null) {
                             binding.rvPhotos.itemAnimator = photoItemAnimator
+                        }
+
+                        // FastScroller 延迟初始化：等 RecyclerView 有数据后再创建
+                        if (!fastScrollerReady) {
+                            fastScrollerReady = true
+                            binding.rvPhotos.post { setupFastScroller() }
                         }
                     }
 
