@@ -42,4 +42,23 @@
     
     <!-- 危险操作颜色 -->
     <color name="delete_red">#FFFF453A</color>
+
+    <!-- ===== 暗色主题适配 ===== -->
+    <color name="bottom_nav_bg">#E6FFFFFF</color>
+    <color name="fastscroll_popup_bg">#E6000000</color>
+    <color name="fastscroll_popup_text">#FFFFFFFF</color>
+    <color name="photo_detail_bar_bg">#F2FFFFFF</color>
+    <color name="tag_overlay">#1A000000</color>
+    <color name="tag_overlay_light">#0D000000</color>
+    <color name="selection_overlay">#40000000</color>
+    <color name="expiration_tag_bg">#99000000</color>
+    <color name="raw_tag_bg">#80000000</color>
+    <color name="raw_tag_text">#FFCCCCCC</color>
+    <color name="play_button_bg">#80000000</color>
+    <color name="video_controls_bg">#60000000</color>
+    <color name="dot_bg">#80000000</color>
+    <color name="card_secondary_bg">#F2F2F7</color>
+    <color name="exif_progress_tint">#FF64B5F6</color>
+    <color name="card_light_stroke">#FFE5E5EA</color>
+    <color name="delete_drag_handle">#FFE0E0E0</color>
 </resources>

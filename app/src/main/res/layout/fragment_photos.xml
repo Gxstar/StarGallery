@@ -3,14 +3,14 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/white"
+    android:background="?attr/colorSurface"
     android:fitsSystemWindows="true">
 
     <com.google.android.material.appbar.AppBarLayout
         android:id="@+id/appBarLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/white"
+        android:background="?attr/colorSurface"
         android:stateListAnimator="@null"
         app:elevation="0dp"
         app:liftOnScroll="false">
@@ -25,7 +25,7 @@
                 android:id="@+id/normalToolbar"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@color/white"
+                android:background="?attr/colorSurface"
                 android:visibility="visible">
 
                 <!-- 第一行：标题和按钮 -->
@@ -114,7 +114,7 @@
                     android:indeterminate="false"
                     android:max="100"
                     android:progress="0"
-                    android:progressTint="#FF64B5F6"
+                    android:progressTint="@color/exif_progress_tint"
                     android:visibility="gone"
                     app:layout_constraintBottom_toBottomOf="parent"
                     app:layout_constraintEnd_toEndOf="parent"
@@ -127,7 +127,7 @@
                 android:id="@+id/selectionToolbar"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@color/white"
+                android:background="?attr/colorSurface"
                 android:visibility="gone">
 
                 <!-- 第一行：返回和选中数量 -->
@@ -225,7 +225,7 @@
                 android:id="@+id/searchToolbar"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@color/white"
+                android:background="?attr/colorSurface"
                 android:visibility="gone">
 
                 <!-- 第一行：返回 + 搜索框 + 清除 -->

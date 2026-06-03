@@ -3,7 +3,7 @@
     android:id="@+id/rootContainer"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/white">
+    android:background="?attr/colorSurface">
 
     <!-- ViewPager2 with no clipping to fill entire screen -->
     <androidx.viewpager2.widget.ViewPager2
@@ -16,7 +16,7 @@
         android:id="@+id/topBar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="#F2FFFFFF"
+        android:background="@color/photo_detail_bar_bg"
         android:orientation="vertical">
 
         <androidx.constraintlayout.widget.ConstraintLayout
@@ -87,7 +87,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
-        android:background="#F2FFFFFF"
+        android:background="@color/photo_detail_bar_bg"
         android:orientation="horizontal"
         android:paddingTop="4dp">
 

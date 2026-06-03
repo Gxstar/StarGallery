@@ -242,4 +242,10 @@
     <string name="photo_info_metering_mode">测光模式</string>
     <string name="photo_info_location">位置信息</string>
     <string name="photo_info_open_map">在地图中查看</string>
+
+    <!-- 主题切换 -->
+    <string name="theme">主题模式</string>
+    <string name="theme_system">跟随系统</string>
+    <string name="theme_light">浅色模式</string>
+    <string name="theme_dark">深色模式</string>
 </resources>

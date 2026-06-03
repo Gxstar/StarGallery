@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.IntentSender
 import android.graphics.Color
 import android.os.Bundle
+import android.util.TypedValue
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
@@ -296,24 +297,29 @@ class PhotoDetailFragment : Fragment() {
         val controller = WindowCompat.getInsetsController(requireActivity().window, requireActivity().window.decorView)
         
         if (isFullscreen) {
-            // 隐藏系统栏
             controller.hide(WindowInsetsCompat.Type.systemBars())
             controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
 
-            // 动画切换背景和工具栏
             binding.rootContainer.setBackgroundColor(Color.BLACK)
             fadeView(binding.topBar, false)
             fadeView(binding.bottomBar, false)
+            updateSystemBarIcons(false)
         } else {
-            // 显示系统栏
             controller.show(WindowInsetsCompat.Type.systemBars())
 
-            binding.rootContainer.setBackgroundColor(Color.WHITE)
+            val typedValue = TypedValue()
+            requireActivity().theme.resolveAttribute(
+                com.google.android.material.R.attr.colorSurface, typedValue, true
+            )
+            binding.rootContainer.setBackgroundColor(typedValue.data)
             fadeView(binding.topBar, true)
             fadeView(binding.bottomBar, true)
+
+            val isLightTheme = resources.configuration.uiMode and
+                android.content.res.Configuration.UI_MODE_NIGHT_MASK !=
+                android.content.res.Configuration.UI_MODE_NIGHT_YES
+            updateSystemBarIcons(isLightTheme)
         }
-        
-        updateSystemBarIcons(!isFullscreen)
     }
 
     private fun fadeView(view: View, show: Boolean) {

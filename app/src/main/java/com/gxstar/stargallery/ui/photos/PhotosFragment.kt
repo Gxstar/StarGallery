@@ -31,7 +31,9 @@ import com.bumptech.glide.Glide
 import com.bumptech.glide.integration.recyclerview.RecyclerViewPreloader
 import com.bumptech.glide.util.ViewPreloadSizeProvider
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import androidx.appcompat.app.AppCompatDelegate
 import com.gxstar.stargallery.R
+import com.gxstar.stargallery.StarGalleryApp
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.data.repository.MediaRepository
 import com.gxstar.stargallery.databinding.FragmentPhotosBinding
@@ -259,7 +261,7 @@ class PhotosFragment : Fragment() {
                 params.gravity = Gravity.RIGHT
                 popupView.layoutParams = params
                 popupView.background = ContextCompat.getDrawable(context, R.drawable.bg_fastscroll_popup)
-                popupView.setTextColor(0xFFFFFFFF.toInt())
+                popupView.setTextColor(ContextCompat.getColor(context, R.color.fastscroll_popup_text))
                 popupView.textSize = 12f
                 popupView.includeFontPadding = false
                 popupView.translationX = -(32 * context.resources.displayMetrics.density)
@@ -728,6 +730,7 @@ class PhotosFragment : Fragment() {
                 R.id.action_sort -> { showSortDialog(); true }
                 R.id.action_group -> { showGroupDialog(); true }
                 R.id.action_columns -> { showColumnsDialog(); true }
+                R.id.action_theme -> { showThemeDialog(); true }
                 R.id.action_trash -> { navigateToTrash(); true }
                 R.id.action_hidden -> { navigateToHidden(); true }
                 R.id.action_about -> { navigateToAbout(); true }
@@ -855,6 +858,44 @@ class PhotosFragment : Fragment() {
         binding.rvPhotos.addItemDecoration(GridSpacingItemDecoration(newSpanCount, GridSpanCalculator.dpToPx(2, resources.displayMetrics), true))
 
         setupGlidePreloader()
+    }
+
+    private fun showThemeDialog() {
+        val currentMode = sharedPreferences.getInt(
+            StarGalleryApp.KEY_THEME_MODE,
+            StarGalleryApp.DEFAULT_THEME_MODE
+        )
+        val checkedIndex = when (currentMode) {
+            AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM -> 0
+            AppCompatDelegate.MODE_NIGHT_NO -> 1
+            AppCompatDelegate.MODE_NIGHT_YES -> 2
+            else -> 0
+        }
+
+        val items = arrayOf(
+            getString(R.string.theme_system),
+            getString(R.string.theme_light),
+            getString(R.string.theme_dark)
+        )
+
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.theme)
+            .setSingleChoiceItems(items, checkedIndex) { dialog, which ->
+                val mode = when (which) {
+                    0 -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+                    1 -> AppCompatDelegate.MODE_NIGHT_NO
+                    2 -> AppCompatDelegate.MODE_NIGHT_YES
+                    else -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+                }
+                sharedPreferences.edit()
+                    .putInt(StarGalleryApp.KEY_THEME_MODE, mode)
+                    .apply()
+                AppCompatDelegate.setDefaultNightMode(mode)
+                dialog.dismiss()
+                requireActivity().recreate()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     /**
