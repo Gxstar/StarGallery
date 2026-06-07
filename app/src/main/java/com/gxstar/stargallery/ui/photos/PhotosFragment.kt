@@ -579,7 +579,7 @@ class PhotosFragment : Fragment() {
                         }
 
                         // FastScroller 延迟初始化：等 RecyclerView 有数据后再创建
-                        if (!fastScrollerReady) {
+                        if (!fastScrollerReady && photoModels.isNotEmpty()) {
                             fastScrollerReady = true
                             binding.rvPhotos.post { setupFastScroller() }
                         }
