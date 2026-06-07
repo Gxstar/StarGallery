@@ -5,25 +5,80 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- 近岸 -->
-    <path
-        android:fillColor="#000000"
-        android:fillAlpha="0.85"
-        android:pathData="M0,92 L16,80 L28,88 L40,80 L50,86 L54,84 L58,86 L68,80 L80,88 L92,80 L108,92 L108,108 L0,108 Z" />
+    <!-- 8 片花瓣:与 F1 排列一致,起始偏移 22.5° -->
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:rotation="22.5">
+        <path
+            android:fillColor="#000000"
+            android:pathData="M54,37 C58,38 60,44 60,50 C60,55 57,58 54,58 C51,58 48,55 48,50 C48,44 50,38 54,37 Z" />
+    </group>
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:rotation="67.5">
+        <path
+            android:fillColor="#000000"
+            android:pathData="M54,37 C58,38 60,44 60,50 C60,55 57,58 54,58 C51,58 48,55 48,50 C48,44 50,38 54,37 Z" />
+    </group>
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:rotation="112.5">
+        <path
+            android:fillColor="#000000"
+            android:pathData="M54,37 C58,38 60,44 60,50 C60,55 57,58 54,58 C51,58 48,55 48,50 C48,44 50,38 54,37 Z" />
+    </group>
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:rotation="157.5">
+        <path
+            android:fillColor="#000000"
+            android:pathData="M54,37 C58,38 60,44 60,50 C60,55 57,58 54,58 C51,58 48,55 48,50 C48,44 50,38 54,37 Z" />
+    </group>
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:rotation="202.5">
+        <path
+            android:fillColor="#000000"
+            android:pathData="M54,37 C58,38 60,44 60,50 C60,55 57,58 54,58 C51,58 48,55 48,50 C48,44 50,38 54,37 Z" />
+    </group>
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:rotation="247.5">
+        <path
+            android:fillColor="#000000"
+            android:pathData="M54,37 C58,38 60,44 60,50 C60,55 57,58 54,58 C51,58 48,55 48,50 C48,44 50,38 54,37 Z" />
+    </group>
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:rotation="292.5">
+        <path
+            android:fillColor="#000000"
+            android:pathData="M54,37 C58,38 60,44 60,50 C60,55 57,58 54,58 C51,58 48,55 48,50 C48,44 50,38 54,37 Z" />
+    </group>
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:rotation="337.5">
+        <path
+            android:fillColor="#000000"
+            android:pathData="M54,37 C58,38 60,44 60,50 C60,55 57,58 54,58 C51,58 48,55 48,50 C48,44 50,38 54,37 Z" />
+    </group>
 
-    <!-- 远山 -->
+    <!-- 中心圆环 (evenOdd 实现镂空) -->
     <path
         android:fillColor="#000000"
-        android:fillAlpha="0.85"
-        android:pathData="M10,72 C14,65 18,55 24,50 C30,45 36,52 40,58 C44,64 48,48 54,40 C60,32 64,50 68,56 C72,62 76,50 84,48 C92,46 96,54 98,60 L98,108 L10,108 Z" />
+        android:fillType="evenOdd"
+        android:pathData="M54,54 m-11,0 a11,11 0 1,0 22,0 a11,11 0 1,0 -22,0 M54,54 m-8,0 a8,8 0 1,1 16,0 a8,8 0 1,1 -16,0 Z" />
 
-    <!-- 河流 -->
+    <!-- 中心四芒星 (sharp sparkle, 镂空圆环内) -->
     <path
         android:fillColor="#000000"
-        android:pathData="M0,72 C18,62 38,82 54,72 C72,64 90,82 108,72 L108,94 C90,106 72,86 54,96 C38,104 18,84 0,96 Z" />
-
-    <!-- 星芒闪光 -->
-    <path
-        android:fillColor="#000000"
-        android:pathData="M38,22 L41,29 L46,32 L41,35 L38,42 L35,35 L30,32 L35,29 Z" />
+        android:pathData="M54,47 L55.49,52.51 L61,54 L55.49,55.49 L54,61 L52.51,55.49 L47,54 L52.51,52.51 Z" />
 </vector>
