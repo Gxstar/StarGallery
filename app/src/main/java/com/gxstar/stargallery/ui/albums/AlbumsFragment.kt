@@ -18,6 +18,7 @@ import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
+import com.gxstar.stargallery.R
 import com.gxstar.stargallery.data.model.Album
 import com.gxstar.stargallery.databinding.FragmentAlbumsBinding
 import com.gxstar.stargallery.databinding.ItemAlbumBinding
@@ -117,6 +118,14 @@ class AlbumAdapter(
         fun bind(album: Album, onClick: (Album) -> Unit) {
             binding.tvName.text = album.name
             binding.tvCount.text = "${album.photoCount}张"
+
+            if (album.isExcluded) {
+                binding.tvExcluded.visibility = View.VISIBLE
+                binding.ivCover.alpha = 0.5f
+            } else {
+                binding.tvExcluded.visibility = View.GONE
+                binding.ivCover.alpha = 1.0f
+            }
 
             Glide.with(binding.root)
                 .load(album.coverUri)

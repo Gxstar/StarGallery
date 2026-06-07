@@ -1,6 +1,5 @@
 package com.gxstar.stargallery.ui.albums
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.gxstar.stargallery.data.local.db.PhotoDao
@@ -11,7 +10,6 @@ import com.gxstar.stargallery.ui.photos.model.PhotoModel
 import com.gxstar.stargallery.ui.util.DateUtils
 import com.gxstar.stargallery.ui.util.SortUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,8 +20,7 @@ import javax.inject.Inject
 @HiltViewModel
 class AlbumDetailViewModel @Inject constructor(
     private val mediaRepository: MediaRepository,
-    private val photoDao: PhotoDao,
-    @ApplicationContext private val context: Context
+    private val photoDao: PhotoDao
 ) : ViewModel() {
 
     private val _albumId = MutableStateFlow(-1L)
@@ -71,7 +68,7 @@ class AlbumDetailViewModel @Inject constructor(
         var lastDateText: String? = null
 
         for (photo in sortedPhotos) {
-            val dateText = DateUtils.formatDateText(context, photo, sortType, groupType)
+            val dateText = DateUtils.formatDateText(photo, sortType, groupType)
             if (dateText != lastDateText) {
                 result.add(PhotoModel.SeparatorItem(dateText))
                 lastDateText = dateText

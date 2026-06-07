@@ -12,6 +12,7 @@ import com.gxstar.stargallery.data.repository.MediaRepository
 import com.gxstar.stargallery.ui.photos.model.PhotoModel
 import com.gxstar.stargallery.ui.util.DateUtils
 import com.gxstar.stargallery.ui.util.SortUtils
+import com.gxstar.stargallery.util.ExcludedAlbumManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import com.gxstar.stargallery.R
@@ -40,6 +41,7 @@ class PhotosViewModel @Inject constructor(
     private val photoDao: PhotoDao,
     private val mediaScanner: MediaScanner,
     private val scanPreferences: ScanPreferences,
+    private val excludedAlbumManager: ExcludedAlbumManager,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -342,13 +344,17 @@ class PhotosViewModel @Inject constructor(
         photoDao.getAllPhotosFlow(),
         _currentSortType,
         _showFavoritesOnly,
-        exifFilterState
-    ) { entities, sortType, favoritesOnly, exifFilters ->
+        exifFilterState,
+        excludedAlbumManager.excludedBucketIds
+    ) { entities, sortType, favoritesOnly, exifFilters, excludedBucketIds ->
         withContext(Dispatchers.Default) {
             val (cameraMake, cameraModel, lensModel) = exifFilters
             var filtered = entities
             if (favoritesOnly) filtered = filtered.filter { it.isFavorite }
             filtered = filtered.filter { !it.isHidden }
+            if (excludedBucketIds.isNotEmpty()) {
+                filtered = filtered.filter { it.bucketId !in excludedBucketIds }
+            }
             if (cameraMake.isNotEmpty()) {
                 filtered = filtered.filter { entity ->
                     entity.cameraMake in cameraMake ||
@@ -406,7 +412,7 @@ class PhotosViewModel @Inject constructor(
         val result = mutableListOf<PhotoModel>()
         var lastDateText: String? = null
         for (photo in sortedPhotos) {
-            val dateText = DateUtils.formatDateText(context, photo, sortType, groupType)
+            val dateText = DateUtils.formatDateText(photo, sortType, groupType)
             if (dateText != lastDateText) {
                 result.add(PhotoModel.SeparatorItem(dateText))
                 lastDateText = dateText

@@ -10,6 +10,7 @@ import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.data.repository.MediaRepository
 import com.gxstar.stargallery.ui.util.SortUtils
 import com.gxstar.stargallery.ui.util.DateUtils
+import com.gxstar.stargallery.util.ExcludedAlbumManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
@@ -26,6 +27,7 @@ import javax.inject.Inject
 class PhotoDetailViewModel @Inject constructor(
     private val mediaRepository: MediaRepository,
     private val photoDao: PhotoDao,
+    private val excludedAlbumManager: ExcludedAlbumManager,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -117,6 +119,8 @@ class PhotoDetailViewModel @Inject constructor(
                 var filtered = entities
                 if (favoritesOnly) filtered = filtered.filter { it.isFavorite }
                 filtered = filtered.filter { !it.isHidden }
+                val excludedIds = excludedAlbumManager.excludedBucketIds.value
+                filtered = filtered.filter { it.bucketId !in excludedIds }
                 if (filterCameraMake.isNotEmpty()) {
                     filtered = filtered.filter { entity ->
                         entity.cameraMake in filterCameraMake ||
@@ -143,9 +147,13 @@ class PhotoDetailViewModel @Inject constructor(
                 val photos = entities.filter { it.isHidden }.map { it.toPhoto() }
                 SortUtils.sortPhotos(photos, sortType)
             } else {
-                // 从首页/相册进入 → 排除隐藏照片
+                // 从首页进入 → 排除隐藏照片 + 排除被排除的相册
                 val entities = photoDao.getAllPhotos()
-                val photos = entities.filter { !it.isHidden }.map { it.toPhoto() }
+                val excludedIds = excludedAlbumManager.excludedBucketIds.value
+                val photos = entities
+                    .filter { !it.isHidden }
+                    .filter { it.bucketId !in excludedIds }
+                    .map { it.toPhoto() }
                 SortUtils.sortPhotos(photos, sortType)
             }
 

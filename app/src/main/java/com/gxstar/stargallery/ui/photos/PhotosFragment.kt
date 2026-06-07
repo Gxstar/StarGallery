@@ -739,6 +739,7 @@ class PhotosFragment : Fragment() {
                 R.id.action_trash -> { navigateToTrash(); true }
                 R.id.action_hidden -> { navigateToHidden(); true }
                 R.id.action_about -> { navigateToAbout(); true }
+                R.id.action_settings -> { navigateToSettings(); true }
                 else -> false
             }
         }
@@ -1046,6 +1047,12 @@ class PhotosFragment : Fragment() {
         findNavController().navigate(action)
     }
 
+    private fun navigateToSettings() {
+        saveScrollPosition()
+        val action = PhotosFragmentDirections.actionPhotosFragmentToSettingsFragment()
+        findNavController().navigate(action)
+    }
+
     override fun onResume() {
         super.onResume()
         if (savedScrollPosition >= 0) {
@@ -1084,6 +1091,7 @@ class PhotosFragment : Fragment() {
         binding.rvPhotos.layoutManager = null
         binding.rvPhotos.adapter = null
         photoItemAnimator = null
+        fastScrollerReady = false
         _binding = null
         super.onDestroyView()
     }

@@ -4,5 +4,6 @@ data class Album(
     val id: Long,
     val name: String,
     val coverUri: android.net.Uri?,
-    val photoCount: Int
+    val photoCount: Int,
+    val isExcluded: Boolean = false
 )

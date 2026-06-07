@@ -13,7 +13,6 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.setupWithNavController
@@ -25,7 +24,7 @@ import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
-    
+
     private lateinit var binding: ActivityMainBinding
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -101,7 +100,9 @@ class MainActivity : AppCompatActivity() {
                 R.id.permissionsFragment,
                 R.id.thirdPartyLibrariesFragment,
                 R.id.contactFragment,
-                R.id.licenseFragment -> {
+                R.id.licenseFragment,
+                R.id.settingsFragment,
+                R.id.excludedAlbumsFragment -> {
                     // 详情页和关于页面完全移除底部导航栏（不占用空间）
                     if (binding.bottomNav.visibility != View.GONE) {
                         binding.bottomNav.visibility = View.GONE

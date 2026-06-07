@@ -179,6 +179,8 @@
     <string name="permission_storage_desc">用于兼容 Android 11 (API 30) 以下版本的设备。在 Android 11 及以上版本中，应用使用 scoped storage 保护您的隐私。</string>
     <string name="permission_user_selected_title">用户选择的媒体 (READ_MEDIA_VISUAL_USER_SELECTED)</string>
     <string name="permission_user_selected_desc">用于在 Android 14+ 设备上访问用户特别选择的照片，即使应用尚未获得完整媒体库权限。</string>
+    <string name="permission_media_location_title">媒体位置信息 (ACCESS_MEDIA_LOCATION)</string>
+    <string name="permission_media_location_desc">用于读取照片中嵌入的 GPS 坐标，在详情页地图中显示拍摄位置。此权限为可选权限，拒绝后不影响其他功能使用。</string>
     <string name="permissions_note">您可以在系统设置中的应用权限管理中随时撤销这些权限。撤销权限后，应用将无法访问相应的媒体文件。</string>
 
     <!-- 第三方库 -->
@@ -248,4 +250,23 @@
     <string name="theme_system">跟随系统</string>
     <string name="theme_light">浅色模式</string>
     <string name="theme_dark">深色模式</string>
+
+    <!-- 设置页面 -->
+    <string name="settings">设置</string>
+    <string name="settings_language">语言</string>
+    <string name="settings_language_system">跟随系统</string>
+    <string name="settings_language_zh">简体中文</string>
+    <string name="settings_language_en">English</string>
+    <string name="settings_language_changed">语言已更改，正在重启…</string>
+    <string name="settings_excluded_albums">排除的相册</string>
+    <string name="settings_excluded_empty">暂未排除任何相册</string>
+    <string name="settings_excluded_add">添加排除相册</string>
+    <string name="settings_excluded_remove">移除</string>
+    <string name="settings_excluded_dialog_title">选择要排除的相册</string>
+    <string name="settings_excluded_remove_confirm">确定要从此列表中移除该相册吗？</string>
+    <string name="settings_excluded_confirm">确定</string>
+    <string name="settings_excluded_hint">被排除的相册中的照片不会出现在首页和搜索结果中。</string>
+    <string name="settings_excluded_none">未排除</string>
+    <string name="settings_excluded_count">已排除 %d 个相册</string>
+    <string name="album_excluded_label">已排除</string>
 </resources>

@@ -3,10 +3,15 @@ package com.gxstar.stargallery
 import android.app.Application
 import android.content.Context
 import androidx.appcompat.app.AppCompatDelegate
+import com.gxstar.stargallery.util.LocaleManager
 import dagger.hilt.android.HiltAndroidApp
+import javax.inject.Inject
 
 @HiltAndroidApp
 class StarGalleryApp : Application() {
+
+    @Inject
+    lateinit var localeManager: LocaleManager
 
     companion object {
         const val PREFS_NAME = "stargallery_prefs"
@@ -16,6 +21,7 @@ class StarGalleryApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        localeManager.applyLocale()
         applyThemeFromPreferences()
     }
 

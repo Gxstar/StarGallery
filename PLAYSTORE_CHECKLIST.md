@@ -23,11 +23,19 @@
 
 ### 0.1 创建 release keystore
 
-打开 **PowerShell**（非代码编辑器终端），执行以下命令：
+打开终端（非代码编辑器终端），执行以下命令：
 
+**Windows (PowerShell):**
 ```powershell
 keytool -genkey -v -keystore E:\program\StarGallery\app\stargallery-release.jks `
         -keyalg RSA -keysize 2048 -validity 10000 -alias stargallery `
+        -storetype JKS
+```
+
+**Linux / macOS:**
+```bash
+keytool -genkey -v -keystore stargallery-release.jks \
+        -keyalg RSA -keysize 2048 -validity 10000 -alias stargallery \
         -storetype JKS
 ```
 
@@ -56,7 +64,7 @@ keyPassword:   _______
 
 ### 0.2 创建 keystore.properties
 
-在项目根目录 `E:\program\StarGallery\` 创建文件 `**keystore.properties**`（**不入 git**）：
+在项目根目录创建文件 `**keystore.properties**`（**不入 git**）：
 
 ```properties
 storeFile=app/stargallery-release.jks
@@ -67,7 +75,7 @@ keyPassword=你上面输入的密钥密码
 
 ### 0.3 确认已安装 JDK 21
 
-```powershell
+```bash
 java -version
 # 输出应包含 "21"（如 openjdk version "21.0.1" ...）
 ```
@@ -86,7 +94,7 @@ java -version
 
 ## 阶段一 — 代码层修改
 
-> 涉及 6 个文件的修改，完成后运行 `assembleDebug` 确认构建通过。
+> 涉及 7 个文件的修改，完成后运行 `assembleDebug` 确认构建通过。
 
 ### 1.1 配置 release signing + 构建优化
 
@@ -179,35 +187,67 @@ keystore.properties
 *.keystore
 ```
 
-### 1.3 增加 ACCESS_MEDIA_LOCATION 隐私说明
+### 1.3 增加 ACCESS_MEDIA_LOCATION 和 SET_WALLPAPER 权限说明
+
+#### 1.3.1 隐私政策增加位置信息条目
 
 **文件**: `app/src/main/res/values/strings.xml`
 
-在 `privacy_section_2_content`（第 210 行）中，在 "• 元数据读取：读取EXIF信息（相机型号、拍摄参数等）用于显示标签" 后面添加一行：
+在 `privacy_section_2_content` 中，在 "• 元数据读取：读取EXIF信息（相机型号、拍摄参数等）用于显示标签" 后面添加一行：
 
 ```xml
 • 位置信息：读取照片中的GPS坐标，在详情页地图中显示拍摄位置（需您授权 ACCESS_MEDIA_LOCATION 权限）
 ```
 
-原字符串变为：
+完整字符串变为：
 
 ```xml
 <string name="privacy_section_2_content">您设备上的媒体文件仅用于以下目的：\n\n• 显示：按照日期、名称等排序展示您的照片\n• 分类：按相册/文件夹组织您的媒体文件\n• 预览：加载和显示照片缩略图和原图\n• 元数据读取：读取EXIF信息（相机型号、拍摄参数等）用于显示标签\n• 位置信息：读取照片中的GPS坐标，在详情页地图中显示拍摄位置（需您授权 ACCESS_MEDIA_LOCATION 权限）\n• 搜索：根据文件名搜索您的照片\n\n我们不会将您的照片用于任何其他目的，也不会与任何第三方共享。</string>
 ```
 
+#### 1.3.2 权限说明页增加 ACCESS_MEDIA_LOCATION 条目
+
+**文件**: `app/src/main/res/values/strings.xml` — 在 `permission_user_selected_desc` 之后、`permissions_note` 之前插入：
+
+```xml
+<string name="permission_media_location_title">媒体位置信息 (ACCESS_MEDIA_LOCATION)</string>
+<string name="permission_media_location_desc">用于读取照片中嵌入的 GPS 坐标，在详情页地图中显示拍摄位置。此权限为可选权限，拒绝后不影响其他功能使用。</string>
+```
+
+> ⚠️ 插入位置须在 `permissions_note` 之前，以保持权限说明的逻辑顺序（先 4 个必需权限，再 1 个可选权限，最后附注）。
+
+#### 1.3.3 修正第三方库措辞
+
+**文件**: `app/src/main/res/values/strings.xml` — 将 `privacy_section_5_content` 中的 "本应用可能包含以下第三方库/服务" 改为 "本应用使用以下第三方库"：
+
+```xml
+<string name="privacy_section_5_content">本应用使用以下第三方库：\n\n• Glide：图片加载和缓存库\n...（其余不变）</string>
+```
+
+#### 1.3.4 英文翻译同步
+
+上述 1.3.1 ~ 1.3.3 的修改已在 1.5 的完整英文翻译中同步完成（`privacy_section_2_content` 已含 Location 条目，`permission_media_location_*` 已添加，`privacy_section_5_content` 英文版使用 "uses" 而非 "may contain"）。
+
 ### 1.4 同步 README 权限表
 
-**文件**: `README.md` — 在第 81-85 行的权限表中增加 `ACCESS_MEDIA_LOCATION`：
+**文件**: `README.md` — 将第 81-85 行的权限表替换为包含 `ACCESS_MEDIA_LOCATION` 和 `SET_WALLPAPER` 的完整表：
 
 ```markdown
+| Android 版本 | 所需权限 |
+|-------------|----------|
 | Android 14+ (API 34+) | READ_MEDIA_IMAGES, READ_MEDIA_VIDEO, READ_MEDIA_VISUAL_USER_SELECTED, ACCESS_MEDIA_LOCATION |
 | Android 13 (API 33) | READ_MEDIA_IMAGES, READ_MEDIA_VIDEO, ACCESS_MEDIA_LOCATION |
 | Android 11–12 (API 30–32) | READ_EXTERNAL_STORAGE, ACCESS_MEDIA_LOCATION |
+| 所有版本 | SET_WALLPAPER（普通权限，无需动态申请） |
 ```
+
+> `SET_WALLPAPER` 是普通权限（`normal` 保护级别），AndroidManifest 已声明，无需运行时申请，但仍建议在权限表中说明其用途："用于将照片设为手机壁纸"。
 
 ### 1.5 添加英文翻译
 
 **新文件**: `app/src/main/res/values-en/strings.xml`
+
+> ⚠️ 覆盖全部 191 条用户可见字符串，不留中文混杂。
 
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
@@ -215,46 +255,210 @@ keystore.properties
     <!-- App -->
     <string name="app_name">StarGallery</string>
 
-    <!-- Main -->
+    <!-- Bottom Navigation -->
     <string name="nav_photos">Photos</string>
     <string name="nav_albums">Albums</string>
+
+    <!-- Main -->
     <string name="photos_title">Photos</string>
+    <string name="today">Today</string>
+    <string name="yesterday">Yesterday</string>
+
+    <!-- Albums -->
     <string name="albums_title">Albums</string>
+    <string name="my_albums">My Albums</string>
+    <string name="more_albums">More Albums</string>
     <string name="all_photos">All Photos</string>
+    <string name="camera">Camera</string>
+    <string name="screenshots">Screenshots</string>
+    <string name="download">Download</string>
+    <string name="weixin">WeChat</string>
+    <string name="qq">QQ</string>
     <string name="favorite">Favorites</string>
     <string name="video">Video</string>
-    <string name="search">Search</string>
-    <string name="search_hint">Search by file name</string>
-    <string name="sort_by">Sort by</string>
-    <string name="group_by">Group by</string>
-    <string name="clear">Clear</string>
-    <string name="cancel">Cancel</string>
-    <string name="confirm">Confirm</string>
+
+    <!-- Detail -->
+    <string name="detail_info">%1$s | %2$s</string>
+    <string name="send">Share</string>
+    <string name="edit">Edit</string>
     <string name="delete">Delete</string>
     <string name="more">More</string>
+    <string name="set_as">Set as</string>
+    <string name="wallpaper">Wallpaper</string>
+    <string name="set_wallpaper">Set as wallpaper</string>
+    <string name="set_wallpaper_success">Wallpaper set successfully</string>
+    <string name="set_wallpaper_failed">Failed to set wallpaper</string>
     <string name="info">Details</string>
-    <string name="edit">Edit</string>
-    <string name="send">Share</string>
-    <string name="hide">Hide</string>
-    <string name="restore">Restore</string>
+
+    <!-- Actions -->
+    <string name="search">Search</string>
+    <string name="search_hint">Search by file name</string>
+    <string name="search_result">Search: %1$s — %2$d photos</string>
+    <string name="search_no_result">No matching photos found</string>
+    <string name="clear">Clear</string>
+    <string name="select">Select</string>
+    <string name="cancel">Cancel</string>
+    <string name="confirm">Confirm</string>
+    <string name="delete_confirm">Are you sure you want to delete this photo?</string>
+    <string name="deleted">Deleted</string>
+    <string name="undo">Undo</string>
+    <string name="added_to_favorite">Added to favorites</string>
+    <string name="removed_from_favorite">Removed from favorites</string>
+    <string name="favorite_toggled">Favorite toggled</string>
+    <string name="add_to_favorite_failed">Failed to add to favorites</string>
+
+    <!-- Counts -->
+    <string name="photo_count">%d photos</string>
+    <string name="favorite_count">%d favorites</string>
+    <string name="selected_count">%d selected</string>
+    <string name="filter_favorites">Filter favorites</string>
+
+    <!-- Permissions -->
+    <string name="permission_required">Storage permission required</string>
+    <string name="permission_denied">Permission denied</string>
+
+    <!-- Empty States -->
     <string name="no_photos">No photos yet</string>
-    <string name="scanning_media">Scanning…</string>
+    <string name="no_albums">No albums yet</string>
+    <string name="scanning_media">Scanning media…</string>
+
+    <!-- Columns -->
+    <string name="columns">Columns</string>
+    <string name="select_columns">Select columns</string>
+
+    <!-- Selection Mode -->
+    <string name="cancel_select">Cancel selection</string>
+    <string name="select_all">Select all</string>
+    <string name="selected">%d selected</string>
+    <string name="delete_selected_confirm">Are you sure you want to delete %d selected photos?</string>
+
+    <!-- Hidden Photos -->
+    <string name="hide">Hide</string>
+    <string name="hidden_title">Hidden Photos</string>
+    <string name="hidden_empty">No hidden photos</string>
+    <string name="hidden_count">%d items</string>
+    <string name="hide_selected_confirm">Are you sure you want to hide %d selected photos?</string>
+    <string name="hidden_success">Hidden</string>
+    <string name="unhidden_success">Unhidden</string>
+    <string name="hidden_auth_title">Verify identity</string>
+    <string name="hidden_auth_subtitle">Authentication required to view hidden photos</string>
+
+    <!-- Sort -->
+    <string name="sort_by">Sort by</string>
+    <string name="sort_by_date_taken">Date taken</string>
+    <string name="sort_by_date_added">Date added</string>
+    <string name="select_sort">Select sort order</string>
+
+    <!-- Group -->
+    <string name="group_by">Group by</string>
+    <string name="group_by_day">By day</string>
+    <string name="group_by_month">By month</string>
+    <string name="group_by_year">By year</string>
+    <string name="select_group">Select grouping</string>
+
+    <!-- Delete Options -->
+    <string name="delete_options_title">Delete media</string>
+    <string name="delete_options_subtitle">Selected media will be processed as follows</string>
+    <string name="move_to_trash">Move to trash</string>
+    <string name="delete_permanently">Delete permanently</string>
+    <string name="moved_to_trash">Moved to trash</string>
+    <string name="move_to_trash_failed">Failed to move to trash</string>
+    <string name="delete_failed">Delete failed</string>
+
+    <!-- Trash -->
+    <string name="trash_title">Trash</string>
+    <string name="trash_empty">Trash is empty</string>
+    <string name="trash_count">%d items</string>
+    <string name="restore">Restore</string>
+    <string name="restored">Restored</string>
+    <string name="restore_failed">Restore failed</string>
+    <string name="delete_permanently_confirm_title">Delete permanently</string>
+    <string name="delete_permanently_confirm_message">Are you sure you want to permanently delete %d selected items? This action cannot be undone.</string>
+    <string name="more_info_not_implemented">Details feature coming soon</string>
+
+    <!-- Auto Refresh -->
+    <string name="new_photos_detected">New photos detected</string>
+    <string name="no_photos_selected">Please select photos first</string>
+
+    <!-- Photo Info -->
+    <string name="info_filename">File name</string>
+    <string name="info_dimensions">Resolution</string>
+    <string name="info_pixel_count">Pixels</string>
+    <string name="info_file_size">File size</string>
+    <string name="info_camera">Camera</string>
+    <string name="info_lens">Lens</string>
+    <string name="info_aperture">Aperture</string>
+    <string name="info_iso">ISO</string>
+    <string name="info_shutter_speed">Shutter speed</string>
+    <string name="info_focal_length">Focal length</string>
+    <string name="info_path">Path</string>
+    <string name="info_date">Date taken</string>
+
+    <!-- More Options -->
+    <string name="more_options">More options</string>
+
+    <!-- Scanning -->
+    <string name="scanning_title">Building index</string>
+    <string name="scanning_description">First launch requires scanning photos and reading metadata for more accurate sorting and filtering.</string>
+    <string name="scanning_description_short">First launch requires scanning photos for more accurate sorting</string>
+    <string name="scanning_progress">Scanning %1$d / %2$d</string>
+    <string name="scanning_completed">Scan completed</string>
+    <string name="scanning_failed">Scan failed</string>
+    <string name="scanning_warning">Please do not close the app, this may take a few minutes</string>
+    <string name="scanning_total">Scanned %d photos in total</string>
+    <string name="scanning_hide">Run in background</string>
 
     <!-- About -->
     <string name="about">About</string>
     <string name="version">Version %s</string>
+    <string name="about_section_general">General</string>
+    <string name="about_section_open_source">Open Source Licenses</string>
+
+    <!-- Privacy Policy -->
     <string name="privacy_policy">Privacy Policy</string>
+    <string name="privacy_policy_subtitle">Learn how we protect your data</string>
     <string name="privacy_policy_title">Privacy Policy</string>
     <string name="privacy_policy_intro">Thank you for using StarGallery. We take your privacy and personal data protection seriously.</string>
-    <string name="third_party_title">Third Party Libraries</string>
+
+    <!-- Permissions Explanation -->
     <string name="permissions_title">Permissions</string>
+    <string name="permissions_subtitle">Permissions requested by the app and their purposes</string>
+    <string name="permissions_intro">StarGallery requests the following permissions to provide core features. All permissions are used only for accessing local media files and nothing else.</string>
+    <string name="permission_media_images_title">Read media images (READ_MEDIA_IMAGES)</string>
+    <string name="permission_media_images_desc">Used to access photos on your device, which is the core function of the app. This permission only allows reading photos and will not modify or delete any files.</string>
+    <string name="permission_media_video_title">Read media video (READ_MEDIA_VIDEO)</string>
+    <string name="permission_media_video_desc">Used to access video files on your device for displaying and playing video content in the gallery.</string>
+    <string name="permission_storage_title">Read storage (READ_EXTERNAL_STORAGE)</string>
+    <string name="permission_storage_desc">Used for compatibility with devices running Android 11 (API 30) and below. On Android 11+, the app uses scoped storage to protect your privacy.</string>
+    <string name="permission_user_selected_title">User-selected media (READ_MEDIA_VISUAL_USER_SELECTED)</string>
+    <string name="permission_user_selected_desc">Used on Android 14+ devices to access photos specifically selected by the user, even if the app has not been granted full media library permission.</string>
+    <string name="permission_media_location_title">Media location (ACCESS_MEDIA_LOCATION)</string>
+    <string name="permission_media_location_desc">Used to read GPS coordinates embedded in photos to display the shooting location on a map in the detail page. This is an optional permission — denying it does not affect other features.</string>
+    <string name="permissions_note">You can revoke these permissions at any time in the app permission management in system settings. After revoking, the app will no longer be able to access the corresponding media files.</string>
+
+    <!-- Third Party Libraries -->
+    <string name="third_party_title">Third Party Libraries</string>
+    <string name="third_party_subtitle">Open-source libraries used by the app</string>
+    <string name="third_party_intro">This app uses the following excellent open-source libraries and services to provide a better experience. Tap a library name to view its project homepage and documentation.</string>
+    <string name="tap_to_view">Tap to view project homepage</string>
+
+    <!-- Contact -->
     <string name="contact_title">Contact Us</string>
+    <string name="contact_subtitle">Questions or suggestions?</string>
+    <string name="contact_intro">If you have any questions, feature suggestions, or have found a bug, feel free to contact us via the following methods. We will respond as soon as possible.</string>
     <string name="contact_email_title">Send Email</string>
     <string name="contact_email">gengxing123@qq.com</string>
     <string name="contact_email_subject">StarGallery Feedback</string>
     <string name="send_email">Choose email app</string>
 
-    <!-- Privacy Policy sections (English) -->
+    <!-- Open Source License -->
+    <string name="open_source_license">Open Source Licenses</string>
+    <string name="open_source_license_desc">Open-source library licenses used by this app</string>
+    <string name="license_intro">The open-source libraries used by this app are licensed under the following licenses.</string>
+    <string name="license_apache_title">Apache License 2.0</string>
+    <string name="license_apache_content">Most third-party libraries use the Apache License 2.0. This means you can freely use, modify, and distribute this code, but you must retain the original copyright notices and license statements.</string>
+
+    <!-- Privacy Policy Sections -->
     <string name="privacy_policy_date">Last updated: May 17, 2026</string>
     <string name="privacy_section_1_title">1. Information Collection</string>
     <string name="privacy_section_1_content">StarGallery only accesses local media files (photos and videos) on your device to provide the following features:\n\n• Photo browsing: Display photos and videos in a grid\n• Album management: Automatic organization by folder\n• Photo preview: View photos and basic info\n• Favorites: Mark your favorite photos\n• Hidden photos: Protect your private photos (biometric authentication required)\n• Trash: Safely delete and restore media files\n\nWe do not collect, transmit, or share any personal information to external servers. All data processing is done locally on your device.</string>
@@ -266,21 +470,63 @@ keystore.properties
     <string name="privacy_section_5_content">This app uses the following open-source libraries:\n\n• Glide: Image loading and caching\n• ZoomImage: Image zoom viewer\n• ExoPlayer: Video player\n• metadata-extractor: EXIF metadata reader\n• Room: Local database\n• Hilt: Dependency injection\n• Navigation Component: Page navigation\n• drag-select-recyclerview: Drag-to-select\n• FastScroller: Fast scroll bar\n• Biometric: Biometric authentication\n• LeakCanary: Memory leak detection (debug only)\n• Kotlinx Coroutines: Async coroutine framework\n\nThese libraries process data only on your local device. They do not collect personal information.</string>
     <string name="privacy_section_7_title">5. Your Rights</string>
     <string name="privacy_section_7_content">You have full control over your data:\n\n• Access: Browse all your photos through the app at any time\n• Deletion: Delete photos using system functions or the app\'s built-in delete feature\n• Permission control: Manage app permissions in system settings\n• Uninstall: Uninstall the app at any time; all app data will be cleared upon uninstall\n• Clear cache: Clear all cached data in app settings</string>
+    <string name="back">Back</string>
+
+    <!-- Filter -->
+    <string name="filter_title">Filter</string>
+    <string name="filter_camera_make">Camera Make</string>
+    <string name="filter_camera_model">Camera Model</string>
+    <string name="filter_lens">Lens Model</string>
+    <string name="filter_all">All</string>
+    <string name="filter_unknown_device">Unknown device</string>
+    <string name="filter_clear">Clear filter</string>
+    <string name="filter_selected_count">%d selected</string>
     <string name="privacy_section_9_title">6. Policy Updates</string>
     <string name="privacy_section_9_content">We may update this privacy policy from time to time. Updates will be posted within the app. We recommend reviewing this policy periodically. Significant changes will be announced via app update notes.</string>
+
+    <!-- Photo Info Bottom Sheet -->
+    <string name="photo_info_device">Device</string>
+    <string name="photo_info_camera">Camera</string>
+    <string name="photo_info_lens">Lens</string>
+    <string name="photo_info_resolution">Resolution</string>
+    <string name="photo_info_exposure">Exposure</string>
+    <string name="photo_info_iso">ISO</string>
+    <string name="photo_info_aperture">Aperture</string>
+    <string name="photo_info_shutter">Shutter</string>
+    <string name="photo_info_focal">Focal length</string>
+    <string name="photo_info_exposure_comp">Exposure compensation</string>
+    <string name="photo_info_metering_mode">Metering mode</string>
+    <string name="photo_info_location">Location</string>
+    <string name="photo_info_open_map">View on map</string>
+
+    <!-- Theme -->
+    <string name="theme">Theme</string>
+    <string name="theme_system">Follow system</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
 </resources>
 ```
 
 ### 1.6 构建验证
 
-执行以下两条命令，确认无错误：
+执行以下命令，确认无错误：
 
+**Windows (PowerShell):**
 ```powershell
 # 1. Debug 构建（验证代码无误）
 .\gradlew.bat assembleDebug
 
 # 2. Release AAB 构建（验证签名 + R8 无误）
 .\gradlew.bat bundleRelease
+```
+
+**Linux / macOS:**
+```bash
+# 1. Debug 构建（验证代码无误）
+./gradlew assembleDebug
+
+# 2. Release AAB 构建（验证签名 + R8 无误）
+./gradlew bundleRelease
 ```
 
 预期结果：
@@ -405,10 +651,13 @@ def main():
     text_x = 60 + logo_sz + 50
     text_y = SIZE[1] // 2 - 30
 
-    # 如果有中文字体文件则加载，否则 fallback
+    # 如果有字体文件则加载，否则 fallback
     font_paths = [
-        r"C:\Windows\Fonts\msyh.ttc",   # 微软雅黑
-        r"C:\Windows\Fonts\segoeui.ttf",
+        r"C:\Windows\Fonts\msyh.ttc",     # Windows 微软雅黑
+        "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",  # Linux Noto CJK
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",  # Linux 备选
+        "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc",       # Arch Linux
+        r"C:\Windows\Fonts\segoeui.ttf",  # Windows 无中文时的 fallback
     ]
     font_title = None
     font_sub = None
@@ -450,7 +699,14 @@ if __name__ == "__main__":
 ```
 
 执行：
+
+**Windows (PowerShell):**
 ```powershell
+uv run --with Pillow python generate_feature_graphic.py
+```
+
+**Linux / macOS:**
+```bash
 uv run --with Pillow python generate_feature_graphic.py
 ```
 
@@ -486,10 +742,10 @@ fastlane/metadata/android/zh-CN/images/phoneScreenshots/
 
 1. 将附录 C 的内容保存为 `index.html`
 2. 在刚才创建的 `stargallery-privacy` 仓库中：
-```powershell
+```bash
 cd stargallery-privacy
 echo "# StarGallery Privacy Policy" > README.md
-copy index.html .\
+cp index.html ./
 git init
 git add .
 git commit -m "Init privacy policy"
@@ -522,7 +778,7 @@ StarGallery — 相册
 
 #### 简短描述（80 字符内）
 ```
-安全私密的本地相册，支持 EXIF 筛选、隐藏照片、回收站和视频播放。
+安全私密的本地相册，支持 EXIF 筛选、隐藏照片、回收站、壁纸设置和视频播放。
 ```
 
 #### 完整描述（4000 字符内）
@@ -530,7 +786,7 @@ StarGallery — 相册
 **中文版：**
 
 ```
-StarGallery 是一款专注于隐私和安全的本地面相册应用。
+StarGallery 是一款专注于隐私和安全的本地相册应用。
 
 ▎主要功能
 
@@ -555,6 +811,9 @@ StarGallery 是一款专注于隐私和安全的本地面相册应用。
 🎬 视频播放
 支持内联视频播放，跨页面保持播放状态。兼容 GIF 和 RAW 格式（DNG/ARW/CR2/CR3/NEF/ORF/RAF/RW2/PEF 等）。
 
+🖼️ 设为壁纸
+一键将照片设置为手机壁纸。
+
 🏷️ 丰富 EXIF 信息
 20+ 条 EXIF 字段展示，7 大品牌照片风格/胶片模拟映射（松下/索尼/佳能/尼康/富士/奥林巴斯/宾得），支持 HDR 检测。WGS84→GCJ02 坐标转换，一键跳转地图 App。
 
@@ -577,6 +836,7 @@ StarGallery is a private, secure local gallery app focused on privacy.
 ▸ Hidden photos: biometric authentication (fingerprint/face/device password)
 ▸ Trash: safe deletion with 30-day expiration
 ▸ Video playback: inline playback across pages, GIF and RAW support
+▸ Set as wallpaper: set any photo as device wallpaper
 ▸ Rich EXIF: 20+ fields, 7 camera brands photo style mapping, HDR detection
 ▸ Dark theme: light/dark mode with Material 3
 ▸ Privacy-first: 100% offline, zero network, zero ads, zero data collection
@@ -588,7 +848,7 @@ StarGallery is a private, secure local gallery app focused on privacy.
 |------|-----|
 | 类别 | 摄影 (Photography) |
 | 子类别 | — |
-| 标签 | `相册`, `gallery`, `photo`, `隐私`, `EXIF`, `本地` |
+| 标签 | `相册`, `gallery`, `photo`, `隐私`, `EXIF`, `本地`, `壁纸`, `wallpaper` |
 | 目标年龄 | 18+ 或 全年龄均可（选任一均可，按内容选全年龄即可） |
 
 #### 联系人
@@ -615,10 +875,12 @@ StarGallery is a private, secure local gallery app focused on privacy.
 | 数据类型 | 是否收集 | 是否共享 | 是否加密 | 是否必需 | 用途 |
 |---------|---------|---------|---------|---------|------|
 | 设备上的照片/视频 | 否（仅本地读取） | 否 | 本地 | 是 | 核心功能 |
+| 照片位置信息（EXIF GPS） | 否（仅本地读取） | 否 | 本地 | 否 | 可选在地图显示拍摄位置 |
 | 设备 ID | 否 | 否 | N/A | 否 | — |
 | 应用崩溃日志 | 否（无崩溃 SDK） | 否 | N/A | 否 | — |
 | 诊断信息 | 否 | 否 | N/A | 否 | — |
-| 位置信息（EXIF GPS） | 否（仅本地读取） | 否 | 本地 | 否 | 可选在地图显示拍摄位置 |
+
+> **说明**：`SET_WALLPAPER` 是普通权限（normal 保护级别），用于"设为壁纸"功能，不属于个人数据范畴，无需在此声明。
 
 ### 3.4 应用内容问卷
 
@@ -656,6 +918,7 @@ StarGallery is a private, secure local gallery app focused on privacy.
 - 视频播放、GIF/RAW 支持
 - 20+ EXIF 字段展示
 - HDR 检测与照片风格映射
+- 设为壁纸
 - 完全离线/零广告/零数据收集
 ```
 
@@ -672,19 +935,19 @@ StarGallery - 相册
 
 ### 短描述 (80 字符)
 ```
-安全私密的本地相册，支持 EXIF 筛选、隐藏照片、回收站和视频播放。
+安全私密的本地相册，支持 EXIF 筛选、隐藏照片、回收站、壁纸设置和视频播放。
 ```
 
 ### 长描述 (英文, 精选)
 ```
 StarGallery is a private, secure local gallery app.
-Browse photos in a 3-8 column grid, filter by camera EXIF data, and protect sensitive photos with biometric authentication.
+Browse photos in a 3-8 column grid, filter by camera EXIF data, set as wallpaper, and protect sensitive photos with biometric authentication.
 100% offline. Zero ads. Zero data collection.
 ```
 
 ### 标签
 ```
-相册,gallery,photo,privacy,EXIF,本地相册,隐藏照片,私密相册
+相册,gallery,photo,privacy,EXIF,本地相册,隐藏照片,私密相册,壁纸,wallpaper
 ```
 
 ---
@@ -699,6 +962,17 @@ Browse photos in a 3-8 column grid, filter by camera EXIF data, and protect sens
    - 理由：应用零网络权限（无 INTERNET），所有数据处理设备本地完成
 2. **SDK 是否收集数据？** → **否**
    - 所有 12 个依赖均为 Apache-2.0 开源库，零分析/广告/推送 SDK
+
+### 应用声明的权限及用途（供 Google Play 审核参考）
+
+| 权限 | 保护级别 | 用途 | 是否涉及数据收集 |
+|------|---------|------|---------------|
+| READ_MEDIA_IMAGES | 危险 | 读取设备照片（核心功能） | 否，仅本地读取 |
+| READ_MEDIA_VIDEO | 危险 | 读取设备视频（核心功能） | 否，仅本地读取 |
+| READ_MEDIA_VISUAL_USER_SELECTED | 危险 | Android 14+ 用户选择的部分照片访问 | 否，仅本地读取 |
+| READ_EXTERNAL_STORAGE | 危险 | Android 11-12 兼容读取存储 | 否，仅本地读取 |
+| ACCESS_MEDIA_LOCATION | 危险 | 读取照片 EXIF 中的 GPS 坐标用于地图显示 | 否，仅本地读取 |
+| SET_WALLPAPER | 普通 | 将照片设为手机壁纸 | 否，无数据收集 |
 
 ### 如果有具体问卷问以下数据类型
 
@@ -757,6 +1031,7 @@ Browse photos in a 3-8 column grid, filter by camera EXIF data, and protect sens
   <li>收藏功能：标记您喜欢的照片</li>
   <li>隐藏照片：保护您的隐私照片（需生物识别认证）</li>
   <li>回收站：安全删除和恢复已删除的媒体文件</li>
+  <li>设为壁纸：将照片设置为手机壁纸</li>
 </ul>
 <p>我们不会收集、传输或分享您的任何个人信息到外部服务器。所有数据处理均在您的设备本地完成。</p>
 
@@ -767,7 +1042,8 @@ Browse photos in a 3-8 column grid, filter by camera EXIF data, and protect sens
   <li>分类：按相册/文件夹组织您的媒体文件</li>
   <li>预览：加载和显示照片缩略图和原图</li>
   <li>元数据读取：读取 EXIF 信息（相机型号、拍摄参数等）用于显示标签</li>
-  <li>位置信息：读取照片中的GPS坐标，在详情页地图中显示拍摄位置（需您授权 ACCESS_MEDIA_LOCATION 权限）</li>
+  <li>位置信息：读取照片中的 GPS 坐标，在详情页地图中显示拍摄位置（需您授权 ACCESS_MEDIA_LOCATION 权限）</li>
+  <li>壁纸设置：将照片设置为手机壁纸（需 SET_WALLPAPER 权限，此为系统普通权限，无需额外授权）</li>
   <li>搜索：根据文件名搜索您的照片</li>
 </ul>
 <p>我们不会将您的照片用于任何其他目的，也不会与任何第三方共享。</p>
@@ -818,10 +1094,20 @@ Browse photos in a 3-8 column grid, filter by camera EXIF data, and protect sens
 <p>Thank you for using StarGallery. We take your privacy and personal data protection seriously.</p>
 
 <h2>1. Information Collection</h2>
-<p>StarGallery only accesses local media files (photos and videos) on your device to provide core functionality. We do not collect, transmit, or share any personal information to external servers. All data processing is done locally on your device.</p>
+<p>StarGallery only accesses local media files (photos and videos) on your device to provide core functionality:</p>
+<ul>
+  <li>Photo browsing: Display photos and videos in a grid</li>
+  <li>Album management: Automatic organization by folder</li>
+  <li>Photo preview: View photos and basic info</li>
+  <li>Favorites: Mark your favorite photos</li>
+  <li>Hidden photos: Protect your private photos (biometric authentication required)</li>
+  <li>Trash: Safely delete and restore media files</li>
+  <li>Set as wallpaper: Set photos as device wallpaper</li>
+</ul>
+<p>We do not collect, transmit, or share any personal information to external servers. All data processing is done locally on your device.</p>
 
 <h2>2. Use of Information</h2>
-<p>Media files on your device are used only for: display, organization, preview, metadata reading (EXIF), location display (GPS, requiring ACCESS_MEDIA_LOCATION permission), and search. We do not use your photos for any other purpose, nor share them with any third party.</p>
+<p>Media files on your device are used only for: display, organization, preview, metadata reading (EXIF), location display (GPS, requiring ACCESS_MEDIA_LOCATION permission), wallpaper setting (using SET_WALLPAPER permission, a normal system permission requiring no additional authorization), and search. We do not use your photos for any other purpose, nor share them with any third party.</p>
 
 <h2>3. Data Storage</h2>
 <p>All photo data remains on your device. App preferences are stored in the app's private directory. Thumbnails are cached locally. No upload occurs.</p>
@@ -877,12 +1163,30 @@ function toggleLang() {
 | 第三方库列表页面 | ✅ |
 | 联系我们（邮件跳转） | ✅ |
 | 开源许可页面 | ✅ |
-| Room 数据库（v8, 7 段 Migration） | ✅ |
-| ProGuard/R8 规则（Glide/Room/Hilt/metadata-extractor/Parcelable） | ✅ |
+| Room 数据库（v8, migration 链路完整） | ✅ |
+| ProGuard/R8 规则（Glide/Room/Hilt/metadata-extractor/Parcelable/ZoomImage） | ✅ |
 | FileProvider 安全配置 | ✅ |
 | 备份规则（`backup_rules.xml` + `data_extraction_rules.xml`） | ✅ |
 | LeakCanary 仅 debug | ✅ |
 | 零网络权限、零广告、零分析 SDK | ✅ |
+| 壁纸功能 (`SET_WALLPAPER`) 已在 Manifest 声明 | ✅ |
+| `ACCESS_MEDIA_LOCATION` 已在 Manifest 声明 | ✅ |
+
+### 仍需按阶段一 ~ 三执行的修改项
+
+| 项 | 对应章节 |
+|---|---|
+| 配置 release signing + shrinkResources | 1.1 |
+| 更新 .gitignore（签名文件排除） | 1.2 |
+| 增加 ACCESS_MEDIA_LOCATION / SET_WALLPAPER 权限说明 strings | 1.3 |
+| 修正 `privacy_section_5_content` 措辞 | 1.3.3 |
+| 同步 README 权限表 | 1.4 |
+| 创建完整英文翻译 `values-en/strings.xml` | 1.5 |
+| 构建验证 `assembleDebug` + `bundleRelease` | 1.6 |
+| 生成 Feature Graphic | 2.1 |
+| 准备 6 张截图 | 2.2 |
+| 部署隐私政策到 GitHub Pages | 2.3 |
+| Play Console 提交 | 3.1 ~ 3.6 |
 
 ---
 
