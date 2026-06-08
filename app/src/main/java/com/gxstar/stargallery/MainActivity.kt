@@ -49,7 +49,8 @@ class MainActivity : AppCompatActivity() {
         
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        
+
+        applyBottomNavWidth()
         setupNavigation()
         setupBackPressedCallback()
         setupWindowInsets()
@@ -63,22 +64,43 @@ class MainActivity : AppCompatActivity() {
         androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(binding.bottomNav) { view, windowInsets ->
             val insets = windowInsets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars())
             val params = view.layoutParams as ViewGroup.MarginLayoutParams
-            
+
             // 基础 Margin (12dp) 加上系统导航栏的高度
             val baseMarginBottom = TypedValue.applyDimension(
                 TypedValue.COMPLEX_UNIT_DIP, 12f, resources.displayMetrics
             ).toInt()
-            
+
             params.bottomMargin = baseMarginBottom + insets.bottom
             view.layoutParams = params
-            
+
             windowInsets
         }
     }
 
+    /**
+     * 根据屏幕宽度动态调整底部导航栏的左右边距，
+     * 避免横屏/大屏设备上导航栏过宽（默认 64dp margin 在宽屏上导致悬浮胶囊过宽）。
+     * 目标宽度 = min(屏宽 - 2*32dp, 480dp)，居中放置。
+     */
+    private fun applyBottomNavWidth() {
+        val density = resources.displayMetrics.density
+        val screenWidthPx = resources.displayMetrics.widthPixels
+        val maxWidthPx = (480 * density).toInt()
+        val sideMarginPx = (32 * density).toInt()
+        val targetWidthPx = (screenWidthPx - 2 * sideMarginPx).coerceAtMost(maxWidthPx)
+        val actualSideMarginPx = (screenWidthPx - targetWidthPx) / 2
+
+        val params = binding.bottomNav.layoutParams as ViewGroup.MarginLayoutParams
+        params.width = targetWidthPx
+        params.marginStart = actualSideMarginPx
+        params.marginEnd = actualSideMarginPx
+        binding.bottomNav.layoutParams = params
+    }
+
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
-        // 屏幕旋转后重新应用底部导航栏的 insets
+        // 屏幕旋转后重算宽度并重新应用底部导航栏的 insets
+        applyBottomNavWidth()
         binding.bottomNav.requestApplyInsets()
     }
 

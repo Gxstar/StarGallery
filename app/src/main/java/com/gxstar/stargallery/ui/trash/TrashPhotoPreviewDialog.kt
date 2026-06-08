@@ -9,6 +9,9 @@ import android.widget.Toast
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import androidx.fragment.app.DialogFragment
 import androidx.fragment.app.setFragmentResult
 import com.bumptech.glide.Glide
@@ -84,8 +87,21 @@ class TrashPhotoPreviewDialog : DialogFragment() {
             deletePhoto()
         }
 
+        applySystemBarInsets()
+
         photo?.let { loadImage(it) }
     }
+
+    private fun applySystemBarInsets() {
+        ViewCompat.setOnApplyWindowInsetsListener(binding.bottomBar) { v, windowInsets ->
+            val systemBars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.updatePadding(bottom = systemBars.bottom + dpToPx(16))
+            windowInsets
+        }
+    }
+
+    private fun dpToPx(dp: Int): Int =
+        (dp * resources.displayMetrics.density).toInt()
 
     private fun loadImage(photo: Photo) {
         // 使用 ZoomImageView 加载图片，默认配置已足够
