@@ -35,6 +35,7 @@ import com.gxstar.stargallery.data.repository.MediaRepository
 import com.gxstar.stargallery.databinding.FragmentPhotosBinding
 import com.gxstar.stargallery.ui.common.DeleteOptionsBottomSheet
 import com.gxstar.stargallery.ui.common.GridSpanCalculator
+import com.gxstar.stargallery.ui.common.GridSpanPreferences
 import com.gxstar.stargallery.ui.photos.GridSpacingItemDecoration
 import com.gxstar.stargallery.ui.photos.GroupType
 import com.gxstar.stargallery.ui.photos.model.PhotoModel
@@ -57,6 +58,7 @@ class AlbumDetailFragment : Fragment() {
 
     private var photoAdapter: AlbumDetailAdapter? = null
     private var gridLayoutManager: GridLayoutManager? = null
+    private var gridSpacingItemDecoration: GridSpacingItemDecoration? = null
     private lateinit var selectionManager: AlbumSelectionManager
 
     private var pagingDataJob: Job? = null
@@ -67,7 +69,7 @@ class AlbumDetailFragment : Fragment() {
     @Inject
     lateinit var mediaRepository: MediaRepository
 
-    private var currentSpanCount = 4
+    private var currentSpanCount = GridSpanCalculator.MIN_SPAN_COUNT
     private var itemSize = 0
 
     private val backPressedCallback = object : OnBackPressedCallback(false) {
@@ -137,12 +139,36 @@ class AlbumDetailFragment : Fragment() {
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
-        calculateItemSize()
-        photoAdapter?.updateItemSize(itemSize)
+
+        val resolvedSpanCount = resolveSpanCountForCurrentOrientation()
+        if (currentSpanCount != resolvedSpanCount) {
+            applySpanCount(resolvedSpanCount, persist = false)
+        } else {
+            calculateItemSize()
+            photoAdapter?.updateItemSize(itemSize)
+        }
+    }
+
+    private fun isCurrentLandscape(): Boolean =
+        resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
+    /**
+     * 按"用户在该方向设置优先"解析列数，与首页 PhotosFragment 共用同一套规则。
+     * 1) 当前方向存了用户值 → 用
+     * 2) 否则另一方向存了值 → 用另一方向
+     * 3) 否则根据当前屏宽自动计算
+     */
+    private fun resolveSpanCountForCurrentOrientation(): Int {
+        return GridSpanPreferences.resolveForOrientation(
+            prefs = sharedPreferences,
+            prefix = SPAN_COUNT_PREFIX,
+            isLandscape = isCurrentLandscape(),
+            fallback = GridSpanCalculator.calculateOptimalSpanCount(resources.displayMetrics)
+        )
     }
 
     private fun loadSpanCount() {
-        currentSpanCount = sharedPreferences.getInt(KEY_SPAN_COUNT, 4)
+        currentSpanCount = resolveSpanCountForCurrentOrientation()
     }
 
     private fun calculateItemSize() {
@@ -379,7 +405,10 @@ class AlbumDetailFragment : Fragment() {
         binding.rvPhotos.apply {
             layoutManager = gridLayoutManager
             adapter = photoAdapter
-            addItemDecoration(GridSpacingItemDecoration(currentSpanCount, GridSpanCalculator.dpToPx(2, resources.displayMetrics), true))
+            val spacing = GridSpanCalculator.dpToPx(2, resources.displayMetrics)
+            val decoration = GridSpacingItemDecoration(currentSpanCount, spacing, true)
+            gridSpacingItemDecoration = decoration
+            addItemDecoration(decoration)
             setHasFixedSize(true)
             setItemViewCacheSize(24)
             isNestedScrollingEnabled = false
@@ -576,23 +605,44 @@ class AlbumDetailFragment : Fragment() {
     }
 
     private fun updateSpanCount(newSpanCount: Int) {
+        applySpanCount(newSpanCount, persist = true)
+    }
+
+    /**
+     * 应用新的列数：
+     *   - [persist] = true 时按当前方向写入偏好（用户主动改列数）
+     *   - [persist] = false 时不写（旋转时按 resolver 计算出来，不算"用户设置"）
+     */
+    private fun applySpanCount(newSpanCount: Int, persist: Boolean) {
         currentSpanCount = newSpanCount
-        sharedPreferences.edit().putInt(KEY_SPAN_COUNT, newSpanCount).apply()
+        if (persist) {
+            GridSpanPreferences.save(
+                prefs = sharedPreferences,
+                prefix = SPAN_COUNT_PREFIX,
+                isLandscape = isCurrentLandscape(),
+                value = newSpanCount
+            )
+        }
 
         calculateItemSize()
-        gridLayoutManager?.spanCount = newSpanCount
+        gridLayoutManager?.apply {
+            spanCount = newSpanCount
+            initialPrefetchItemCount = newSpanCount * 4
+        }
         photoAdapter?.updateItemSize(itemSize)
 
-        while (binding.rvPhotos.itemDecorationCount > 0) {
-            binding.rvPhotos.removeItemDecorationAt(0)
-        }
-        binding.rvPhotos.addItemDecoration(GridSpacingItemDecoration(newSpanCount, GridSpanCalculator.dpToPx(2, resources.displayMetrics), true))
+        gridSpacingItemDecoration?.let { binding.rvPhotos.removeItemDecoration(it) }
+        val spacing = GridSpanCalculator.dpToPx(2, resources.displayMetrics)
+        val decoration = GridSpacingItemDecoration(newSpanCount, spacing, true)
+        gridSpacingItemDecoration = decoration
+        binding.rvPhotos.addItemDecoration(decoration)
     }
 
     override fun onDestroyView() {
         selectionManager.clear()
         gridLayoutManager?.spanSizeLookup = null
         gridLayoutManager = null
+        gridSpacingItemDecoration = null
         binding.rvPhotos.layoutManager = null
         binding.rvPhotos.adapter = null
         photoAdapter = null
@@ -601,7 +651,7 @@ class AlbumDetailFragment : Fragment() {
     }
 
     companion object {
-        private const val KEY_SPAN_COUNT = "album_span_count"
+        private const val SPAN_COUNT_PREFIX = "album_span_count"
         private const val KEY_SORT_TYPE_ALBUM = "album_sort_type"
         private const val KEY_GROUP_TYPE_ALBUM = "album_group_type"
     }

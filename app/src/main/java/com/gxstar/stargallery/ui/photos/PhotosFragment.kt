@@ -40,6 +40,7 @@ import com.gxstar.stargallery.databinding.FragmentPhotosBinding
 import com.gxstar.stargallery.ui.photos.filter.FilterBottomSheet
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
 import com.gxstar.stargallery.ui.common.GridSpanCalculator
+import com.gxstar.stargallery.ui.common.GridSpanPreferences
 import com.gxstar.stargallery.ui.photos.action.BatchActionHandler
 import com.gxstar.stargallery.ui.photos.animation.PhotoItemAnimator
 import com.gxstar.stargallery.ui.photos.launcher.IntentSenderManager
@@ -188,12 +189,9 @@ class PhotosFragment : Fragment() {
     private var lastExplicitRefreshTime = 0L
 
     private fun setupSettings() {
-        val savedSpanCount = sharedPreferences.getInt(KEY_SPAN_COUNT, -1)
-        currentSpanCount = if (savedSpanCount > 0) {
-            savedSpanCount
-        } else {
-            calculateOptimalSpanCount()
-        }
+        // 用当前方向（onCreate 时）解析。
+        val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+        currentSpanCount = resolveSpanCountForOrientation(isLandscape)
         calculateItemSize()
 
         val sortType = loadSortType()
@@ -205,6 +203,21 @@ class PhotosFragment : Fragment() {
 
     private fun calculateOptimalSpanCount(): Int {
         return GridSpanCalculator.calculateOptimalSpanCount(resources.displayMetrics)
+    }
+
+    /**
+     * 按"用户在该方向设置优先"解析列数：
+     * 1) 当前方向存了用户值 → 用
+     * 2) 否则另一方向存了值 → 用另一方向（用户没在当前方向设过，暂复用）
+     * 3) 否则根据当前屏宽自动计算
+     */
+    private fun resolveSpanCountForOrientation(isLandscape: Boolean): Int {
+        return GridSpanPreferences.resolveForOrientation(
+            prefs = sharedPreferences,
+            prefix = SPAN_COUNT_PREFIX,
+            isLandscape = isLandscape,
+            fallback = calculateOptimalSpanCount()
+        )
     }
 
     private fun setupRecyclerView() {
@@ -855,8 +868,26 @@ class PhotosFragment : Fragment() {
     }
 
     private fun updateSpanCount(newSpanCount: Int) {
+        // 用户主动改列数：写入偏好
+        applySpanCount(newSpanCount, persist = true)
+    }
+
+    /**
+     * 应用新的列数。
+     * [persist] = true 时按当前方向写入偏好（仅在用户主动改列数时使用）。
+     * [persist] = false 时不写（旋转时按 resolver 解析后应用，不算"用户设置"）。
+     */
+    private fun applySpanCount(newSpanCount: Int, persist: Boolean) {
         currentSpanCount = newSpanCount
-        sharedPreferences.edit().putInt(KEY_SPAN_COUNT, newSpanCount).apply()
+        if (persist) {
+            val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+            GridSpanPreferences.save(
+                prefs = sharedPreferences,
+                prefix = SPAN_COUNT_PREFIX,
+                isLandscape = isLandscape,
+                value = newSpanCount
+            )
+        }
 
         calculateItemSize()
         gridLayoutManager?.apply {
@@ -1071,10 +1102,15 @@ class PhotosFragment : Fragment() {
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
 
-        val optimalSpanCount = calculateOptimalSpanCount()
-
-        if (currentSpanCount != optimalSpanCount) {
-            updateSpanCount(optimalSpanCount)
+        // 重新按"用户在该方向设置优先"解析列数；
+        // 解析出的值与当前不同才更新，避免重复 layout。
+        // 使用 newConfig.orientation 而不是 resources.configuration.orientation，
+        // 保证拿到旋转后的最新方向（resources 在某些场景下可能未及时更新）。
+        // 旋转时不写 SharedPreferences（不属于用户设置），仅在内存中应用。
+        val isLandscape = newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE
+        val resolvedSpanCount = resolveSpanCountForOrientation(isLandscape)
+        if (currentSpanCount != resolvedSpanCount) {
+            applySpanCount(resolvedSpanCount, persist = false)
         } else {
             calculateItemSize()
             photoAdapter?.updateItemSize(itemSize)
@@ -1108,7 +1144,7 @@ class PhotosFragment : Fragment() {
     companion object {
         private const val ITEM_VIEW_CACHE_SIZE = 24
 
-        private const val KEY_SPAN_COUNT = "span_count"
+        private const val SPAN_COUNT_PREFIX = "span_count"
         private const val KEY_SORT_TYPE = "sort_type"
         private const val KEY_GROUP_TYPE = "group_type"
 

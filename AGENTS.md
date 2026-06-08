@@ -95,6 +95,19 @@ Kotlin 2.3.20，AGP 9.2.1，minSdk 30，compileSdk 36，targetSdk 35，Java 21�
 - `PhotoItemAnimator` 删除动画：缩小+渐隐（仅 TYPE_PHOTO）
 - 扫描时 `itemAnimator = null` 防快速刷新乱跳，扫描完成后恢复
 
+## 网格列数偏好（横竖屏独立设置）
+
+- 工具类 `ui/common/GridSpanPreferences.kt`：封装竖横屏双 key 读写 + 解析规则
+- 解析规则（当前方向有值优先；都没有再走 `fallback`）：
+  1) 当前方向有存值 → 用
+  2) 否则另一方向有存值 → 用另一方向（用户没在当前方向设过，暂复用）
+  3) 都没有 → 用 `fallback`（按屏宽计算的最佳值）
+- 写入：用户主动改列数时 `save(prefix, isLandscape, value)`，按**当前方向**写入对应 key
+- 旋转（`onConfigurationChanged`）调用 resolver 取数，**不写**偏好
+- **首页** prefix = `"span_count"`（旧 `span_count` 单 key 已弃用）
+- **相册详情** prefix = `"album_span_count"`（独立键，互不影响）
+- AlbumDetailFragment 复用同一套 resolver 逻辑，与首页行为完全一致（见"相册管理"一节）
+
 ## 搜索功能
 
 - `btnSearch` 进入搜索模式，`etSearch` + TextWatcher + IME_ACTION_SEARCH
@@ -110,6 +123,7 @@ Kotlin 2.3.20，AGP 9.2.1，minSdk 30，compileSdk 36，targetSdk 35，Java 21�
 - **下滑关闭**：垂直滑动 > 200px 触发 navigateUp()，透明度跟随滑动距离
 - **PhotoPageViewHolder**：ZoomImageView 子采样 + Glide 加载 + ExoPlayer 视频 + GIF + HDR 检测
 - **400ms 加载延迟**：`PhotoDetailViewModel.loadPhotosInBackground()` 等待导航动画完成，避免掉帧
+- **底部工具栏 systemBars inset**：与 `TrashPhotoPreviewDialog` 同样的 `ViewCompat.setOnApplyWindowInsetsListener` 处理 `systemBars.bottom`，保证按钮在系统导航栏之上
 
 ## HDR 检测（PhotoPageViewHolder）
 
@@ -184,6 +198,7 @@ data class ViewHolderConfig(
 - 恢复操作：`mediaRepository.restorePhotos()`（IntentSender）
 - 永久删除：`mediaRepository.deletePhotos()`（IntentSender）
 - `TrashPhotoPreviewDialog`：全屏 ZoomImageView 预览，内联恢复/删除按钮
+- **`TrashPhotoPreviewDialog` 底部按钮 systemBars inset**：通过 `ViewCompat.setOnApplyWindowInsetsListener(bottomBar)` 把 `systemBars.bottom + 16dp` 写到 paddingBottom，按钮始终在系统导航栏之上
 - `dateExpiration` 回退规则：`DATE_EXPIRES > 0 → expires*1000`，否则 `(dateModified+30天)*1000`
 
 ## 隐藏照片
@@ -195,8 +210,12 @@ data class ViewHolderConfig(
 ## 相册管理
 
 - `AlbumsFragment`：内置 AlbumAdapter（ListAdapter<Album>），3 列 Grid，Glide 封面
-- `AlbumDetailFragment`：复用 `fragment_photos.xml` 布局，自有独立的 `SharedPreferences` 键（album_span_count / album_sort_type / album_group_type），从 MediaStore 直接查询（非 Room），手动排序/分组
-- `AlbumDetailAdapter`：与 `PhotoListAdapter` 结构完全一致（ListAdapter<PhotoModel>），共享 `PhotoGridViewHolder`
+- `AlbumDetailFragment`：
+  - 复用 `fragment_photos.xml` 布局
+  - 复用 `PhotoGridViewHolder` + `AlbumDetailAdapter`（与 `PhotoListAdapter` 结构完全一致，共享 `PhotoGridViewHolder`）
+  - **网格列数偏好** prefix = `"album_span_count"`，与首页各自独立，**通过 `GridSpanPreferences` 复用同一套解析/写入规则**（竖横屏独立 + 旋转不写偏好 + resolver 跨方向 fallback）
+  - 排序/分组：独立的 `KEY_SORT_TYPE_ALBUM` / `KEY_GROUP_TYPE_ALBUM` 键
+  - 数据源：MediaStore 直接查询（非 Room），手动排序/分组
 
 ## 导航图
 
@@ -225,11 +244,32 @@ aboutFragment
 
 EXIF 筛选参数以 `\n` 分隔 `Set<String>` 编码传递，详情页解码后复用一致过滤逻辑。
 
+## 底部导航（BottomNavigationView 自适应宽度）
+
+- `MainActivity.applyBottomNavWidth()`：根据 `resources.displayMetrics.widthPixels` 计算目标宽度 `min(屏宽 - 2*32dp, 480dp)`，居中显示
+- 解决横屏/大屏设备上固定 `64dp * 2` margin 导致悬浮胶囊过宽的问题
+- 调用时机：`onCreate` 末尾 + `onConfigurationChanged`
+- 底部 systemBars insets：与目标宽度叠加使用，通过 `ViewCompat.setOnApplyWindowInsetsListener` 把 `systemBars.bottom` 加到 `bottomMargin`，避开系统导航栏
+- XML 中 `bottom_nav` 用 `wrap_content` + 居中约束 + 32dp marginStart/End（代码动态覆盖实际值）
+
+## 横屏适配（layout-land/）
+
+- `AndroidManifest.xml:44` `configChanges="orientation|screenSize|screenLayout"` → 旋转时 **Activity/Fragment 不重建**，仅触发 `onConfigurationChanged`
+- 关键问题：**FastScroller（1.3.0）通过匿名 ItemDecoration 的 `onDraw` 触发 onPreDraw**；原 `updateSpanCount` 用 `while itemDecorationCount > 0 { removeItemDecorationAt(0) }` 会把该匿名装饰一并清掉，导致 thumb 位置永久卡在旧 width（"thumb 出现在中间"）
+- 修复：保存 `gridSpacingItemDecoration` 引用，`updateSpanCount` 只 `removeItemDecoration(this)` 后重建
+- 关键问题：**DragSelectTouchListener 抢占 `OnItemTouchListener`**，导致 FastScroller 的 thumb 触摸被吞；解决：竖横屏 RecyclerView 都用 `me.zhanghai.android.fastscroll.FixOnItemTouchListenerRecyclerView`（库 1.3.0 官方修正类，统一 RV 类型以兼容 ViewBinding）
+- 关键问题：**横屏 layout 用 `ConstraintLayout` 直挂 RV**（不依赖 `appbar_scrolling_view_behavior`），让 RV width 在旋转后立即撑满新宽度，FastScroller 的 onPreDraw 用 `mView.getWidth()` 自动贴齐屏幕右边缘
+- 关键问题：FastScroller thumb 与悬浮 BottomNav 在底部重叠 → builder 加 `setPadding(0, 0, 0, 80dp)` 让 thumb 跳过 BottomNav 区
+- `layout-land/fragment_photos.xml` + `layout-land/activity_main.xml` 资源存在
+- 旋转重建（`onConfigurationChanged`）必须同步调用：
+  - `applyBottomNavWidth()`（MainActivity）
+  - `GridSpanPreferences.resolveForOrientation(...)` + `applySpanCount`（Photos/AlbumDetail）
+
 ## 关键目录
 
 ```
 app/src/main/java/com/gxstar/stargallery/
-├── MainActivity.kt
+├── MainActivity.kt                  # applyBottomNavWidth + insets + 旋转
 ├── StarGalleryApp.kt
 ├── data/
 │   ├── local/
@@ -241,7 +281,7 @@ app/src/main/java/com/gxstar/stargallery/
 │   └── repository/         # MediaRepository (MediaStore 操作)
 ├── di/                     # Hilt 模块 (AppModule, DatabaseModule, PreferenceModule)
 ├── ui/
-│   ├── photos/             # 首页网格 (PhotosFragment 1027行, PhotosViewModel 438行)
+│   ├── photos/             # 首页网格 (PhotosFragment, PhotosViewModel)
 │   │   ├── action/         # BatchActionHandler (6种操作)
 │   │   ├── animation/      # PhotoItemAnimator (DefaultItemAnimator)
 │   │   ├── filter/         # FilterBottomSheet (EXIF 三维多选)
@@ -256,20 +296,21 @@ app/src/main/java/com/gxstar/stargallery/
 │   ├── albums/             # 相册列表 (AlbumsFragment) + 详情 (AlbumDetailFragment)
 │   ├── detail/             # 照片详情 (ViewPager2 + ZoomImageView + ExoPlayer + HDR)
 │   │   ├── ExoPlayerManager.kt        # 单例
-│   │   ├── PhotoDetailFragment.kt     # 438行
-│   │   ├── PhotoDetailViewModel.kt    # 296行
-│   │   ├── PhotoInfoBottomSheet.kt    # 433行 (EXIF + 地图)
+│   │   ├── PhotoDetailFragment.kt
+│   │   ├── PhotoDetailViewModel.kt
+│   │   ├── PhotoInfoBottomSheet.kt    # (EXIF + 地图)
 │   │   ├── PhotoPagerAdapter.kt       # DiffUtil
-│   │   └── PhotoPageViewHolder.kt     # 468行 (缩放/视频/GIF/HDR)
-│   ├── trash/              # 回收站 (TrashFragment)
+│   │   └── PhotoPageViewHolder.kt     # (缩放/视频/GIF/HDR)
+│   ├── trash/              # 回收站 (TrashFragment, TrashPhotoPreviewDialog)
 │   ├── hidden/             # 隐藏照片 (HiddenFragment, 需生物识别)
 │   ├── about/              # 6个子页面
 │   ├── common/             # 共享组件
 │   │   ├── BaseSelectionManager.kt
 │   │   ├── DeleteOptionsBottomSheet.kt
 │   │   ├── Extensions.kt
-│   │   ├── GridSpanCalculator.kt
-│   │   ├── PhotoGridViewHolder.kt     (含 ViewHolderConfig)
+│   │   ├── GridSpanCalculator.kt      # 屏宽 → 最佳列数
+│   │   ├── GridSpanPreferences.kt     # 竖横屏独立列数偏好（首页 + AlbumDetail 共用）
+│   │   ├── PhotoGridViewHolder.kt     # (含 ViewHolderConfig)
 │   │   └── PhotoSelectionTracker.kt
 │   └── util/               # CoordinateUtils, DateUtils, SortUtils
 ```
@@ -278,7 +319,7 @@ app/src/main/java/com/gxstar/stargallery/
 
 - Debug 构建含 LeakCanary
 - `lifecycleScope.launch` 的 Flow 收集需确保 ViewModel `onCleared` 时清理
-- Fragment `onDestroyView` 中需清理 RecyclerView 引用（adapter/layoutManager/itemAnimator 置 null），ExoPlayerManager.release()
+- Fragment `onDestroyView` 中需清理 RecyclerView 引用（adapter/layoutManager/itemAnimator/gridSpacingItemDecoration 置 null），ExoPlayerManager.release()
 - `BaseSelectionManager.clear()` 清理所有引用
 
 ## 测试
@@ -294,9 +335,11 @@ app/src/main/java/com/gxstar/stargallery/
 - **张数实时显示**：`filteredPhotoCount` 从 `photoListFlow` 派生，始终精确反映当前屏幕显示数量
 - **隐藏照片**：`HiddenFragment` 进入需 BiometricPrompt 认证（指纹/设备密码）
 - **拖动多选**：`drag-select-recyclerview` 库 + 基于 photo ID 的选中追踪，删除后位置不错乱
-- **快速滚动条**：FastScroller（1.3.0），滚动时显示日期分隔符预览
+- **快速滚动条**：FastScroller（1.3.0），竖横屏都用 `FixOnItemTouchListenerRecyclerView` 解决与 DragSelect 的触摸冲突；横屏用 `layout-land/fragment_photos.xml` + `setPadding(0,0,0,80)` 让 thumb 贴齐屏幕右边缘
 - **搜索**：按文件名/文件夹名实时过滤
 - **HDR 检测**：三重检测（Ultra HDR / RGBA_F16 / ColorSpace）
 - **照片风格解析**：7 大相机品牌照片风格/胶片模拟映射
 - **坐标转换**：WGS84→GCJ02，适配中国地图
 - **动态预加载**：预加载量随列数自动调整（列数 × 3/4）
+- **列数偏好竖横屏独立**：首页与相册详情各自独立；当前方向未设时复用另一方向值；都没设时按屏宽计算
+- **底部导航自适应宽度**：根据屏宽在 32dp~480dp 区间内自适应，避免横屏悬浮胶囊过宽
