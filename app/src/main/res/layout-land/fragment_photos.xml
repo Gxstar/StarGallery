@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -13,7 +13,10 @@
         android:background="?attr/colorSurface"
         android:stateListAnimator="@null"
         app:elevation="0dp"
-        app:liftOnScroll="false">
+        app:liftOnScroll="false"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
 
         <!-- 使用 FrameLayout 叠加两个工具栏，保持高度一致 -->
         <FrameLayout
@@ -161,7 +164,6 @@
                         app:layout_constraintStart_toEndOf="@id/btnBack"
                         app:layout_constraintTop_toTopOf="parent" />
 
-                    <!-- 分享按钮 -->
                     <ImageButton
                         android:id="@+id/btnShare"
                         android:layout_width="48dp"
@@ -173,7 +175,6 @@
                         app:layout_constraintEnd_toEndOf="parent"
                         app:layout_constraintTop_toTopOf="parent" />
 
-                    <!-- 隐藏按钮 -->
                     <ImageButton
                         android:id="@+id/btnHide"
                         android:layout_width="48dp"
@@ -185,7 +186,6 @@
                         app:layout_constraintEnd_toStartOf="@id/btnShare"
                         app:layout_constraintTop_toTopOf="parent" />
 
-                    <!-- 收藏按钮 -->
                     <ImageButton
                         android:id="@+id/btnFavorite"
                         android:layout_width="48dp"
@@ -197,7 +197,6 @@
                         app:layout_constraintEnd_toStartOf="@id/btnHide"
                         app:layout_constraintTop_toTopOf="parent" />
 
-                    <!-- 删除按钮 -->
                     <ImageButton
                         android:id="@+id/btnDelete"
                         android:layout_width="48dp"
@@ -297,21 +296,31 @@
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/searchRow" />
 
-                <!-- EXIF 提取进度条引用（与 normalToolbar 共用 exifProgressBar） -->
-
             </androidx.constraintlayout.widget.ConstraintLayout>
 
         </FrameLayout>
 
     </com.google.android.material.appbar.AppBarLayout>
 
+    <!--
+        横屏关键差异：
+        1) RecyclerView 改为 FixOnItemTouchListenerRecyclerView，使 FastScroller 的 thumb 触摸事件
+           不被 DragSelectTouchListener 抢走（库官方推荐）。
+        2) 不再依赖 appbar_scrolling_view_behavior，直接用 ConstraintLayout 把 RecyclerView
+           锚定到 AppBar 下方。thumb 的 Y 起点与屏幕可见区域上沿对齐，避免 "thumb 出现在中间"。
+        3) paddingBottom 仍保留 80dp 以让最后一行图片不被 BottomNav 遮挡；FastScroller 自身
+           通过 builder.setPadding(0, 0, 0, 80) 接管 padding，让滚动条不进入 BottomNav 区域。
+    -->
     <me.zhanghai.android.fastscroll.FixOnItemTouchListenerRecyclerView
         android:id="@+id/rvPhotos"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
         android:clipToPadding="false"
         android:paddingBottom="80dp"
-        app:layout_behavior="@string/appbar_scrolling_view_behavior" />
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/appBarLayout" />
 
     <!-- 加载进度指示器 -->
     <ProgressBar
@@ -319,26 +328,32 @@
         style="?android:attr/progressBarStyleLarge"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="center"
         android:indeterminate="true"
-        android:visibility="gone" />
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
     <!-- 空状态视图 -->
     <LinearLayout
         android:id="@+id/emptyStateView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="center"
         android:gravity="center"
         android:orientation="vertical"
-        android:visibility="gone">
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
 
         <ImageView
             android:layout_width="120dp"
             android:layout_height="120dp"
             android:alpha="0.5"
-            android:src="@drawable/ic_photo_placeholder"
-            android:contentDescription="@null" />
+            android:contentDescription="@null"
+            android:src="@drawable/ic_photo_placeholder" />
 
         <TextView
             android:layout_width="wrap_content"
@@ -355,10 +370,13 @@
         android:id="@+id/scanningView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="center"
         android:gravity="center"
         android:orientation="vertical"
-        android:visibility="gone">
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
 
         <ProgressBar
             style="?android:attr/progressBarStyleLarge"
@@ -376,4 +394,4 @@
 
     </LinearLayout>
 
-</androidx.coordinatorlayout.widget.CoordinatorLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>

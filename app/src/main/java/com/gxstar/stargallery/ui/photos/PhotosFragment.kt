@@ -76,6 +76,7 @@ class PhotosFragment : Fragment() {
     private var gridLayoutManager: GridLayoutManager? = null
     private var photoItemAnimator: PhotoItemAnimator? = null
     private var glidePreloader: RecyclerViewPreloader<*>? = null
+    private var gridSpacingItemDecoration: GridSpacingItemDecoration? = null
 
     @Inject
     lateinit var sharedPreferences: SharedPreferences
@@ -231,7 +232,10 @@ class PhotosFragment : Fragment() {
                 supportsChangeAnimations = false // 彻底禁用变更动画，消除残影
             }
             itemAnimator = photoItemAnimator
-            addItemDecoration(GridSpacingItemDecoration(currentSpanCount, GridSpanCalculator.dpToPx(2, resources.displayMetrics), true))
+            val spacing = GridSpanCalculator.dpToPx(2, resources.displayMetrics)
+            val decoration = GridSpacingItemDecoration(currentSpanCount, spacing, true)
+            gridSpacingItemDecoration = decoration
+            addItemDecoration(decoration)
         }
 
         selectionManager = PhotoSelectionManager(binding.rvPhotos, photoListAdapter)
@@ -243,7 +247,10 @@ class PhotosFragment : Fragment() {
 
     private fun setupFastScroller() {
         val context = requireContext()
+        val density = context.resources.displayMetrics.density
+        val bottomNavReserve = (80 * density).toInt()
         FastScrollerBuilder(binding.rvPhotos)
+            .setPadding(0, 0, 0, bottomNavReserve)
             .setPopupTextProvider { _, position ->
                 val list = photoAdapter?.currentList ?: return@setPopupTextProvider ""
                 if (position !in list.indices) return@setPopupTextProvider ""
@@ -263,7 +270,7 @@ class PhotosFragment : Fragment() {
                 popupView.setTextColor(ContextCompat.getColor(context, R.color.fastscroll_popup_text))
                 popupView.textSize = 12f
                 popupView.includeFontPadding = false
-                popupView.translationX = -(32 * context.resources.displayMetrics.density)
+                popupView.translationX = -(32 * density)
             }
             .setTrackDrawable(ContextCompat.getDrawable(context, R.drawable.fastscroll_track)!!)
             .setThumbDrawable(ContextCompat.getDrawable(context, R.drawable.fastscroll_thumb)!!)
@@ -858,10 +865,11 @@ class PhotosFragment : Fragment() {
         }
         photoAdapter?.updateItemSize(itemSize)
 
-        while (binding.rvPhotos.itemDecorationCount > 0) {
-            binding.rvPhotos.removeItemDecorationAt(0)
-        }
-        binding.rvPhotos.addItemDecoration(GridSpacingItemDecoration(newSpanCount, GridSpanCalculator.dpToPx(2, resources.displayMetrics), true))
+        gridSpacingItemDecoration?.let { binding.rvPhotos.removeItemDecoration(it) }
+        val spacing = GridSpanCalculator.dpToPx(2, resources.displayMetrics)
+        val decoration = GridSpacingItemDecoration(newSpanCount, spacing, true)
+        gridSpacingItemDecoration = decoration
+        binding.rvPhotos.addItemDecoration(decoration)
 
         setupGlidePreloader()
     }
@@ -1091,6 +1099,7 @@ class PhotosFragment : Fragment() {
         binding.rvPhotos.layoutManager = null
         binding.rvPhotos.adapter = null
         photoItemAnimator = null
+        gridSpacingItemDecoration = null
         fastScrollerReady = false
         _binding = null
         super.onDestroyView()
