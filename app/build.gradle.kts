@@ -64,6 +64,17 @@ android {
     }
 }
 
+tasks.matching { it.name.startsWith("bundle") }.configureEach {
+    val variant = name.removePrefix("bundle").decapitalize()
+    outputs.files.matching {
+        include("*.aab")
+    }.configureEach {
+        val ver = android.defaultConfig.versionName ?: "unknown"
+        val code = android.defaultConfig.versionCode
+        rename(".*.aab", "StarGallery-v${ver}-${code}-${variant}.aab")
+    }
+}
+
 dependencies {
     // AndroidX 核心
     implementation(libs.androidx.core.ktx)
