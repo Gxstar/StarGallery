@@ -13,3 +13,13 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Release 签名（不含 git）
+keystore.properties
+*.jks
+*.keystore
+
+# 构建产物
+app/release/
+*.aab
+*.apk

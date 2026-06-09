@@ -24,13 +24,34 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        create("release") {
+            val keystoreFile = rootProject.file("keystore.properties")
+            if (keystoreFile.exists()) {
+                val props = keystoreFile.readLines()
+                    .filter { it.contains("=") && !it.startsWith("#") }
+                    .associate {
+                        val idx = it.indexOf("=")
+                        it.substring(0, idx).trim() to it.substring(idx + 1).trim()
+                    }
+                storeFile = file(props["storeFile"] ?: "")
+                storePassword = props["storePassword"] ?: ""
+                keyAlias = props["keyAlias"] ?: ""
+                keyPassword = props["keyPassword"] ?: ""
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
+            isShrinkResources = true
+            isDebuggable = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {
