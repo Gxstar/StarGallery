@@ -64,16 +64,35 @@ android {
     }
 }
 
-tasks.matching { it.name.startsWith("bundle") }.configureEach {
-    val variant = name.removePrefix("bundle").decapitalize()
-    outputs.files.matching {
-        include("*.aab")
-    }.configureEach {
-        val ver = android.defaultConfig.versionName ?: "unknown"
-        val code = android.defaultConfig.versionCode
-        rename(".*.aab", "StarGallery-v${ver}-${code}-${variant}.aab")
+// 重命名产物为专业命名：{AppName}-v{versionName}-{versionCode}-{variant}[-{abi}].{ext}
+val appName = "StarGallery"
+val ver = android.defaultConfig.versionName ?: "unknown"
+val code = android.defaultConfig.versionCode
+
+fun renameOutputs(taskName: String, outputDir: File, ext: String) {
+    tasks.matching { it.name == taskName }.configureEach {
+        doLast {
+            if (!outputDir.exists()) return@doLast
+            outputDir.walkTopDown()
+                .filter { it.isFile && it.extension == ext }
+                .forEach { f ->
+                    val captured = Regex("app-(.+)\\.${ext}").matchEntire(f.name)?.groupValues?.get(1)
+                        ?: return@forEach
+                    val newName = "${appName}-v${ver}-${code}-${captured}.${ext}"
+                    val target = f.parentFile.resolve(newName)
+                    if (f.name != newName) {
+                        if (target.exists()) target.delete()
+                        f.renameTo(target)
+                    }
+                }
+        }
     }
 }
+
+renameOutputs("packageDebug", file("$buildDir/outputs/apk/debug"), "apk")
+renameOutputs("packageRelease", file("$buildDir/outputs/apk/release"), "apk")
+renameOutputs("bundleDebug", file("$buildDir/outputs/bundle/debug"), "aab")
+renameOutputs("bundleRelease", file("$buildDir/outputs/bundle/release"), "aab")
 
 dependencies {
     // AndroidX 核心
