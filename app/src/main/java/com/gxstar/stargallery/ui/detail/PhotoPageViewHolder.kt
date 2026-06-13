@@ -8,7 +8,6 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
 import android.os.Build
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
@@ -256,25 +255,20 @@ class PhotoPageViewHolder(
      * 快速探测 gainmap 并走对应路径
      */
     private fun checkHdrAndLoad(photo: Photo, maxDim: Int, needSubsample: Boolean, ctx: Context) {
-        val tag = "PhotoPageViewHolder"
         viewHolderScope?.launch(Dispatchers.IO) {
             val hasGainmap = try {
-                Log.d(tag, "HDR probe: checking ${photo.mimeType} uri=${photo.uri} size=${photo.width}x${photo.height}")
                 val source = ImageDecoder.createSource(ctx.contentResolver, photo.uri)
                 val probe = ImageDecoder.decodeBitmap(source) { decoder, _, _ ->
                     decoder.setTargetSize(200, 200)
                 }
                 val result = probe.hasGainmap()
-                Log.d(tag, "HDR probe: decoded=${probe.width}x${probe.height} config=${probe.config} hasGainmap=$result")
                 probe.recycle()
                 result
-            } catch (e: Exception) {
-                Log.w(tag, "HDR probe: failed with exception", e)
+            } catch (_: Exception) {
                 false
             }
 
             withContext(Dispatchers.Main) {
-                Log.d(tag, "HDR decision: hasGainmap=$hasGainmap needSubsample=$needSubsample")
                 if (hasGainmap) {
                     loadHdrBitmap(photo, maxDim, ctx)
                 } else if (needSubsample) {
@@ -293,14 +287,11 @@ class PhotoPageViewHolder(
      * 超出 MAX_HDR_DECODE_PX 时长边等比缩放
      */
     private fun loadHdrBitmap(photo: Photo, maxDim: Int, ctx: Context) {
-        val tag = "PhotoPageViewHolder"
         viewHolderScope?.launch(Dispatchers.IO) {
-            Log.d(tag, "HDR decode: starting full decode from ${photo.uri}")
             val bitmap = try {
                 val source = ImageDecoder.createSource(ctx.contentResolver, photo.uri)
                 ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
                     val longest = maxOf(info.size.width, info.size.height)
-                    Log.d(tag, "HDR decode: original ${info.size.width}x${info.size.height} mime=${info.mimeType} longest=$longest")
                     if (longest > MAX_HDR_DECODE_PX) {
                         val scale = MAX_HDR_DECODE_PX.toFloat() / longest
                         decoder.setTargetSize(
@@ -310,22 +301,17 @@ class PhotoPageViewHolder(
                     }
                 }
                 // decodeBitmap 的返回值就是解码后的 Bitmap
-            } catch (e: Exception) {
-                Log.e(tag, "HDR decode: failed", e)
+            } catch (_: Exception) {
                 null
             }
 
             withContext(Dispatchers.Main) {
                 if (bitmap != null) {
-                    Log.d(tag, "HDR decode: bitmap=${bitmap.width}x${bitmap.height} config=${bitmap.config}")
                     val hasGainmap = Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && bitmap.hasGainmap()
-                    Log.d(tag, "HDR decode: display bitmap hasGainmap=$hasGainmap")
                     binding.ivPhoto.setImageBitmap(bitmap)
                     applyWindowColorMode(hasGainmap)
-                    Log.d(tag, "HDR decode: window colorMode set to ${if (hasGainmap) "HDR" else "SDR"}")
                     updateEdgeState()
                 } else {
-                    Log.w(tag, "HDR decode: null bitmap, fallback to Glide")
                     loadFullImage(photo, ctx)
                 }
                 binding.progressBar.visibility = View.GONE
@@ -398,17 +384,13 @@ class PhotoPageViewHolder(
      * 设置 Activity 窗口的 HDR/SDR 色彩模式
      */
     private fun applyWindowColorMode(isHdr: Boolean) {
-        val tag = "PhotoPageViewHolder"
         lastAppliedHdrMode = isHdr
         if (!isActive) {
-            Log.d(tag, "colorMode: skipped (isActive=false, mode=${if (isHdr) "HDR" else "SDR"})")
             return
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             val window = activity?.window
-            val prev = window?.colorMode
             window?.colorMode = if (isHdr) ActivityInfo.COLOR_MODE_HDR else ActivityInfo.COLOR_MODE_DEFAULT
-            Log.d(tag, "colorMode: $prev -> ${window?.colorMode} (isHdr=$isHdr)")
         }
     }
 
