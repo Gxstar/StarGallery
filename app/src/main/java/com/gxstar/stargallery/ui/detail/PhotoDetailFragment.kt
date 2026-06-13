@@ -170,6 +170,7 @@ class PhotoDetailFragment : Fragment() {
                     ExoPlayerManager.pause()
                 }
                 lastPosition = position
+                pagerAdapter.activePosition = position
                 viewModel.setPosition(position)
                 canSwipeToSwitch = true
             }

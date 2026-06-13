@@ -1,10 +1,14 @@
 package com.gxstar.stargallery.ui.detail
 
 import android.app.Activity
+import android.content.ContextWrapper
 import android.content.pm.ActivityInfo
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.ImageDecoder
 import android.os.Build
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
@@ -13,9 +17,7 @@ import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import com.bumptech.glide.Glide
-import com.bumptech.glide.load.DecodeFormat
 import com.bumptech.glide.load.engine.DiskCacheStrategy
-import com.bumptech.glide.request.RequestOptions
 import com.bumptech.glide.request.target.CustomTarget
 import com.bumptech.glide.request.transition.Transition
 import com.github.panpf.zoomimage.ZoomImageView
@@ -25,6 +27,9 @@ import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.databinding.ItemPhotoPageBinding
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.cancelChildren
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.math.abs
 
 /**
@@ -40,6 +45,16 @@ class PhotoPageViewHolder(
     private var exoPlayer: ExoPlayer? = null
     private var currentPhoto: Photo? = null
 
+    /** 从 context 链中提取真正的 Activity */
+    private val activity: Activity? by lazy {
+        var ctx = binding.root.context
+        while (ctx is ContextWrapper) {
+            if (ctx is Activity) return@lazy ctx
+            ctx = ctx.baseContext
+        }
+        ctx as? Activity
+    }
+
     @OptIn(UnstableApi::class)
     private var viewHolderScope: CoroutineScope? = null
 
@@ -49,6 +64,21 @@ class PhotoPageViewHolder(
     private var isAtRightEdge = false
     private var hasNotifiedEdgeSwipe = false
     private var lastEdgeDirection = 0
+
+    /** 当前页面是否可见（由 Adapter 设置） */
+    var isActive: Boolean = false
+        set(value) {
+            if (field != value) {
+                field = value
+                // 变为可见时，重新应用之前存储的窗口模式
+                if (value && lastAppliedHdrMode) {
+                    applyWindowColorMode(true)
+                }
+            }
+        }
+
+    /** 最近一次生效的窗口模式 */
+    private var lastAppliedHdrMode: Boolean = false
 
     private val swipeThreshold = 10f
 
@@ -201,92 +231,140 @@ class PhotoPageViewHolder(
 
     /**
      * 使用 ZoomImageView 加载所有图片格式
-     * 
-     * 优化策略：
-     * 1. 小图（< 2000px）：直接用 Glide 加载原图，无需子采样
-     * 2. 大图（>= 2000px）：先用 Glide 加载缩略图预览，再启用子采样加载高清区域
-     * 3. 保持原始宽高比，不裁剪
-     * 4. 支持 HDR 图片
      */
     private fun loadImage(photo: Photo) {
         setMediaVisibility(photo = true)
         binding.progressBar.visibility = View.VISIBLE
 
-        val context = binding.root.context
-        val isPotentialHdr = photo.isHeic || photo.isAvif || photo.isUltraHdr
+        val ctx = binding.root.context
         val maxDimension = maxOf(photo.width, photo.height)
-
-        // 大图或 RAW 格式启用子采样（AVIF 通过 AvifRegionDecoder 使用 ImageDecoder 解码）
         val needSubsampling = maxDimension >= 2000 || photo.isRaw
 
-        if (!needSubsampling) {
-            loadFullImage(photo, isPotentialHdr)
+        val shouldProbeHdr = Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
+            && (photo.isUltraHdr || photo.isHeic || photo.isAvif)
+
+        if (shouldProbeHdr) {
+            checkHdrAndLoad(photo, maxDimension, needSubsampling, ctx)
+        } else if (needSubsampling) {
+            loadWithSubsampling(photo, ctx)
         } else {
-            loadWithSubsampling(photo, isPotentialHdr)
+            loadFullImage(photo, ctx)
         }
     }
 
     /**
-     * 直接加载完整图片（适用于小图）
+     * 快速探测 gainmap 并走对应路径
      */
-    private fun loadFullImage(photo: Photo, isPotentialHdr: Boolean) {
-        val requestBuilder = Glide.with(binding.root.context)
+    private fun checkHdrAndLoad(photo: Photo, maxDim: Int, needSubsample: Boolean, ctx: Context) {
+        val tag = "PhotoPageViewHolder"
+        viewHolderScope?.launch(Dispatchers.IO) {
+            val hasGainmap = try {
+                Log.d(tag, "HDR probe: checking ${photo.mimeType} uri=${photo.uri} size=${photo.width}x${photo.height}")
+                val source = ImageDecoder.createSource(ctx.contentResolver, photo.uri)
+                val probe = ImageDecoder.decodeBitmap(source) { decoder, _, _ ->
+                    decoder.setTargetSize(200, 200)
+                }
+                val result = probe.hasGainmap()
+                Log.d(tag, "HDR probe: decoded=${probe.width}x${probe.height} config=${probe.config} hasGainmap=$result")
+                probe.recycle()
+                result
+            } catch (e: Exception) {
+                Log.w(tag, "HDR probe: failed with exception", e)
+                false
+            }
+
+            withContext(Dispatchers.Main) {
+                Log.d(tag, "HDR decision: hasGainmap=$hasGainmap needSubsample=$needSubsample")
+                if (hasGainmap) {
+                    loadHdrBitmap(photo, maxDim, ctx)
+                } else if (needSubsample) {
+                    applyWindowColorMode(false)
+                    loadWithSubsampling(photo, ctx)
+                } else {
+                    applyWindowColorMode(false)
+                    loadFullImage(photo, ctx)
+                }
+            }
+        }
+    }
+
+    /**
+     * 用 ImageDecoder 解码完整图像，保留 gainmap
+     * 超出 MAX_HDR_DECODE_PX 时长边等比缩放
+     */
+    private fun loadHdrBitmap(photo: Photo, maxDim: Int, ctx: Context) {
+        val tag = "PhotoPageViewHolder"
+        viewHolderScope?.launch(Dispatchers.IO) {
+            Log.d(tag, "HDR decode: starting full decode from ${photo.uri}")
+            val bitmap = try {
+                val source = ImageDecoder.createSource(ctx.contentResolver, photo.uri)
+                ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
+                    val longest = maxOf(info.size.width, info.size.height)
+                    Log.d(tag, "HDR decode: original ${info.size.width}x${info.size.height} mime=${info.mimeType} longest=$longest")
+                    if (longest > MAX_HDR_DECODE_PX) {
+                        val scale = MAX_HDR_DECODE_PX.toFloat() / longest
+                        decoder.setTargetSize(
+                            (info.size.width * scale).toInt(),
+                            (info.size.height * scale).toInt()
+                        )
+                    }
+                }
+                // decodeBitmap 的返回值就是解码后的 Bitmap
+            } catch (e: Exception) {
+                Log.e(tag, "HDR decode: failed", e)
+                null
+            }
+
+            withContext(Dispatchers.Main) {
+                if (bitmap != null) {
+                    Log.d(tag, "HDR decode: bitmap=${bitmap.width}x${bitmap.height} config=${bitmap.config}")
+                    val hasGainmap = Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && bitmap.hasGainmap()
+                    Log.d(tag, "HDR decode: display bitmap hasGainmap=$hasGainmap")
+                    binding.ivPhoto.setImageBitmap(bitmap)
+                    applyWindowColorMode(hasGainmap)
+                    Log.d(tag, "HDR decode: window colorMode set to ${if (hasGainmap) "HDR" else "SDR"}")
+                    updateEdgeState()
+                } else {
+                    Log.w(tag, "HDR decode: null bitmap, fallback to Glide")
+                    loadFullImage(photo, ctx)
+                }
+                binding.progressBar.visibility = View.GONE
+            }
+        }
+    }
+
+    /**
+     * 直接 Glide 加载完整图片（适用于小图 / 非 HDR 回退）
+     */
+    private fun loadFullImage(photo: Photo, ctx: Context) {
+        Glide.with(ctx)
             .load(photo.uri)
             .placeholder(android.R.color.black)
             .error(android.R.color.darker_gray)
             .fitCenter()
-
-        if (isPotentialHdr && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            requestBuilder.apply(
-                RequestOptions()
-                    .format(DecodeFormat.PREFER_ARGB_8888)
-                    .diskCacheStrategy(DiskCacheStrategy.ALL)
-            )
-        }
-
-        requestBuilder.into(binding.ivPhoto)
+            .into(binding.ivPhoto)
         binding.progressBar.visibility = View.GONE
     }
 
     /**
-     * 使用子采样加载大图
-     * 先显示缩略图,再启用子采样加载高清区域
+     * 子采样加载大图：先 Glide 预览，再启用 ZoomImageView 子采样
      */
-    private fun loadWithSubsampling(photo: Photo, isPotentialHdr: Boolean) {
-        val context = binding.root.context
-
-        // 第一步: 加载缩略图作为预览
-        val previewRequest = Glide.with(context)
+    private fun loadWithSubsampling(photo: Photo, ctx: Context) {
+        Glide.with(ctx)
             .asBitmap()
             .load(photo.uri)
             .placeholder(android.R.color.black)
-            .override(1200) // 只指定一边,Glide 会自动保持比例
+            .override(1200)
             .fitCenter()
             .diskCacheStrategy(DiskCacheStrategy.RESOURCE)
-
-        if (isPotentialHdr && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            previewRequest.apply(
-                RequestOptions()
-                    .format(DecodeFormat.PREFER_ARGB_8888)
-            )
-        }
-
-        previewRequest.into(object : CustomTarget<Bitmap>() {
+            .into(object : CustomTarget<Bitmap>() {
                 override fun onResourceReady(
                     resource: Bitmap,
                     transition: Transition<in Bitmap>?
                 ) {
-                    // 显示缩略图
                     binding.ivPhoto.setImageBitmap(resource)
                     binding.progressBar.visibility = View.GONE
                     updateEdgeState()
-                    setupHdrMode(resource)
-
-                    // 清除 Glide 缩略图缓存引用，减少子采样时的内存压力
-                    Glide.with(binding.root.context).clear(binding.ivPhoto)
-                    binding.ivPhoto.setImageBitmap(resource)
-
-                    // 启用子采样 - 避免闪烁: 先设置子采样再清除缩略图
                     enableSubsampling(photo)
                 }
 
@@ -317,24 +395,28 @@ class PhotoPageViewHolder(
     }
 
     /**
-     * 检测图片是否为 HDR 格式并设置窗口颜色模式
-     * Android 14+ (API 34) 支持 Ultra HDR
-     * 
-     * 支持多种 HDR 格式：
-     * - Ultra HDR (JPEG with Gainmap)
-     * - HEIF/HEIC HDR
-     * - AVIF HDR
+     * 设置 Activity 窗口的 HDR/SDR 色彩模式
      */
-    private fun setupHdrMode(bitmap: Bitmap) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            val isHdr = isHdrBitmap(bitmap)
-            val window = (binding.root.context as? Activity)?.window
-            window?.colorMode = if (isHdr) {
-                ActivityInfo.COLOR_MODE_HDR
-            } else {
-                ActivityInfo.COLOR_MODE_DEFAULT
-            }
+    private fun applyWindowColorMode(isHdr: Boolean) {
+        val tag = "PhotoPageViewHolder"
+        lastAppliedHdrMode = isHdr
+        if (!isActive) {
+            Log.d(tag, "colorMode: skipped (isActive=false, mode=${if (isHdr) "HDR" else "SDR"})")
+            return
         }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            val window = activity?.window
+            val prev = window?.colorMode
+            window?.colorMode = if (isHdr) ActivityInfo.COLOR_MODE_HDR else ActivityInfo.COLOR_MODE_DEFAULT
+            Log.d(tag, "colorMode: $prev -> ${window?.colorMode} (isHdr=$isHdr)")
+        }
+    }
+
+    /**
+     * 重置窗口色彩模式为默认（SDR）
+     */
+    private fun resetWindowColorMode() {
+        applyWindowColorMode(false)
     }
 
     /**
@@ -380,7 +462,7 @@ class PhotoPageViewHolder(
                 )
                 
                 // 检查色彩空间名称是否包含 HDR 标识
-                if (hdrColorSpaces.any { colorSpaceName?.contains(it, ignoreCase = true) == true }) {
+                if (hdrColorSpaces.any { colorSpaceName.contains(it, ignoreCase = true) }) {
                     return true
                 }
 
@@ -444,6 +526,8 @@ class PhotoPageViewHolder(
         viewHolderScope?.coroutineContext?.cancelChildren()
         viewHolderScope = null
 
+        resetWindowColorMode()
+
         if (currentPhoto?.isVideo == true) {
             ExoPlayerManager.pause()
         }
@@ -470,6 +554,8 @@ class PhotoPageViewHolder(
     }
 
     companion object {
+        private const val MAX_HDR_DECODE_PX = 4096
+
         fun create(
             parent: ViewGroup,
             onEdgeSwipe: ((isSwipeRight: Boolean) -> Unit)? = null,

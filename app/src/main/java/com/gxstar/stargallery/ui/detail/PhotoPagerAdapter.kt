@@ -20,6 +20,16 @@ class PhotoPagerAdapter(
     private val photos = mutableListOf<Photo>()
     private val viewHolders = mutableMapOf<Int, PhotoPageViewHolder>()
 
+    /** 当前可见的页面位置 */
+    var activePosition: Int = -1
+        set(value) {
+            if (field != value) {
+                viewHolders[field]?.isActive = false
+                field = value
+                viewHolders[value]?.isActive = true
+            }
+        }
+
     /**
      * 提交照片列表,使用 DiffUtil 智能更新
      */
@@ -91,6 +101,7 @@ class PhotoPagerAdapter(
     
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         viewHolders[position] = holder.viewHolder
+        holder.viewHolder.isActive = (position == activePosition)
         holder.viewHolder.bind(photos[position], lifecycleOwner.lifecycleScope)
     }
     
