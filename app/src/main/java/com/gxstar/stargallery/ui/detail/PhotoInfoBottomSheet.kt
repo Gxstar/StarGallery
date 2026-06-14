@@ -5,22 +5,25 @@ import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
+import com.gxstar.stargallery.R
 import com.gxstar.stargallery.data.local.db.PhotoDao
+import com.gxstar.stargallery.data.local.exif.ExifExtractor
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.databinding.LayoutPhotoInfoBottomSheetBinding
 import com.gxstar.stargallery.ui.util.CoordinateUtils
 import com.gxstar.stargallery.ui.util.DateUtils
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.DecimalFormat
 import javax.inject.Inject
+import androidx.lifecycle.lifecycleScope
 
 /**
  * 图片信息详情弹窗
@@ -30,6 +33,7 @@ import javax.inject.Inject
 class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
 
     @Inject lateinit var photoDao: PhotoDao
+    @Inject lateinit var exifExtractor: ExifExtractor
 
     private var _binding: LayoutPhotoInfoBottomSheetBinding? = null
     private val binding get() = _binding!!
@@ -44,16 +48,242 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         val p = photo ?: return
-        loadFromDatabase(p)
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            // 1. 先从数据库加载已有数据
+            val entity = withContext(Dispatchers.IO) {
+                photoDao.getPhotoById(p.id)
+            }
+
+            // 2. 绑定已有数据（无论完整与否都先显示）
+            if (entity != null) {
+                bindData(p, entity)
+            } else {
+                bindBasicInfo(p)
+            }
+
+            // 3. 判断是否需要实时提取 EXIF（仅用于展示，不写数据库）
+            val needsExif = entity == null || !hasCompleteExif(entity)
+
+            if (needsExif) {
+                Log.i(TAG, "EXIF 数据不完整，启动实时提取（仅展示）: photoId=${p.id}")
+                extractExifForDisplay(p)
+            }
+        }
     }
 
-    private fun loadFromDatabase(photo: Photo) {
-        CoroutineScope(Dispatchers.Main).launch {
-            val entity = withContext(Dispatchers.IO) {
-                photoDao.getPhotoById(photo.id)
+    /**
+     * 判断 EXIF 数据是否完整
+     * 只要相机品牌或型号任一存在即认为有足够信息展示
+     */
+    private fun hasCompleteExif(entity: com.gxstar.stargallery.data.local.db.PhotoEntity): Boolean {
+        val hasCameraData = !entity.cameraMake.isNullOrBlank() || !entity.cameraModel.isNullOrBlank()
+        val hasGpsData = entity.latitude != null || entity.longitude != null
+        // 只要有相机信息或 GPS 信息即认为足够
+        return hasCameraData || hasGpsData
+    }
+
+    /**
+     * 绑定基本信息（当数据库无记录时）
+     * 显示文件名、格式、分辨率等基本信息
+     */
+    private fun bindBasicInfo(photo: Photo) {
+        // 文件名（从 URI 提取）
+        val fileName = photo.uri.lastPathSegment?.substringAfterLast("/") ?: ""
+        binding.tvTitle.text = fileName
+
+        // 格式徽章
+        val formatName = resolveFormatName(photo.mimeType)
+        setupFormatBadge(formatName)
+
+        // 日期
+        val dateMs = if (photo.dateTaken > 0) photo.dateTaken else System.currentTimeMillis()
+        val sizeStr = formatFileSize(photo.size)
+        binding.tvDate.text = "${DateUtils.formatDate(dateMs)}  ${DateUtils.formatTime(dateMs)}  •  $sizeStr"
+
+        // 分辨率
+        if (photo.width > 0 && photo.height > 0) {
+            val mp = (photo.width.toLong() * photo.height.toLong()) / 1_000_000.0
+            val mpStr = DecimalFormat("0.0").format(mp)
+            binding.tvResolutionValue.text = "${photo.width} × ${photo.height}  •  ${mpStr} MP"
+            binding.tvResolutionValue.visibility = View.VISIBLE
+        }
+
+        // 其他 EXIF 信息暂时隐藏（等待实时提取）
+        binding.tvCameraValue.visibility = View.GONE
+        binding.rowLens.visibility = View.GONE
+        binding.cardExposure.visibility = View.GONE
+        binding.cardLocation.visibility = View.GONE
+        binding.cardPhotoStyle.visibility = View.GONE
+    }
+
+    /**
+     * 实时提取 EXIF（仅用于展示，不写数据库）
+     * 在后台扫描进程之外独立运行，不影响扫描
+     */
+    private fun extractExifForDisplay(photo: Photo) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                val exifData = withContext(Dispatchers.IO) {
+                    // photo.uri 已经是 Uri 类型，无需再次 parse
+                    exifExtractor.extractExif(photo.uri)
+                }
+
+                if (exifData != null) {
+                    // 仅更新 UI，不写数据库
+                    bindExifDataToUi(exifData)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "实时 EXIF 提取失败: photoId=${photo.id}", e)
             }
-            if (entity == null) return@launch
-            bindData(photo, entity)
+        }
+    }
+
+    /**
+     * 将实时提取的 EXIF 数据绑定到 UI（仅展示）
+     */
+    private fun bindExifDataToUi(exifData: com.gxstar.stargallery.data.local.exif.ExifExtractor.ExifData) {
+        // 拍摄设备
+        val make = exifData.cameraMake?.trim()
+        val model = exifData.cameraModel?.trim()
+        val cameraDisplay = when {
+            model.isNullOrBlank() && make.isNullOrBlank() -> null
+            model.isNullOrBlank() -> make
+            model?.contains(make ?: "", ignoreCase = true) == true -> model
+            !make.isNullOrBlank() -> "$make $model"
+            else -> model
+        }
+        if (!cameraDisplay.isNullOrBlank()) {
+            binding.tvCameraValue.text = cameraDisplay
+            binding.tvCameraValue.visibility = View.VISIBLE
+        }
+
+        // 镜头
+        val lens = exifData.lensModel?.trim()
+        if (!lens.isNullOrBlank()) {
+            binding.tvLensValue.text = lens
+            binding.rowLens.visibility = View.VISIBLE
+        }
+
+        // 分辨率
+        val width = exifData.exifImageWidth ?: 0
+        val height = exifData.exifImageHeight ?: 0
+        if (width > 0 && height > 0) {
+            val mp = (width.toLong() * height.toLong()) / 1_000_000.0
+            val mpStr = DecimalFormat("0.0").format(mp)
+            binding.tvResolutionValue.text = "$width × $height  •  ${mpStr} MP"
+            binding.tvResolutionValue.visibility = View.VISIBLE
+        }
+
+        // 拍摄参数
+        val iso = exifData.isoEquivalent
+        val fNumber = exifData.fNumber
+        val shutterSpeed = exifData.shutterSpeed
+        val focalLength = exifData.focalLength
+        val equivFocal = exifData.focalLength35mmEquiv
+        val exposureComp = exifData.exposureCompensation
+        val meteringMode = exifData.meteringMode
+
+        if (iso != null && iso > 0) {
+            binding.tvIsoValue.text = iso.toString()
+        }
+
+        if (fNumber != null && fNumber > 0f) {
+            binding.tvApertureValue.text = "f/${String.format("%.1f", fNumber)}"
+        }
+
+        if (shutterSpeed != null && shutterSpeed > 0f) {
+            binding.tvShutterValue.text = formatShutterSpeed(shutterSpeed)
+        }
+
+        // 焦距
+        var showPhysicalFocal = false
+        if (focalLength != null && focalLength > 0f) {
+            val hasEquiv = equivFocal != null && equivFocal > 0 && focalLength.toInt() != equivFocal
+            fun updateFocalDisplay() {
+                if (showPhysicalFocal) {
+                    binding.tvFocalLabel.text = "物理焦距"
+                    binding.tvFocalValue.text = "${focalLength.toInt()} mm"
+                } else if (hasEquiv) {
+                    binding.tvFocalLabel.text = "等效焦距"
+                    binding.tvFocalValue.text = "${equivFocal} mm"
+                } else {
+                    binding.tvFocalLabel.text = "焦距"
+                    binding.tvFocalValue.text = "${focalLength.toInt()} mm"
+                }
+            }
+            updateFocalDisplay()
+            binding.tvFocalValue.setOnClickListener {
+                showPhysicalFocal = !showPhysicalFocal
+                updateFocalDisplay()
+            }
+        }
+
+        if (exposureComp != null) {
+            val sign = if (exposureComp >= 0f) "+" else ""
+            binding.tvExposureCompValue.text = "${sign}${String.format("%.2f", exposureComp)} EV"
+        }
+
+        if (!meteringMode.isNullOrBlank()) {
+            binding.tvMeteringModeValue.text = resolveMeteringMode(meteringMode)
+        }
+
+        // 显示曝光参数卡片
+        val hasExposure = (iso != null && iso > 0) ||
+                (fNumber != null && fNumber > 0f) ||
+                (shutterSpeed != null && shutterSpeed > 0f) ||
+                (focalLength != null && focalLength > 0f) ||
+                exposureComp != null ||
+                !meteringMode.isNullOrBlank()
+        if (hasExposure) {
+            binding.cardExposure.visibility = View.VISIBLE
+        }
+
+        // 位置信息
+        val lat = exifData.latitude
+        val lng = exifData.longitude
+        if (lat != null && lng != null && lat != 0.0 && lng != 0.0) {
+            binding.cardLocation.visibility = View.VISIBLE
+            val latStr = decimalToDms(lat) + if (lat >= 0) " N" else " S"
+            val lngStr = decimalToDms(lng) + if (lng >= 0) " E" else " W"
+            binding.tvLocationCoords.text = "$latStr  $lngStr"
+
+            binding.tvLocationCoords.setOnClickListener {
+                openInMap(lat, lng)
+            }
+        }
+
+        // 照片风格 + LUT
+        val photoStyle = exifData.photoStyle?.trim()?.takeIf { it.isNotBlank() }
+        val lut1 = exifData.lut1?.trim()?.takeIf { it.isNotBlank() }
+        val lut2 = exifData.lut2?.trim()?.takeIf { it.isNotBlank() }
+        val hasPhotoStyle = photoStyle != null
+        val hasLut = lut1 != null || lut2 != null
+        if (hasPhotoStyle || hasLut) {
+            binding.cardPhotoStyle.visibility = View.VISIBLE
+            if (photoStyle != null) {
+                binding.tvPhotoStyleLabel.visibility = View.VISIBLE
+                binding.tvPhotoStyleValue.text = photoStyle
+            }
+            if (hasLut) {
+                binding.rowLuts.visibility = View.VISIBLE
+                if (lut1 != null) {
+                    binding.chipLut1.text = lut1
+                    binding.chipLut1.visibility = View.VISIBLE
+                }
+                if (lut2 != null) {
+                    binding.chipLut2.text = lut2
+                    binding.chipLut2.visibility = View.VISIBLE
+                }
+            }
+        }
+
+        // 闪光灯
+        if (exifData.flash == true) {
+            val currentText = binding.tvDate.text
+            if (!currentText.contains("⚡")) {
+                binding.tvDate.text = "$currentText  •  ⚡"
+            }
         }
     }
 
@@ -320,7 +550,7 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
     }
 
     private fun readExposureTimeFromExif(photo: Photo) {
-        CoroutineScope(Dispatchers.Main).launch {
+        viewLifecycleOwner.lifecycleScope.launch {
             val desc = withContext(Dispatchers.IO) {
                 try {
                     val originalUri = try {
