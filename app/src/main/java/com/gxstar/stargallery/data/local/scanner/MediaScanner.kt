@@ -19,6 +19,9 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -31,6 +34,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -207,7 +211,7 @@ class MediaScanner @Inject constructor(
     }
 
     /**
-     * 后台批量提取 EXIF 信息
+     * 后台批量提取 EXIF 信息（优化版：批量查询+并行处理）
      * 在全量扫描完成后异步执行
      * 使用托管 Job 避免多次全量扫描并发，且不被 ViewModel 生命周期打断
      */
@@ -218,46 +222,61 @@ class MediaScanner @Inject constructor(
         exifJob = CoroutineScope(Dispatchers.IO).launch {
             try {
                 val allPhotoIds = photoDao.getAllPhotoIds()
+                if (allPhotoIds.isEmpty()) {
+                    _exifProgress.value = 1f
+                    _isExtractingExif.value = false
+                    scanPreferences.isExifExtractionCompleted = true
+                    generateThumbnailsForAllPhotos()
+                    return@launch
+                }
+
                 Log.i(TAG, "Starting EXIF extraction for ${allPhotoIds.size} photos")
 
-                val totalIds = allPhotoIds.size
-                val totalBatches = (totalIds + EXIF_BATCH_SIZE - 1) / EXIF_BATCH_SIZE
-                var totalUpdated = 0
-
-                allPhotoIds.chunked(EXIF_BATCH_SIZE).forEachIndexed { batchIndex, ids ->
-                    val batchUpdates = mutableListOf<PhotoEntity>()
-
-                    ids.forEach { id ->
-                        val photo = photoDao.getPhotoById(id)
-                        if (photo == null) {
-                            return@forEach
-                        }
+                // 批量预加载照片，过滤已有完整EXIF的照片（修复N+1查询）
+                val photosNeedingExif = mutableListOf<PhotoEntity>()
+                allPhotoIds.chunked(100).forEach { batchIds ->
+                    val photos = photoDao.getPhotosByIds(batchIds)
+                    photos.forEach { photo ->
                         val hasCameraData = photo.cameraMake != null || photo.cameraModel != null
                         val hasGpsData = photo.latitude != null || photo.longitude != null
-                        if (hasCameraData && hasGpsData) {
-                            return@forEach
-                        }
-
-                        val uri = try {
-                            android.net.Uri.parse(photo.uri)
-                        } catch (e: Exception) {
-                            return@forEach
-                        }
-
-                        val exifData = exifExtractor.extractExif(uri)
-                        if (exifData != null) {
-                            batchUpdates.add(ExifExtractor.applyToEntity(photo, exifData))
+                        if (!hasCameraData || !hasGpsData) {
+                            photosNeedingExif.add(photo)
                         }
                     }
-
-                    if (batchUpdates.isNotEmpty()) {
-                        photoDao.updateAll(batchUpdates)
-                        totalUpdated += batchUpdates.size
-                    }
-
-                    _exifProgress.value = (batchIndex + 1).toFloat() / totalBatches
                 }
-                Log.i(TAG, "EXIF extraction completed: $totalUpdated photos updated")
+
+                val totalToProcess = photosNeedingExif.size
+                if (totalToProcess == 0) {
+                    _exifProgress.value = 1f
+                    _isExtractingExif.value = false
+                    scanPreferences.isExifExtractionCompleted = true
+                    generateThumbnailsForAllPhotos()
+                    return@launch
+                }
+
+                Log.i(TAG, "Actually need EXIF extraction for $totalToProcess photos")
+
+                // 并行处理，限制并发数为CPU核心数（最多4个）
+                val processed = AtomicInteger(0)
+                val concurrency = minOf(Runtime.getRuntime().availableProcessors(), 4)
+
+                coroutineScope {
+                    photosNeedingExif.chunked(EXIF_BATCH_SIZE)
+                        .chunked(concurrency)
+                        .forEach { batchGroup ->
+                            val results = batchGroup.map { batch ->
+                                async {
+                                    processExifBatch(batch)
+                                }
+                            }.awaitAll()
+                            val batchProcessed = results.sum()
+                            val current = processed.addAndGet(batchProcessed)
+                            _exifProgress.value = (current.toFloat() / totalToProcess).coerceIn(0f, 1f)
+                        }
+                }
+
+                _exifProgress.value = 1f
+                Log.i(TAG, "EXIF extraction completed")
             } catch (e: Exception) {
                 Log.e(TAG, "EXIF extraction failed", e)
             } finally {
@@ -266,6 +285,36 @@ class MediaScanner @Inject constructor(
                 generateThumbnailsForAllPhotos()
             }
         }
+    }
+
+    /**
+     * 处理一批照片的EXIF提取
+     * @return 本批处理的照片数量（含跳过的）
+     */
+    private suspend fun processExifBatch(batch: List<PhotoEntity>): Int {
+        val batchUpdates = mutableListOf<PhotoEntity>()
+        var processed = 0
+
+        batch.forEach { photo ->
+            val uri = try {
+                android.net.Uri.parse(photo.uri)
+            } catch (e: Exception) {
+                processed++
+                return@forEach
+            }
+
+            val exifData = exifExtractor.extractExif(uri)
+            if (exifData != null) {
+                batchUpdates.add(ExifExtractor.applyToEntity(photo, exifData))
+            }
+            processed++
+        }
+
+        if (batchUpdates.isNotEmpty()) {
+            photoDao.updateAll(batchUpdates)
+        }
+
+        return processed
     }
 
     /**
@@ -536,7 +585,7 @@ class MediaScanner @Inject constructor(
     // ==================== 缩略图生成 ====================
 
     /**
-     * 为所有照片生成缩略图（后台）
+     * 为所有照片生成缩略图（优化版：并行处理）
      * 在 EXIF 提取完成后异步执行
      */
     private fun generateThumbnailsForAllPhotos() {
@@ -546,39 +595,51 @@ class MediaScanner @Inject constructor(
         thumbnailJob = CoroutineScope(Dispatchers.IO).launch {
             try {
                 val allPhotos = photoDao.getAllPhotos()
+                if (allPhotos.isEmpty()) {
+                    _thumbnailProgress.value = 1f
+                    _isGeneratingThumbnails.value = false
+                    return@launch
+                }
+
                 Log.i(TAG, "Starting thumbnail generation for ${allPhotos.size} photos")
 
-                val batchUpdates = mutableListOf<PhotoEntity>()
-                val batchSize = 200
-
-                allPhotos.forEachIndexed { index, photo ->
-                    if (photo.thumbnailPath != null && File(photo.thumbnailPath).exists()) {
-                        return@forEachIndexed
-                    }
-                    val uri = try {
-                        android.net.Uri.parse(photo.uri)
-                    } catch (e: Exception) {
-                        return@forEachIndexed
-                    }
-                    val path = thumbnailManager.generateThumbnail(uri, photo.id, photo.mimeType)
-                    if (path != null) {
-                        batchUpdates.add(photo.copy(thumbnailPath = path))
-                    }
-                    // 每批批量写入 Room，一次 updateAll 只触发一次 Flow
-                    if (batchUpdates.size >= batchSize || index == allPhotos.lastIndex) {
-                        if (batchUpdates.isNotEmpty()) {
-                            photoDao.updateAll(batchUpdates)
-                            batchUpdates.clear()
-                        }
-                    }
-                    // 每张缩略图之间给 CPU 留出呼吸时间
-                    delay(3)
-                    if (index % 20 == 0) {
-                        _thumbnailProgress.value = index.toFloat() / allPhotos.size.coerceAtLeast(1)
-                    }
+                // 过滤出需要生成缩略图的照片
+                val photosNeedingThumbnail = allPhotos.filter { photo ->
+                    photo.thumbnailPath == null || !File(photo.thumbnailPath).exists()
                 }
+
+                val totalToProcess = photosNeedingThumbnail.size
+
+                if (totalToProcess == 0) {
+                    _thumbnailProgress.value = 1f
+                    _isGeneratingThumbnails.value = false
+                    return@launch
+                }
+
+                Log.i(TAG, "Actually need thumbnail generation for $totalToProcess photos")
+
+                // 并行处理，限制并发数为CPU核心数（最多4个）
+                val processed = AtomicInteger(0)
+                val thumbnailBatchSize = 50
+                val concurrency = minOf(Runtime.getRuntime().availableProcessors(), 4)
+
+                coroutineScope {
+                    photosNeedingThumbnail.chunked(thumbnailBatchSize)
+                        .chunked(concurrency)
+                        .forEach { batchGroup ->
+                            val results = batchGroup.map { batch ->
+                                async {
+                                    processThumbnailBatch(batch)
+                                }
+                            }.awaitAll()
+                            val batchProcessed = results.sum()
+                            val current = processed.addAndGet(batchProcessed)
+                            _thumbnailProgress.value = (current.toFloat() / totalToProcess).coerceIn(0f, 1f)
+                        }
+                }
+
                 _thumbnailProgress.value = 1f
-                Log.i(TAG, "Thumbnail generation completed for ${allPhotos.size} photos")
+                Log.i(TAG, "Thumbnail generation completed")
             } catch (e: Exception) {
                 Log.e(TAG, "Thumbnail generation failed", e)
             } finally {
@@ -588,29 +649,68 @@ class MediaScanner @Inject constructor(
     }
 
     /**
-     * 为指定照片列表生成缩略图
+     * 处理一批照片的缩略图生成
+     * @return 本批处理的照片数量（含跳过的）
+     */
+    private suspend fun processThumbnailBatch(batch: List<PhotoEntity>): Int {
+        val batchUpdates = mutableListOf<PhotoEntity>()
+        var processed = 0
+
+        batch.forEach { photo ->
+            val uri = try {
+                android.net.Uri.parse(photo.uri)
+            } catch (e: Exception) {
+                processed++
+                return@forEach
+            }
+
+            val path = thumbnailManager.generateThumbnail(uri, photo.id, photo.mimeType)
+            if (path != null) {
+                batchUpdates.add(photo.copy(thumbnailPath = path))
+            }
+            processed++
+        }
+
+        // 批量更新数据库
+        if (batchUpdates.isNotEmpty()) {
+            photoDao.updateAll(batchUpdates)
+        }
+
+        return processed
+    }
+
+    /**
+     * 为指定照片列表生成缩略图（优化版：批量查询+并行处理）
      * 用于增量扫描后为新照片生成缩略图
      */
     private fun generateThumbnailsForPhotos(photoIds: List<Long>) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                photoIds.forEach { id ->
-                    val photo = photoDao.getPhotoById(id) ?: return@forEach
-                    if (photo.thumbnailPath != null && File(photo.thumbnailPath).exists()) {
-                        return@forEach
-                    }
-                    val uri = try {
-                        android.net.Uri.parse(photo.uri)
-                    } catch (e: Exception) {
-                        return@forEach
-                    }
-                    val path = thumbnailManager.generateThumbnail(uri, photo.id, photo.mimeType)
-                    if (path != null) {
-                        photoDao.updateThumbnailPath(photo.id, path)
-                    }
-                    delay(10)
+                // 批量查询照片（避免N+1查询）
+                val allPhotos = photoDao.getPhotosByIds(photoIds)
+
+                // 过滤出需要生成缩略图的照片
+                val photosNeedingThumbnail = allPhotos.filter { photo ->
+                    photo.thumbnailPath == null || !File(photo.thumbnailPath).exists()
                 }
-                Log.i(TAG, "Incremental thumbnail generation completed for ${photoIds.size} photos")
+
+                if (photosNeedingThumbnail.isEmpty()) {
+                    Log.i(TAG, "Incremental thumbnail generation: all thumbnails exist")
+                    return@launch
+                }
+
+                Log.i(TAG, "Incremental thumbnail generation for ${photosNeedingThumbnail.size} photos")
+
+                // 并行处理
+                coroutineScope {
+                    photosNeedingThumbnail.chunked(10).map { batch ->
+                        async {
+                            processThumbnailBatch(batch)
+                        }
+                    }.awaitAll()
+                }
+
+                Log.i(TAG, "Incremental thumbnail generation completed")
             } catch (e: Exception) {
                 Log.e(TAG, "Incremental thumbnail generation failed", e)
             }
