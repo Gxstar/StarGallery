@@ -137,11 +137,11 @@ class ExifExtractor @Inject constructor(
         val exifImageWidth = subIFD?.getInteger(ExifSubIFDDirectory.TAG_EXIF_IMAGE_WIDTH)?.takeIf { it > 0 }
         val exifImageHeight = subIFD?.getInteger(ExifSubIFDDirectory.TAG_EXIF_IMAGE_HEIGHT)?.takeIf { it > 0 }
 
-        // lut1 / lut2 (Panasonic) — 0x00F1/0x00F4 是 LUT 名称字符串，0x00F3/0x00F5 是 0-255 字节透明度
+        // lut1 / lut2 (Panasonic) — 0x00F1/0x00F4 是 LUT 名称字符串，0x00F3/0x00F5 是 0-100 百分比透明度
         val lut1 = panasonicMakernote?.getString(0x00F1)?.trim()?.takeIf { it.isNotBlank() }
-        val lut1opacity = panasonicMakernote?.getInteger(0x00F3)?.takeIf { it in 0..255 }
+        val lut1opacity = panasonicMakernote?.getInteger(0x00F3)?.takeIf { it in 0..100 }
         val lut2 = panasonicMakernote?.getString(0x00F4)?.trim()?.takeIf { it.isNotBlank() }
-        val lut2opacity = panasonicMakernote?.getInteger(0x00F5)?.takeIf { it in 0..255 }
+        val lut2opacity = panasonicMakernote?.getInteger(0x00F5)?.takeIf { it in 0..100 }
         
         // photoStyle — 根据相机品牌选择对应映射
         val photoStyle = PhotoStyleResolver.resolve(cameraMake, cameraModel, metadata)

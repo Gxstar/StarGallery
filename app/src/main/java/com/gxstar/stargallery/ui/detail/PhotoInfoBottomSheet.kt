@@ -483,12 +483,12 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
     }
 
     /**
-     * 组合 LUT 名称与透明度（0-255 字节值）显示文本
+     * 组合 LUT 名称与透明度（0-100 百分比）显示文本
      * 仅有名称时返回原名，名称缺省时返回 null
      */
     private fun formatLutText(name: String?, opacity: Int?): String? {
         val trimmed = name?.trim()?.takeIf { it.isNotBlank() } ?: return null
-        val percent = opacity?.takeIf { it in 0..255 }?.let { it * 100 / 255 }
+        val percent = opacity?.takeIf { it in 0..100 }
         return if (percent != null) "$trimmed ($percent%)" else trimmed
     }
 
