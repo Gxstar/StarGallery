@@ -153,7 +153,9 @@ interface PhotoDao {
         val exifImageWidth: Int?,
         val exifImageHeight: Int?,
         val lut1: String?,
+        val lut1opacity: Int?,
         val lut2: String?,
+        val lut2opacity: Int?,
         val latitude: Double?,
         val longitude: Double?,
         val flash: Boolean?,
@@ -162,7 +164,7 @@ interface PhotoDao {
         val photoStyle: String?
     )
 
-    @Query("SELECT id, cameraMake, cameraModel, lensModel, isoEquivalent, focalLength, focalLength35mmEquiv, fNumber, shutterSpeed, exifImageWidth, exifImageHeight, lut1, lut2, latitude, longitude, flash, exposureCompensation, meteringMode, photoStyle FROM photos")
+    @Query("SELECT id, cameraMake, cameraModel, lensModel, isoEquivalent, focalLength, focalLength35mmEquiv, fNumber, shutterSpeed, exifImageWidth, exifImageHeight, lut1, lut1opacity, lut2, lut2opacity, latitude, longitude, flash, exposureCompensation, meteringMode, photoStyle FROM photos")
     suspend fun getExifSnapshots(): List<ExifSnapshot>
 
     // ==================== 缩略图 ====================

@@ -137,10 +137,12 @@ class ExifExtractor @Inject constructor(
         val exifImageWidth = subIFD?.getInteger(ExifSubIFDDirectory.TAG_EXIF_IMAGE_WIDTH)?.takeIf { it > 0 }
         val exifImageHeight = subIFD?.getInteger(ExifSubIFDDirectory.TAG_EXIF_IMAGE_HEIGHT)?.takeIf { it > 0 }
 
-        // lut1 / lut2 (Panasonic)
+        // lut1 / lut2 (Panasonic) — 0x00F1/0x00F4 是 LUT 名称字符串，0x00F3/0x00F5 是 0-255 字节透明度
         val lut1 = panasonicMakernote?.getString(0x00F1)?.trim()?.takeIf { it.isNotBlank() }
+        val lut1opacity = panasonicMakernote?.getInteger(0x00F3)?.takeIf { it in 0..255 }
         val lut2 = panasonicMakernote?.getString(0x00F4)?.trim()?.takeIf { it.isNotBlank() }
-
+        val lut2opacity = panasonicMakernote?.getInteger(0x00F5)?.takeIf { it in 0..255 }
+        
         // photoStyle — 根据相机品牌选择对应映射
         val photoStyle = PhotoStyleResolver.resolve(cameraMake, cameraModel, metadata)
 
@@ -187,7 +189,9 @@ class ExifExtractor @Inject constructor(
             exifImageWidth = exifImageWidth,
             exifImageHeight = exifImageHeight,
             lut1 = lut1,
+            lut1opacity = lut1opacity,
             lut2 = lut2,
+            lut2opacity = lut2opacity,
             latitude = latitude,
             longitude = longitude,
             flash = flash,
@@ -293,7 +297,9 @@ class ExifExtractor @Inject constructor(
         val exifImageWidth: Int? = null,
         val exifImageHeight: Int? = null,
         val lut1: String? = null,
+        val lut1opacity: Int? = null,
         val lut2: String? = null,
+        val lut2opacity: Int? = null,
         val latitude: Double? = null,
         val longitude: Double? = null,
         val flash: Boolean? = null,
@@ -308,7 +314,8 @@ class ExifExtractor @Inject constructor(
             return cameraMake == null && cameraModel == null && lensModel == null &&
                     isoEquivalent == null && focalLength == null && focalLength35mmEquiv == null &&
                     fNumber == null && shutterSpeed == null && exifImageWidth == null &&
-                    exifImageHeight == null && lut1 == null && lut2 == null &&
+                    exifImageHeight == null && lut1 == null && lut1opacity == null &&
+                    lut2 == null && lut2opacity == null &&
                     latitude == null && longitude == null && flash == null &&
                     exposureCompensation == null && meteringMode == null && photoStyle == null &&
                     dateTimeOriginal == null && dateTimeDigitized == null && ifd0DateTime == null
@@ -336,7 +343,9 @@ class ExifExtractor @Inject constructor(
                 exifImageWidth = exifData.exifImageWidth,
                 exifImageHeight = exifData.exifImageHeight,
                 lut1 = exifData.lut1,
+                lut1opacity = exifData.lut1opacity,
                 lut2 = exifData.lut2,
+                lut2opacity = exifData.lut2opacity,
                 latitude = exifData.latitude,
                 longitude = exifData.longitude,
                 flash = exifData.flash,

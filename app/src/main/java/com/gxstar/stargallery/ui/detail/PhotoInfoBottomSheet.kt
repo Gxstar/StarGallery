@@ -255,10 +255,10 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
 
         // 照片风格 + LUT
         val photoStyle = exifData.photoStyle?.trim()?.takeIf { it.isNotBlank() }
-        val lut1 = exifData.lut1?.trim()?.takeIf { it.isNotBlank() }
-        val lut2 = exifData.lut2?.trim()?.takeIf { it.isNotBlank() }
+        val lut1Text = formatLutText(exifData.lut1, exifData.lut1opacity)
+        val lut2Text = formatLutText(exifData.lut2, exifData.lut2opacity)
         val hasPhotoStyle = photoStyle != null
-        val hasLut = lut1 != null || lut2 != null
+        val hasLut = lut1Text != null || lut2Text != null
         if (hasPhotoStyle || hasLut) {
             binding.cardPhotoStyle.visibility = View.VISIBLE
             if (photoStyle != null) {
@@ -267,13 +267,17 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
             }
             if (hasLut) {
                 binding.rowLuts.visibility = View.VISIBLE
-                if (lut1 != null) {
-                    binding.chipLut1.text = lut1
+                if (lut1Text != null) {
+                    binding.chipLut1.text = lut1Text
                     binding.chipLut1.visibility = View.VISIBLE
+                } else {
+                    binding.chipLut1.visibility = View.GONE
                 }
-                if (lut2 != null) {
-                    binding.chipLut2.text = lut2
+                if (lut2Text != null) {
+                    binding.chipLut2.text = lut2Text
                     binding.chipLut2.visibility = View.VISIBLE
+                } else {
+                    binding.chipLut2.visibility = View.GONE
                 }
             }
         }
@@ -442,10 +446,10 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
 
         // 照片风格 + LUT
         val photoStyle = entity.photoStyle?.trim()?.takeIf { it.isNotBlank() }
-        val lut1 = entity.lut1?.trim()?.takeIf { it.isNotBlank() }
-        val lut2 = entity.lut2?.trim()?.takeIf { it.isNotBlank() }
+        val lut1Text = formatLutText(entity.lut1, entity.lut1opacity)
+        val lut2Text = formatLutText(entity.lut2, entity.lut2opacity)
         val hasPhotoStyle = photoStyle != null
-        val hasLut = lut1 != null || lut2 != null
+        val hasLut = lut1Text != null || lut2Text != null
         if (hasPhotoStyle || hasLut) {
             binding.cardPhotoStyle.visibility = View.VISIBLE
             if (photoStyle != null) {
@@ -457,14 +461,14 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
             }
             if (hasLut) {
                 binding.rowLuts.visibility = View.VISIBLE
-                if (lut1 != null) {
-                    binding.chipLut1.text = lut1
+                if (lut1Text != null) {
+                    binding.chipLut1.text = lut1Text
                     binding.chipLut1.visibility = View.VISIBLE
                 } else {
                     binding.chipLut1.visibility = View.GONE
                 }
-                if (lut2 != null) {
-                    binding.chipLut2.text = lut2
+                if (lut2Text != null) {
+                    binding.chipLut2.text = lut2Text
                     binding.chipLut2.visibility = View.VISIBLE
                 } else {
                     binding.chipLut2.visibility = View.GONE
@@ -476,6 +480,16 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
             binding.rowLuts.visibility = View.GONE
             binding.cardPhotoStyle.visibility = View.GONE
         }
+    }
+
+    /**
+     * 组合 LUT 名称与透明度（0-255 字节值）显示文本
+     * 仅有名称时返回原名，名称缺省时返回 null
+     */
+    private fun formatLutText(name: String?, opacity: Int?): String? {
+        val trimmed = name?.trim()?.takeIf { it.isNotBlank() } ?: return null
+        val percent = opacity?.takeIf { it in 0..255 }?.let { it * 100 / 255 }
+        return if (percent != null) "$trimmed ($percent%)" else trimmed
     }
 
     private fun isChineseLocale(): Boolean {
