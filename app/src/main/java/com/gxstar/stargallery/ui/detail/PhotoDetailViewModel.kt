@@ -11,6 +11,8 @@ import com.gxstar.stargallery.data.repository.MediaRepository
 import com.gxstar.stargallery.ui.util.SortUtils
 import com.gxstar.stargallery.ui.util.DateUtils
 import com.gxstar.stargallery.util.ExcludedAlbumManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
@@ -28,6 +30,7 @@ class PhotoDetailViewModel @Inject constructor(
     private val mediaRepository: MediaRepository,
     private val photoDao: PhotoDao,
     private val excludedAlbumManager: ExcludedAlbumManager,
+    private val photoDetailListCache: PhotoDetailListCache,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -86,14 +89,29 @@ class PhotoDetailViewModel @Inject constructor(
     private var _initialLoadComplete = false
 
     init {
-        // 立即显示初始照片，不等待全部加载
-        initialPhoto?.let { photo ->
-            _currentPhoto.value = photo
-            _photos.value = listOf(photo)
-            updateDateInfo(photo)
+        // 优先读取网格页写入的缓存列表，实现打开即可左右滑动
+        val cachedPhotos = photoDetailListCache.take(initialPhotoId)
+        if (cachedPhotos != null) {
+            val initialPos = cachedPhotos.indexOfFirst { it.id == initialPhotoId }.takeIf { it >= 0 } ?: 0
+            _photos.value = cachedPhotos
+            _currentPosition.value = initialPos
+            _currentPhoto.value = cachedPhotos[initialPos]
+            _currentPhotoId.value = cachedPhotos[initialPos].id
+            updateDateInfo(cachedPhotos[initialPos])
+            _isLoading.value = false
+            _initialLoadComplete = true
+            // 后台仍然刷新，避免缓存与数据库短暂不一致，但不阻塞滑动
+            loadPhotosInBackground()
+        } else {
+            // 立即显示初始照片，不等待全部加载
+            initialPhoto?.let { photo ->
+                _currentPhoto.value = photo
+                _photos.value = listOf(photo)
+                updateDateInfo(photo)
+            }
+            // 后台渐进加载所有照片，加载完成后自动刷新列表
+            loadPhotosInBackground()
         }
-        // 后台渐进加载所有照片，加载完成后自动刷新列表
-        loadPhotosInBackground()
 
         // 响应式观察当前照片的数据库变更（例如 EXIF 扫描完成更新 dateTaken 后自动刷新日期显示）
         viewModelScope.launch {
@@ -110,56 +128,54 @@ class PhotoDetailViewModel @Inject constructor(
 
     private fun loadPhotosInBackground() {
         viewModelScope.launch {
-            val allPhotos = if (bucketId != -1L) {
-                val photos = mediaRepository.getPhotosByBucket(bucketId, sortType)
-                val hiddenIds = photoDao.getHiddenPhotoIds().toSet()
-                SortUtils.sortPhotos(photos.filter { it.id !in hiddenIds }, sortType)
-            } else if (favoritesOnly || filterCameraMake.isNotEmpty() || filterCameraModel.isNotEmpty() || filterLensModel.isNotEmpty()) {
-                val entities = photoDao.getAllPhotos()
-                var filtered = entities
-                if (favoritesOnly) filtered = filtered.filter { it.isFavorite }
-                filtered = filtered.filter { !it.isHidden }
-                val excludedIds = excludedAlbumManager.excludedBucketIds.value
-                filtered = filtered.filter { it.bucketId !in excludedIds }
-                if (filterCameraMake.isNotEmpty()) {
-                    filtered = filtered.filter { entity ->
-                        entity.cameraMake in filterCameraMake ||
-                            ("" in filterCameraMake && entity.cameraMake.isNullOrBlank())
+            val allPhotos = withContext(Dispatchers.Default) {
+                if (bucketId != -1L) {
+                    val photos = mediaRepository.getPhotosByBucket(bucketId, sortType)
+                    val hiddenIds = photoDao.getHiddenPhotoIds().toSet()
+                    SortUtils.sortPhotos(photos.filter { it.id !in hiddenIds }, sortType)
+                } else if (favoritesOnly || filterCameraMake.isNotEmpty() || filterCameraModel.isNotEmpty() || filterLensModel.isNotEmpty()) {
+                    val entities = photoDao.getAllPhotos()
+                    var filtered = entities
+                    if (favoritesOnly) filtered = filtered.filter { it.isFavorite }
+                    filtered = filtered.filter { !it.isHidden }
+                    val excludedIds = excludedAlbumManager.excludedBucketIds.value
+                    filtered = filtered.filter { it.bucketId !in excludedIds }
+                    if (filterCameraMake.isNotEmpty()) {
+                        filtered = filtered.filter { entity ->
+                            entity.cameraMake in filterCameraMake ||
+                                ("" in filterCameraMake && entity.cameraMake.isNullOrBlank())
+                        }
                     }
-                }
-                if (filterCameraModel.isNotEmpty()) {
-                    filtered = filtered.filter { entity ->
-                        entity.cameraModel in filterCameraModel ||
-                            ("" in filterCameraModel && entity.cameraModel.isNullOrBlank())
+                    if (filterCameraModel.isNotEmpty()) {
+                        filtered = filtered.filter { entity ->
+                            entity.cameraModel in filterCameraModel ||
+                                ("" in filterCameraModel && entity.cameraModel.isNullOrBlank())
+                        }
                     }
-                }
-                if (filterLensModel.isNotEmpty()) {
-                    filtered = filtered.filter { entity ->
-                        entity.lensModel in filterLensModel ||
-                            ("" in filterLensModel && entity.lensModel.isNullOrBlank())
+                    if (filterLensModel.isNotEmpty()) {
+                        filtered = filtered.filter { entity ->
+                            entity.lensModel in filterLensModel ||
+                                ("" in filterLensModel && entity.lensModel.isNullOrBlank())
+                        }
                     }
+                    val photos = filtered.map { it.toPhoto() }
+                    SortUtils.sortPhotos(photos, sortType)
+                } else if (initialPhoto?.isHidden == true) {
+                    // 从隐藏页进入 → 只显示隐藏照片
+                    val entities = photoDao.getAllPhotos()
+                    val photos = entities.filter { it.isHidden }.map { it.toPhoto() }
+                    SortUtils.sortPhotos(photos, sortType)
+                } else {
+                    // 从首页进入 → 排除隐藏照片 + 排除被排除的相册
+                    val entities = photoDao.getAllPhotos()
+                    val excludedIds = excludedAlbumManager.excludedBucketIds.value
+                    val photos = entities
+                        .filter { !it.isHidden }
+                        .filter { it.bucketId !in excludedIds }
+                        .map { it.toPhoto() }
+                    SortUtils.sortPhotos(photos, sortType)
                 }
-                val photos = filtered.map { it.toPhoto() }
-                SortUtils.sortPhotos(photos, sortType)
-            } else if (initialPhoto?.isHidden == true) {
-                // 从隐藏页进入 → 只显示隐藏照片
-                val entities = photoDao.getAllPhotos()
-                val photos = entities.filter { it.isHidden }.map { it.toPhoto() }
-                SortUtils.sortPhotos(photos, sortType)
-            } else {
-                // 从首页进入 → 排除隐藏照片 + 排除被排除的相册
-                val entities = photoDao.getAllPhotos()
-                val excludedIds = excludedAlbumManager.excludedBucketIds.value
-                val photos = entities
-                    .filter { !it.isHidden }
-                    .filter { it.bucketId !in excludedIds }
-                    .map { it.toPhoto() }
-                SortUtils.sortPhotos(photos, sortType)
             }
-
-            // 延迟提交等待导航动画（300ms slide）完成，避免动画期间
-            // DiffUtil 在主线程同步计算导致掉帧
-            delay(400)
 
             if (allPhotos.isNotEmpty()) {
                 val initialPos = allPhotos.indexOfFirst { it.id == initialPhotoId }.takeIf { it >= 0 } ?: 0

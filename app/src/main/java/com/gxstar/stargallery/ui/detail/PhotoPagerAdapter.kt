@@ -6,6 +6,9 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import com.gxstar.stargallery.data.model.Photo
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * ViewPager2 的照片适配器
@@ -32,10 +35,13 @@ class PhotoPagerAdapter(
         }
 
     /**
-     * 提交照片列表,使用 DiffUtil 智能更新
+     * 提交照片列表，使用 DiffUtil 智能更新
+     * DiffUtil 计算放在 Dispatchers.Default，避免主线程阻塞
+     *
+     * @param onCommit 列表真正提交到 adapter 后（主线程）执行的回调
      */
-    fun submitList(newPhotos: List<Photo>) {
-        // 保存旧列表副本,用于 DiffUtil 比较
+    fun submitList(newPhotos: List<Photo>, onCommit: (() -> Unit)? = null) {
+        // 保存旧列表副本，用于 DiffUtil 比较
         val oldPhotos = photos.toList()
         val diffCallback = object : DiffUtil.Callback() {
             override fun getOldListSize() = oldPhotos.size
@@ -46,7 +52,7 @@ class PhotoPagerAdapter(
             }
 
             override fun areContentsTheSame(oldPos: Int, newPos: Int): Boolean {
-                // 对于已显示的当前页面,忽略非关键字段变化,避免重新加载图片
+                // 对于已显示的当前页面，忽略非关键字段变化，避免重新加载图片
                 val old = oldPhotos[oldPos]
                 val new = newPhotos[newPos]
                 return old.id == new.id &&
@@ -57,10 +63,15 @@ class PhotoPagerAdapter(
                        old.isFavorite == new.isFavorite
             }
         }
-        val diffResult = DiffUtil.calculateDiff(diffCallback)
-        photos.clear()
-        photos.addAll(newPhotos)
-        diffResult.dispatchUpdatesTo(this)
+        lifecycleOwner.lifecycleScope.launch(Dispatchers.Default) {
+            val diffResult = DiffUtil.calculateDiff(diffCallback)
+            withContext(Dispatchers.Main) {
+                photos.clear()
+                photos.addAll(newPhotos)
+                diffResult.dispatchUpdatesTo(this@PhotoPagerAdapter)
+                onCommit?.invoke()
+            }
+        }
     }
     
     /**

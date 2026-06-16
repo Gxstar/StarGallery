@@ -40,6 +40,7 @@ import com.gxstar.stargallery.ui.photos.GridSpacingItemDecoration
 import com.gxstar.stargallery.ui.photos.GroupType
 import com.gxstar.stargallery.ui.photos.model.PhotoModel
 import com.gxstar.stargallery.ui.photos.PhotoPreloadModelProvider
+import com.gxstar.stargallery.ui.detail.PhotoDetailListCache
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
@@ -68,6 +69,9 @@ class AlbumDetailFragment : Fragment() {
 
     @Inject
     lateinit var mediaRepository: MediaRepository
+
+    @Inject
+    lateinit var photoDetailListCache: PhotoDetailListCache
 
     private var currentSpanCount = GridSpanCalculator.MIN_SPAN_COUNT
     private var itemSize = 0
@@ -502,6 +506,12 @@ class AlbumDetailFragment : Fragment() {
     }
 
     private fun navigateToDetail(photo: Photo) {
+        // 把当前可见列表写入缓存，让详情页初始化时直接复用
+        val currentPhotos = viewModel.photoListFlow.value
+            .filterIsInstance<PhotoModel.PhotoItem>()
+            .map { it.photo }
+        photoDetailListCache.put(currentPhotos)
+
         val sortTypeValue = if (viewModel.currentSortType.value == MediaRepository.SortType.DATE_TAKEN) 0 else 1
         val action = AlbumDetailFragmentDirections.actionAlbumDetailFragmentToPhotoDetailFragment(
             initialPhoto = photo,

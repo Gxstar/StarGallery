@@ -23,8 +23,10 @@ import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.databinding.FragmentHiddenBinding
 import com.gxstar.stargallery.ui.common.BaseSelectionManager
 import com.gxstar.stargallery.ui.photos.GridSpacingItemDecoration
+import com.gxstar.stargallery.ui.detail.PhotoDetailListCache
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class HiddenFragment : Fragment() {
@@ -36,6 +38,9 @@ class HiddenFragment : Fragment() {
     private lateinit var adapter: HiddenAdapter
     private lateinit var gridLayoutManager: GridLayoutManager
     private lateinit var selectionManager: HiddenSelectionManager
+
+    @Inject
+    lateinit var photoDetailListCache: PhotoDetailListCache
 
     private var currentSpanCount = 4
     private var itemSize = 0
@@ -203,6 +208,9 @@ class HiddenFragment : Fragment() {
     }
 
     private fun navigateToDetail(photo: Photo) {
+        // 把当前可见的隐藏照片列表写入缓存
+        photoDetailListCache.put(viewModel.photos.value)
+
         val action = HiddenFragmentDirections.actionHiddenFragmentToPhotoDetailFragment(
             photoId = photo.id,
             initialPhoto = photo,
