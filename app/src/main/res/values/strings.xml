@@ -269,4 +269,7 @@
     <string name="settings_excluded_none">未排除</string>
     <string name="settings_excluded_count">已排除 %d 个相册</string>
     <string name="album_excluded_label">已排除</string>
+
+    <string name="settings_hdr_display">超动态显示</string>
+    <string name="settings_hdr_display_summary">开启后以高动态范围显示 HDR 照片</string>
 </resources>

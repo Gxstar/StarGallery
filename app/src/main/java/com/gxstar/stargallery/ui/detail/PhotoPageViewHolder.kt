@@ -8,6 +8,8 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
@@ -39,7 +41,8 @@ class PhotoPageViewHolder(
     internal val binding: ItemPhotoPageBinding,
     private val onEdgeSwipe: ((isSwipeRight: Boolean) -> Unit)? = null,
     private val viewPagerSwipeController: ((enabled: Boolean) -> Unit)? = null,
-    private val onSingleTap: (() -> Unit)? = null
+    private val onSingleTap: (() -> Unit)? = null,
+    private val hdrDisplayEnabled: () -> Boolean = { true }
 ) {
     private var exoPlayer: ExoPlayer? = null
     private var currentPhoto: Photo? = null
@@ -78,6 +81,9 @@ class PhotoPageViewHolder(
 
     /** 最近一次生效的窗口模式 */
     private var lastAppliedHdrMode: Boolean = false
+
+    /** 用于延迟执行 window.colorMode 变更的 Handler，避免打断 ViewPager2 触摸/滚动 */
+    private val hdrHandler = Handler(Looper.getMainLooper())
 
     private val swipeThreshold = 10f
 
@@ -241,6 +247,7 @@ class PhotoPageViewHolder(
 
         val shouldProbeHdr = Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
             && (photo.isUltraHdr || photo.isHeic || photo.isAvif)
+            && hdrDisplayEnabled()
 
         if (shouldProbeHdr) {
             checkHdrAndLoad(photo, maxDimension, needSubsampling, ctx)
@@ -382,23 +389,36 @@ class PhotoPageViewHolder(
 
     /**
      * 设置 Activity 窗口的 HDR/SDR 色彩模式
+     * window.colorMode 改动会触发 SurfaceFlinger surface 重配置，
+     * 通过 Handler.post 推迟到当前消息批次后执行，避免打断 ViewPager2 状态转换。
+     * 使用 Handler 而非 View.post 是为了在 recycle() 时能通过
+     * removeCallbacksAndMessages 精确清理未执行的变更，防止旧页面影响新页面。
      */
     private fun applyWindowColorMode(isHdr: Boolean) {
         lastAppliedHdrMode = isHdr
         if (!isActive) {
             return
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            val window = activity?.window
-            window?.colorMode = if (isHdr) ActivityInfo.COLOR_MODE_HDR else ActivityInfo.COLOR_MODE_DEFAULT
+        hdrHandler.removeCallbacksAndMessages(null)
+        hdrHandler.post {
+            if (!isActive) return@post
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                val window = activity?.window
+                window?.colorMode = if (isHdr) ActivityInfo.COLOR_MODE_HDR else ActivityInfo.COLOR_MODE_DEFAULT
+            }
         }
     }
 
     /**
-     * 重置窗口色彩模式为默认（SDR）
+     * 重置窗口色彩模式为默认（SDR），同步执行，用于 recycle 场景
      */
     private fun resetWindowColorMode() {
-        applyWindowColorMode(false)
+        if (!isActive) return
+        lastAppliedHdrMode = false
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            val window = activity?.window
+            window?.colorMode = ActivityInfo.COLOR_MODE_DEFAULT
+        }
     }
 
     /**
@@ -505,6 +525,8 @@ class PhotoPageViewHolder(
     }
 
     fun recycle() {
+        hdrHandler.removeCallbacksAndMessages(null)
+
         viewHolderScope?.coroutineContext?.cancelChildren()
         viewHolderScope = null
 
@@ -542,14 +564,15 @@ class PhotoPageViewHolder(
             parent: ViewGroup,
             onEdgeSwipe: ((isSwipeRight: Boolean) -> Unit)? = null,
             viewPagerSwipeController: ((enabled: Boolean) -> Unit)? = null,
-            onSingleTap: (() -> Unit)? = null
+            onSingleTap: (() -> Unit)? = null,
+            hdrDisplayEnabled: () -> Boolean = { true }
         ): PhotoPageViewHolder {
             val binding = ItemPhotoPageBinding.inflate(
                 LayoutInflater.from(parent.context),
                 parent,
                 false
             )
-            return PhotoPageViewHolder(binding, onEdgeSwipe, viewPagerSwipeController, onSingleTap)
+            return PhotoPageViewHolder(binding, onEdgeSwipe, viewPagerSwipeController, onSingleTap, hdrDisplayEnabled)
         }
     }
 }

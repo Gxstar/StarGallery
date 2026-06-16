@@ -9,6 +9,7 @@ import androidx.navigation.fragment.findNavController
 import com.gxstar.stargallery.R
 import com.gxstar.stargallery.databinding.FragmentSettingsBinding
 import com.gxstar.stargallery.util.ExcludedAlbumManager
+import com.gxstar.stargallery.util.HdrDisplayManager
 import com.gxstar.stargallery.util.LocaleManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import dagger.hilt.android.AndroidEntryPoint
@@ -25,6 +26,9 @@ class SettingsFragment : Fragment() {
 
     @Inject
     lateinit var excludedAlbumManager: ExcludedAlbumManager
+
+    @Inject
+    lateinit var hdrDisplayManager: HdrDisplayManager
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -44,6 +48,7 @@ class SettingsFragment : Fragment() {
 
         updateLanguageSummary()
         updateExcludedSummary()
+        setupHdrSwitch()
 
         binding.itemLanguage.setOnClickListener { showLanguageDialog() }
         binding.itemExcludedAlbums.setOnClickListener {
@@ -94,6 +99,13 @@ class SettingsFragment : Fragment() {
             getString(R.string.settings_excluded_count, count)
         } else {
             getString(R.string.settings_excluded_none)
+        }
+    }
+
+    private fun setupHdrSwitch() {
+        binding.switchHdrDisplay.isChecked = hdrDisplayManager.isHdrDisplayEnabled
+        binding.switchHdrDisplay.setOnCheckedChangeListener { _, isChecked ->
+            hdrDisplayManager.setHdrDisplayEnabled(isChecked)
         }
     }
 

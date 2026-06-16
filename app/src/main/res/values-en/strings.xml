@@ -271,4 +271,7 @@
     <string name="settings_excluded_none">None excluded</string>
     <string name="settings_excluded_count">%d album(s) excluded</string>
     <string name="album_excluded_label">Excluded</string>
+
+    <string name="settings_hdr_display">Super Dynamic Display</string>
+    <string name="settings_hdr_display_summary">Render HDR photos with high dynamic range when enabled</string>
 </resources>

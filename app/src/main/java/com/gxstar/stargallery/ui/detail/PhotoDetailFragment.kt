@@ -31,6 +31,7 @@ import androidx.navigation.fragment.findNavController
 import androidx.viewpager2.widget.ViewPager2
 import com.gxstar.stargallery.R
 import com.gxstar.stargallery.data.repository.MediaRepository
+import com.gxstar.stargallery.util.HdrDisplayManager
 import com.gxstar.stargallery.databinding.FragmentPhotoDetailBinding
 import com.gxstar.stargallery.ui.common.DeleteOptionsBottomSheet
 import com.gxstar.stargallery.ui.photos.PhotosFragment
@@ -49,6 +50,9 @@ class PhotoDetailFragment : Fragment() {
 
     @Inject
     lateinit var mediaRepository: MediaRepository
+
+    @Inject
+    lateinit var hdrDisplayManager: HdrDisplayManager
 
     private var startY = 0f
     private var isDragging = false
@@ -154,7 +158,8 @@ class PhotoDetailFragment : Fragment() {
             lifecycleOwner = this,
             onEdgeSwipe = { canSwipeToSwitch = true },
             viewPagerSwipeController = { canSwipe -> canSwipeToSwitch = canSwipe },
-            onSingleTap = { toggleFullscreen() }
+            onSingleTap = { toggleFullscreen() },
+            hdrDisplayEnabled = { hdrDisplayManager.isHdrDisplayEnabled }
         )
 
         binding.viewPager.adapter = pagerAdapter

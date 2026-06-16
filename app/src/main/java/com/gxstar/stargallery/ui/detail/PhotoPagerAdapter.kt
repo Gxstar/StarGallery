@@ -14,7 +14,8 @@ class PhotoPagerAdapter(
     private val lifecycleOwner: LifecycleOwner,
     private val onEdgeSwipe: ((isSwipeRight: Boolean) -> Unit)? = null,
     private val viewPagerSwipeController: ((enabled: Boolean) -> Unit)? = null,
-    private val onSingleTap: (() -> Unit)? = null
+    private val onSingleTap: (() -> Unit)? = null,
+    private val hdrDisplayEnabled: () -> Boolean = { true }
 ) : RecyclerView.Adapter<PhotoPagerAdapter.ViewHolder>() {
 
     private val photos = mutableListOf<Photo>()
@@ -95,7 +96,13 @@ class PhotoPagerAdapter(
     }
     
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-        val viewHolder = PhotoPageViewHolder.create(parent, onEdgeSwipe, viewPagerSwipeController, onSingleTap)
+        val viewHolder = PhotoPageViewHolder.create(
+            parent,
+            onEdgeSwipe,
+            viewPagerSwipeController,
+            onSingleTap,
+            hdrDisplayEnabled
+        )
         return ViewHolder(viewHolder)
     }
     
