@@ -59,8 +59,7 @@ class PhotoPagerAdapter(
                        old.uri == new.uri &&
                        old.width == new.width &&
                        old.height == new.height &&
-                       old.mimeType == new.mimeType &&
-                       old.isFavorite == new.isFavorite
+                       old.mimeType == new.mimeType
             }
         }
         lifecycleOwner.lifecycleScope.launch(Dispatchers.Default) {

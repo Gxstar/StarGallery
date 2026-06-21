@@ -234,6 +234,14 @@ class PhotoDetailViewModel @Inject constructor(
             val updatedPhoto = photo.copy(isFavorite = _pendingFavoriteState)
             _currentPhoto.value = updatedPhoto
 
+            // 同步更新 _photos 列表，防止滑动回来后 setPosition 覆写 _currentPhoto
+            val updatedList = _photos.value.toMutableList()
+            val index = updatedList.indexOfFirst { it.id == photo.id }
+            if (index >= 0) {
+                updatedList[index] = updatedPhoto
+                _photos.value = updatedList
+            }
+
             // 同步到 Room，确保网格列表立即反映收藏变更
             viewModelScope.launch {
                 photoDao.updateFavoriteBatch(listOf(photo.id), _pendingFavoriteState)
