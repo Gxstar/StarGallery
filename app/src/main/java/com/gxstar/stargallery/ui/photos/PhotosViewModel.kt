@@ -22,11 +22,14 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -136,7 +139,44 @@ class PhotosViewModel @Inject constructor(
         val count: Int
     )
 
+    private val _rawPhotoEntities = MutableStateFlow<List<PhotoEntity>>(emptyList())
+
     init {
+        // 启动定时刷新协程：每 2 秒从 Room 拉取全量数据
+        // 彻底规避 Room.Flow 的 cursor 竞态问题（InvalidationTracker 触发时 cursor 被关闭导致 IllegalStateException）
+        viewModelScope.launch {
+            while (isActive) {
+                try {
+                    val entities = withContext(Dispatchers.IO) {
+                        photoDao.getAllPhotos()
+                    }
+                    _rawPhotoEntities.value = entities
+                } catch (e: Exception) {
+                    android.util.Log.e("PhotosViewModel", "refreshRawPhotoEntities failed", e)
+                }
+                delay(2000)
+            }
+        }
+
+        // EXIF 提取完成后立即刷新，避免等待 2 秒定时器
+        viewModelScope.launch {
+            var wasExtracting = false
+            mediaScanner.isExtractingExifFlow.collect { isExtracting ->
+                if (wasExtracting && !isExtracting) {
+                    // EXIF 提取刚完成，立即刷新一次
+                    try {
+                        val entities = withContext(Dispatchers.IO) {
+                            photoDao.getAllPhotos()
+                        }
+                        _rawPhotoEntities.value = entities
+                    } catch (e: Exception) {
+                        android.util.Log.e("PhotosViewModel", "refresh after EXIF extraction failed", e)
+                    }
+                }
+                wasExtracting = isExtracting
+            }
+        }
+
         viewModelScope.launch {
             if (!scanPreferences.isScanCompleted) {
                 _isScanning.value = true
@@ -341,12 +381,11 @@ class PhotosViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Triple(emptySet(), emptySet(), emptySet()))
 
     private val baseFilteredList: StateFlow<List<PhotoEntity>> = combine(
-        photoDao.getAllPhotosFlow(),
-        _currentSortType,
+        _rawPhotoEntities,
         _showFavoritesOnly,
         exifFilterState,
         excludedAlbumManager.excludedBucketIds
-    ) { entities, sortType, favoritesOnly, exifFilters, excludedBucketIds ->
+    ) { entities, favoritesOnly, exifFilters, excludedBucketIds ->
         withContext(Dispatchers.Default) {
             val (cameraMake, cameraModel, lensModel) = exifFilters
             var filtered = entities
@@ -397,7 +436,8 @@ class PhotosViewModel @Inject constructor(
             val sortedPhotos = SortUtils.sortPhotos(photos, sortType)
             buildPhotoModelList(sortedPhotos, sortType, groupType)
         }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    }.debounce(300)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val filteredPhotoCount: StateFlow<Int> = photoListFlow.map { models ->
         models.count { it is PhotoModel.PhotoItem }

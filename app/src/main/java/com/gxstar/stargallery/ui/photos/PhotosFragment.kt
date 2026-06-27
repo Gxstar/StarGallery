@@ -567,6 +567,8 @@ class PhotosFragment : Fragment() {
     }
 
     private fun observeData() {
+        var lastSortType: MediaRepository.SortType? = null
+        
         // 合并扫描状态和照片数据，统一管理 UI 状态
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -591,7 +593,12 @@ class PhotosFragment : Fragment() {
                         }
                     }
 
-                    photoAdapter?.submitList(photoModels) {
+                    // 检测排序变化：排序切换时先清空再加载，避免 DiffUtil 的 move 计算导致主线程阻塞
+                    val currentSortType = viewModel.currentSortType.value
+                    val isSortChanged = lastSortType != null && lastSortType != currentSortType
+                    lastSortType = currentSortType
+
+                    val submitCallback = Runnable {
                         // 用户在顶部 → 无论照片如何移动，列表回到顶部
                         if (userIsAtTop) {
                             gridLayoutManager?.scrollToPositionWithOffset(0, 0)
@@ -607,6 +614,14 @@ class PhotosFragment : Fragment() {
                             fastScrollerReady = true
                             binding.rvPhotos.post { setupFastScroller() }
                         }
+                    }
+
+                    if (isSortChanged) {
+                        // 排序切换：先清空再加载，把 move 操作拆成 remove+insert，避免 AdapterHelper 的 O(n²) findMinMove
+                        photoAdapter?.submitList(null)
+                        photoAdapter?.submitList(photoModels, submitCallback)
+                    } else {
+                        photoAdapter?.submitList(photoModels, submitCallback)
                     }
 
                     val isEmpty = photoModels.isEmpty()

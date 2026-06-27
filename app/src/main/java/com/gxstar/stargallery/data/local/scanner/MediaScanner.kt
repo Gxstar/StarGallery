@@ -356,8 +356,6 @@ class MediaScanner @Inject constructor(
             val lastScanTime = scanPreferences.lastScanTime
             val changedMedia = queryMediaModifiedAfter(lastScanTime)
 
-            // 在 EXIF 提取等耗时操作之前记录扫描时间戳，防止 5s 重试延迟
-            // 导致后续新增/修改的照片被下一个增量扫描遗漏
             scanPreferences.lastScanTime = System.currentTimeMillis() / 1000
 
             if (changedMedia.isNotEmpty()) {
@@ -404,9 +402,6 @@ class MediaScanner @Inject constructor(
                 }
                 photoDao.insertAll(entities)
 
-                // 后台异步提取 EXIF（避免 5s 重试延迟阻塞扫描完成）
-                // 不 cancel 旧任务：旧任务可能正在 5s 延迟中等待重试，
-                // 取消会导致之前批次中 EXIF 提取失败的照片永远得不到重试机会
                 CoroutineScope(Dispatchers.IO).launch {
                     extractExifForPhotos(changedMedia.map { it.id })
                 }
@@ -414,7 +409,6 @@ class MediaScanner @Inject constructor(
                 generateThumbnailsForPhotos(changedMedia.map { it.id })
             }
 
-            // 双向同步：清理孤立记录 + 补充缺失记录
             val mediaStoreIds = queryAllMediaIdsFromMediaStore()
             val roomIds = photoDao.getAllPhotoIds()
             val mediaStoreIdSet = mediaStoreIds.toSet()
@@ -499,7 +493,6 @@ class MediaScanner @Inject constructor(
         }
         photoDao.insertAll(entities)
         generateThumbnailsForPhotos(photoIds)
-        // 后台异步提取 EXIF（避免阻塞恢复流程）
         CoroutineScope(Dispatchers.IO).launch {
             extractExifForPhotos(photoIds)
         }
@@ -510,7 +503,7 @@ class MediaScanner @Inject constructor(
      */
     suspend fun deletePhoto(photoId: Long) = withContext(Dispatchers.IO) {
         thumbnailManager.deleteThumbnail(photoId)
-        photoDao.deleteById(photoId)
+        mutex.withLock { photoDao.deleteById(photoId) }
     }
 
     /**
@@ -519,14 +512,14 @@ class MediaScanner @Inject constructor(
     suspend fun deletePhotos(photoIds: List<Long>) = withContext(Dispatchers.IO) {
         if (photoIds.isEmpty()) return@withContext
         thumbnailManager.deleteThumbnails(photoIds)
-        photoDao.deleteByIds(photoIds)
+        mutex.withLock { photoDao.deleteByIds(photoIds) }
     }
 
     /**
      * 批量更新收藏状态
      */
     suspend fun updateFavorite(photoIds: List<Long>, isFavorite: Boolean) = withContext(Dispatchers.IO) {
-        photoDao.updateFavoriteBatch(photoIds, isFavorite)
+        mutex.withLock { photoDao.updateFavoriteBatch(photoIds, isFavorite) }
     }
 
     /**
