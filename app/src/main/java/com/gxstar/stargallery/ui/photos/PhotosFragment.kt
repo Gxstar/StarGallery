@@ -568,8 +568,7 @@ class PhotosFragment : Fragment() {
 
     private fun observeData() {
         var lastSortType: MediaRepository.SortType? = null
-        
-        // 合并扫描状态和照片数据，统一管理 UI 状态
+
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 combine(
@@ -579,37 +578,35 @@ class PhotosFragment : Fragment() {
                 ) { isScanning, isExtractingExif, photoModels ->
                     Triple(isScanning, isExtractingExif, photoModels)
                 }.collect { (isScanning, isExtractingExif, photoModels) ->
-                    // 始终检测用户当前的滚动位置（不依赖 listChanged 分支）
                     val currentPos = gridLayoutManager?.findFirstVisibleItemPosition() ?: RecyclerView.NO_POSITION
                     val currentOffset = if (currentPos != RecyclerView.NO_POSITION) {
                         gridLayoutManager?.findViewByPosition(currentPos)?.top ?: 0
                     } else 0
                     val userIsAtTop = currentPos in 0..1 && currentOffset <= 50
 
-                    // 在 submitList 之前禁用 animator，防止预测动画干扰
-                    if (isScanning || isExtractingExif || userIsAtTop) {
+                    val currentSortType = viewModel.currentSortType.value
+                    val isSortChanged = lastSortType != null && lastSortType != currentSortType
+                    lastSortType = currentSortType
+
+                    if (isScanning || isExtractingExif || userIsAtTop || isSortChanged) {
                         if (binding.rvPhotos.itemAnimator != null) {
                             binding.rvPhotos.itemAnimator = null
                         }
                     }
 
-                    // 检测排序变化：排序切换时先清空再加载，避免 DiffUtil 的 move 计算导致主线程阻塞
-                    val currentSortType = viewModel.currentSortType.value
-                    val isSortChanged = lastSortType != null && lastSortType != currentSortType
-                    lastSortType = currentSortType
+                    val anchorPhotoId = if (isSortChanged) findFirstVisiblePhotoId() else -1L
 
                     val submitCallback = Runnable {
-                        // 用户在顶部 → 无论照片如何移动，列表回到顶部
                         if (userIsAtTop) {
                             gridLayoutManager?.scrollToPositionWithOffset(0, 0)
+                        } else if (isSortChanged && anchorPhotoId >= 0) {
+                            scrollToPhotoById(anchorPhotoId)
                         }
 
-                        // diff 已应用完成后才恢复 animator
                         if (!isScanning && !isExtractingExif && binding.rvPhotos.itemAnimator == null && photoItemAnimator != null) {
                             binding.rvPhotos.itemAnimator = photoItemAnimator
                         }
 
-                        // FastScroller 延迟初始化：等 RecyclerView 有数据后再创建
                         if (!fastScrollerReady && photoModels.isNotEmpty()) {
                             fastScrollerReady = true
                             binding.rvPhotos.post { setupFastScroller() }
@@ -617,9 +614,7 @@ class PhotosFragment : Fragment() {
                     }
 
                     if (isSortChanged) {
-                        // 排序切换：先清空再加载，把 move 操作拆成 remove+insert，避免 AdapterHelper 的 O(n²) findMinMove
-                        photoAdapter?.submitList(null)
-                        photoAdapter?.submitList(photoModels, submitCallback)
+                        photoAdapter?.submitFullReorder(photoModels, submitCallback)
                     } else {
                         photoAdapter?.submitList(photoModels, submitCallback)
                     }
@@ -698,6 +693,28 @@ class PhotosFragment : Fragment() {
                         if (searching) R.drawable.ic_filter_active else R.drawable.ic_search
                     )
                 }
+            }
+        }
+    }
+
+    private fun findFirstVisiblePhotoId(): Long {
+        val pos = gridLayoutManager?.findFirstVisibleItemPosition() ?: return -1L
+        val list = photoAdapter?.currentList ?: return -1L
+        for (i in pos until list.size) {
+            val item = list[i]
+            if (item is PhotoModel.PhotoItem) return item.photo.id
+        }
+        return -1L
+    }
+
+    private fun scrollToPhotoById(photoId: Long) {
+        if (photoId < 0) return
+        val list = photoAdapter?.currentList ?: return
+        for (i in list.indices) {
+            val item = list[i]
+            if (item is PhotoModel.PhotoItem && item.photo.id == photoId) {
+                gridLayoutManager?.scrollToPositionWithOffset(i, 0)
+                return
             }
         }
     }

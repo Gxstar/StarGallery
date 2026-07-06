@@ -21,6 +21,23 @@ class PhotoListAdapter(
     private val isSelectedProvider: (Int) -> Boolean = { false }
 ) : ListAdapter<PhotoModel, RecyclerView.ViewHolder>(PHOTO_DIFF_CALLBACK) {
 
+    init {
+        setHasStableIds(true)
+    }
+
+    override fun getItemId(position: Int): Long {
+        return when (val item = getItem(position)) {
+            is PhotoModel.PhotoItem -> item.photo.id
+            is PhotoModel.SeparatorItem -> item.dateText.hashCode().toLong()
+            null -> RecyclerView.NO_ID
+        }
+    }
+
+    fun submitFullReorder(newList: List<PhotoModel>, onCommit: Runnable? = null) {
+        submitList(null)
+        submitList(newList, onCommit)
+    }
+
     private var currentSortType = MediaRepository.SortType.DATE_TAKEN
     private var currentGroupType = GroupType.DAY
 

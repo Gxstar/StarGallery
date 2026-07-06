@@ -416,12 +416,11 @@ class PhotosViewModel @Inject constructor(
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val photoListFlow: StateFlow<List<PhotoModel>> = combine(
+    private val sortedPhotos: StateFlow<Pair<List<Photo>, MediaRepository.SortType>> = combine(
         baseFilteredList,
         _currentSortType,
-        _currentGroupType,
         _searchQuery
-    ) { filtered, sortType, groupType, searchQuery ->
+    ) { filtered, sortType, searchQuery ->
         withContext(Dispatchers.Default) {
             val queryResult = if (!searchQuery.isNullOrBlank()) {
                 val q = searchQuery.lowercase()
@@ -433,10 +432,18 @@ class PhotosViewModel @Inject constructor(
                 filtered
             }
             val photos = queryResult.map { it.toPhoto() }
-            val sortedPhotos = SortUtils.sortPhotos(photos, sortType)
-            buildPhotoModelList(sortedPhotos, sortType, groupType)
+            val sorted = SortUtils.sortPhotos(photos, sortType)
+            sorted to sortType
         }
-    }.debounce(300)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList<Photo>() to MediaRepository.SortType.DATE_TAKEN)
+
+    val photoListFlow: StateFlow<List<PhotoModel>> = sortedPhotos
+        .combine(_currentGroupType) { (sorted, sortType), groupType ->
+            withContext(Dispatchers.Default) {
+                buildPhotoModelList(sorted, sortType, groupType)
+            }
+        }
+        .debounce(300)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val filteredPhotoCount: StateFlow<Int> = photoListFlow.map { models ->
