@@ -175,6 +175,9 @@ interface PhotoDao {
     @Query("UPDATE photos SET thumbnailPath = NULL WHERE id IN (:photoIds)")
     suspend fun clearThumbnailPaths(photoIds: List<Long>)
 
+    @Query("UPDATE photos SET locationAddress = :address WHERE id = :photoId")
+    suspend fun updateLocationAddress(photoId: Long, address: String)
+
     // ==================== 完整性检查 ====================
 
     @Query("SELECT id FROM photos")

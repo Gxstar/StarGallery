@@ -65,5 +65,8 @@ data class PhotoEntity(
     val photoStyle: String? = null,
 
     // 缩略图缓存路径（扫描时填充）
-    val thumbnailPath: String? = null
+    val thumbnailPath: String? = null,
+
+    // 逆地理编码地址（用户查看详情时懒加载写入）
+    val locationAddress: String? = null
 )

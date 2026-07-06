@@ -21,7 +21,10 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import android.location.Geocoder
+import java.io.IOException
 import java.text.DecimalFormat
+import java.util.Locale
 import javax.inject.Inject
 import androidx.lifecycle.lifecycleScope
 
@@ -239,18 +242,11 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
             binding.cardExposure.visibility = View.VISIBLE
         }
 
-        // 位置信息
+        // 位置信息（逆地理编码优先）
         val lat = exifData.latitude
         val lng = exifData.longitude
         if (lat != null && lng != null && lat != 0.0 && lng != 0.0) {
-            binding.cardLocation.visibility = View.VISIBLE
-            val latStr = decimalToDms(lat) + if (lat >= 0) " N" else " S"
-            val lngStr = decimalToDms(lng) + if (lng >= 0) " E" else " W"
-            binding.tvLocationCoords.text = "$latStr  $lngStr"
-
-            binding.tvLocationCoords.setOnClickListener {
-                openInMap(lat, lng)
-            }
+            displayLocation(lat, lng, cachedAddress = null)
         }
 
         // 照片风格 + LUT
@@ -428,18 +424,11 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
             binding.cardExposure.visibility = View.GONE
         }
 
-        // 位置信息
+        // 位置信息（逆地理编码优先）
         val lat = entity.latitude
         val lng = entity.longitude
         if (lat != null && lng != null && lat != 0.0 && lng != 0.0) {
-            binding.cardLocation.visibility = View.VISIBLE
-            val latStr = decimalToDms(lat) + if (lat >= 0) " N" else " S"
-            val lngStr = decimalToDms(lng) + if (lng >= 0) " E" else " W"
-            binding.tvLocationCoords.text = "$latStr  $lngStr"
-
-            binding.tvLocationCoords.setOnClickListener {
-                openInMap(lat, lng)
-            }
+            displayLocation(lat, lng, entity.locationAddress)
         } else {
             binding.cardLocation.visibility = View.GONE
         }
@@ -606,6 +595,48 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
         val minutes = minutesFull.toInt()
         val seconds = (minutesFull - minutes) * 60
         return "${degrees}°${minutes}'${String.format("%.1f", seconds)}\""
+    }
+
+    private fun showLocationText(text: String, lat: Double, lng: Double) {
+        binding.tvLocationCoords.text = text
+        binding.tvLocationCoords.setOnClickListener { openInMap(lat, lng) }
+    }
+
+    private fun buildDmsText(lat: Double, lng: Double): String {
+        val latStr = decimalToDms(lat) + if (lat >= 0) " N" else " S"
+        val lngStr = decimalToDms(lng) + if (lng >= 0) " E" else " W"
+        return "$latStr  $lngStr"
+    }
+
+    private suspend fun resolveAddress(lat: Double, lng: Double): String? {
+        return withContext(Dispatchers.IO) {
+            try {
+                val geocoder = Geocoder(requireContext(), Locale.getDefault())
+                if (!Geocoder.isPresent()) return@withContext null
+                val addresses = geocoder.getFromLocation(lat, lng, 1)
+                addresses?.firstOrNull()?.getAddressLine(0)?.takeIf { it.isNotBlank() }
+            } catch (_: IOException) { null }
+        }
+    }
+
+    private fun displayLocation(lat: Double, lng: Double, cachedAddress: String?) {
+        binding.cardLocation.visibility = View.VISIBLE
+
+        if (!cachedAddress.isNullOrBlank()) {
+            showLocationText(cachedAddress, lat, lng)
+        } else {
+            showLocationText(buildDmsText(lat, lng), lat, lng)
+
+            viewLifecycleOwner.lifecycleScope.launch {
+                val address = resolveAddress(lat, lng)
+                if (address != null) {
+                    showLocationText(address, lat, lng)
+                    withContext(Dispatchers.IO) {
+                        photoDao.updateLocationAddress(photo!!.id, address)
+                    }
+                }
+            }
+        }
     }
 
     private fun openInMap(lat: Double, lng: Double) {
