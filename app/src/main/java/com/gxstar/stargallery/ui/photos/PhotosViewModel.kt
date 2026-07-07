@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -38,7 +39,7 @@ enum class GroupType {
     DAY, MONTH, YEAR
 }
 
-@OptIn(ExperimentalCoroutinesApi::class)
+@OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 @HiltViewModel
 class PhotosViewModel @Inject constructor(
     private val photoDao: PhotoDao,
@@ -388,31 +389,17 @@ class PhotosViewModel @Inject constructor(
     ) { entities, favoritesOnly, exifFilters, excludedBucketIds ->
         withContext(Dispatchers.Default) {
             val (cameraMake, cameraModel, lensModel) = exifFilters
-            var filtered = entities
-            if (favoritesOnly) filtered = filtered.filter { it.isFavorite }
-            filtered = filtered.filter { !it.isHidden }
-            if (excludedBucketIds.isNotEmpty()) {
-                filtered = filtered.filter { it.bucketId !in excludedBucketIds }
+            entities.filter { entity ->
+                (!favoritesOnly || entity.isFavorite) &&
+                    !entity.isHidden &&
+                    (excludedBucketIds.isEmpty() || entity.bucketId !in excludedBucketIds) &&
+                    (cameraMake.isEmpty() || entity.cameraMake in cameraMake ||
+                        ("" in cameraMake && entity.cameraMake.isNullOrBlank())) &&
+                    (cameraModel.isEmpty() || entity.cameraModel in cameraModel ||
+                        ("" in cameraModel && entity.cameraModel.isNullOrBlank())) &&
+                    (lensModel.isEmpty() || entity.lensModel in lensModel ||
+                        ("" in lensModel && entity.lensModel.isNullOrBlank()))
             }
-            if (cameraMake.isNotEmpty()) {
-                filtered = filtered.filter { entity ->
-                    entity.cameraMake in cameraMake ||
-                        ("" in cameraMake && entity.cameraMake.isNullOrBlank())
-                }
-            }
-            if (cameraModel.isNotEmpty()) {
-                filtered = filtered.filter { entity ->
-                    entity.cameraModel in cameraModel ||
-                        ("" in cameraModel && entity.cameraModel.isNullOrBlank())
-                }
-            }
-            if (lensModel.isNotEmpty()) {
-                filtered = filtered.filter { entity ->
-                    entity.lensModel in lensModel ||
-                        ("" in lensModel && entity.lensModel.isNullOrBlank())
-                }
-            }
-            filtered
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -443,7 +430,13 @@ class PhotosViewModel @Inject constructor(
                 buildPhotoModelList(sorted, sortType, groupType)
             }
         }
-        .debounce(300)
+        .let { flow ->
+            var emissionCount = 0
+            flow.debounce {
+                emissionCount++
+                if (emissionCount <= 2) 0L else 300L
+            }
+        }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val filteredPhotoCount: StateFlow<Int> = photoListFlow.map { models ->
