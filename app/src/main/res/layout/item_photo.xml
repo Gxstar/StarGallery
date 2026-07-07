@@ -73,13 +73,21 @@
             android:visibility="gone" />
 
         <!-- HDR 标签（右上角） -->
-        <ImageView
+        <TextView
             android:id="@+id/ivHdrTag"
-            android:layout_width="18dp"
-            android:layout_height="18dp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
             android:layout_gravity="top|end"
             android:layout_margin="4dp"
-            android:src="@drawable/bg_hdr_tag"
+            android:background="@drawable/bg_hdr_tag"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp"
+            android:paddingTop="1dp"
+            android:paddingBottom="1dp"
+            android:text="HDR"
+            android:textColor="#CCCCCC"
+            android:textSize="9sp"
+            android:textStyle="bold"
             android:visibility="gone" />
 
         <!-- 收藏红心图标 -->
