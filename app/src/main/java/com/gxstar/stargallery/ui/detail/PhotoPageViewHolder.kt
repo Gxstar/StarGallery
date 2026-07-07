@@ -246,7 +246,7 @@ class PhotoPageViewHolder(
         val needSubsampling = maxDimension >= 2000 || photo.isRaw
 
         val shouldProbeHdr = Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
-            && (photo.isUltraHdr || photo.isHeic || photo.isAvif)
+            && photo.isUltraHdr
             && hdrDisplayEnabled()
 
         if (shouldProbeHdr) {
@@ -418,81 +418,6 @@ class PhotoPageViewHolder(
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             val window = activity?.window
             window?.colorMode = ActivityInfo.COLOR_MODE_DEFAULT
-        }
-    }
-
-    /**
-     * 检测 Bitmap 是否为 HDR 格式
-     * 
-     * 检测逻辑：
-     * 1. Ultra HDR: 检查是否有 Gainmap (Android 14+)
-     * 2. HEIF/HEIC/AVIF HDR: 检查 ColorSpace 是否为 HDR 色彩空间
-     *    - 色域: BT.2020
-     *    - 传输函数: PQ (ST2084) 或 HLG
-     * 3. 高位深: 检查 Bitmap 配置是否为 RGBA_F16 (每通道 16 位浮点)
-     */
-    private fun isHdrBitmap(bitmap: Bitmap): Boolean {
-        // 1. 检查是否为 Ultra HDR (JPEG with Gainmap)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            if (bitmap.hasGainmap()) {
-                return true
-            }
-        }
-
-        // 2. 检查 Bitmap 配置是否为高位深 (Android 8+)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            if (bitmap.config == Bitmap.Config.RGBA_F16) {
-                // RGBA_F16 表示每通道 16 位浮点，是 HDR 图片的常见格式
-                return true
-            }
-        }
-
-        // 3. 检查 ColorSpace 是否为 HDR 色彩空间 (Android 10+)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val colorSpace = bitmap.colorSpace
-            if (colorSpace != null) {
-                // 获取 ColorSpace 的名称进行判断
-                val colorSpaceName = colorSpace.name
-                
-                // 常见的 HDR 色彩空间名称
-                val hdrColorSpaces = setOf(
-                    "BT2020",      // BT.2020 色域
-                    "BT2020_HLG",  // BT.2020 + HLG
-                    "BT2020_PQ",   // BT.2020 + PQ
-                    "HDR",         // 通用 HDR
-                    "LINEAR_EXTENDED_SRGB", // 扩展 SRGB
-                )
-                
-                // 检查色彩空间名称是否包含 HDR 标识
-                if (hdrColorSpaces.any { colorSpaceName.contains(it, ignoreCase = true) }) {
-                    return true
-                }
-
-                // 检查 ColorModel 是否为广色域
-                if (colorSpace.model == android.graphics.ColorSpace.Model.RGB) {
-                    // 检查是否为广色域色彩空间 (超出 sRGB 范围)
-                    if (colorSpace.isWideGamut) {
-                        return true
-                    }
-                }
-            }
-        }
-
-        return false
-    }
-
-    /**
-     * 获取 Bitmap 的位深信息（用于调试）
-     */
-    private fun getBitmapBitDepth(bitmap: Bitmap): String {
-        return when (bitmap.config) {
-            Bitmap.Config.ALPHA_8 -> "8-bit (Alpha only)"
-            Bitmap.Config.RGB_565 -> "16-bit (RGB 565)"
-            Bitmap.Config.ARGB_4444 -> "16-bit (ARGB 4444)"
-            Bitmap.Config.ARGB_8888 -> "32-bit (ARGB 8888, 8-bit per channel)"
-            Bitmap.Config.RGBA_F16 -> "64-bit (RGBA F16, 16-bit float per channel)"
-            Bitmap.Config.HARDWARE -> "Hardware"
-            else -> "Unknown"
         }
     }
 
