@@ -169,7 +169,8 @@ class MediaScanner @Inject constructor(
                             flash = exif?.flash,
                             exposureCompensation = exif?.exposureCompensation,
                             meteringMode = exif?.meteringMode,
-                            photoStyle = exif?.photoStyle
+                            photoStyle = exif?.photoStyle,
+                            isHdr = exif?.isHdr ?: false
                         )
                     }
                     photoDao.insertAll(entities)
@@ -397,7 +398,8 @@ class MediaScanner @Inject constructor(
                         flash = exif?.flash,
                         exposureCompensation = exif?.exposureCompensation,
                         meteringMode = exif?.meteringMode,
-                        photoStyle = exif?.photoStyle
+                        photoStyle = exif?.photoStyle,
+                        isHdr = exif?.isHdr ?: false
                     )
                 }
                 photoDao.insertAll(entities)
@@ -488,7 +490,8 @@ class MediaScanner @Inject constructor(
                 flash = exif?.flash,
                 exposureCompensation = exif?.exposureCompensation,
                 meteringMode = exif?.meteringMode,
-                photoStyle = exif?.photoStyle
+                photoStyle = exif?.photoStyle,
+                isHdr = exif?.isHdr ?: false
             )
         }
         photoDao.insertAll(entities)

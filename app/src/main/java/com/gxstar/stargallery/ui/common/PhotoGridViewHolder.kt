@@ -110,6 +110,7 @@ class PhotoGridViewHolder(
             binding.ivFavorite.visibility = View.GONE
             binding.ivVideoIndicator.visibility = View.GONE
             binding.tvFormatTag.visibility = View.GONE
+            binding.ivHdrTag.visibility = View.GONE
             binding.tvExpirationTag.visibility = View.GONE
         } else {
             binding.ivSelected.visibility = View.GONE
@@ -136,6 +137,12 @@ class PhotoGridViewHolder(
                 binding.tvFormatTag.visibility = View.GONE
             }
 
+            if (config.showHdrTag && photo.isHdr) {
+                binding.ivHdrTag.visibility = View.VISIBLE
+            } else {
+                binding.ivHdrTag.visibility = View.GONE
+            }
+
             if (config.showExpirationTag && photo.dateExpiration > 0) {
                 val remainingDays = (photo.dateExpiration - System.currentTimeMillis()) / (24 * 60 * 60 * 1000)
                 when {
@@ -158,7 +165,8 @@ class PhotoGridViewHolder(
         val showFavorite: Boolean = true,
         val showVideoIndicator: Boolean = true,
         val showFormatTag: Boolean = true,
-        val showExpirationTag: Boolean = false
+        val showExpirationTag: Boolean = false,
+        val showHdrTag: Boolean = true
     ) {
         companion object {
             val DEFAULT = ViewHolderConfig()

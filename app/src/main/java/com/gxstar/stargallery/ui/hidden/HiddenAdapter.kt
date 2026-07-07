@@ -46,7 +46,8 @@ class HiddenAdapter(
                 showFavorite = false,
                 showVideoIndicator = false,
                 showFormatTag = false,
-                showExpirationTag = false
+                showExpirationTag = false,
+                showHdrTag = false
             )
         )
     }

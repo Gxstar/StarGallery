@@ -22,6 +22,7 @@ data class Photo(
     val orientation: Int = 0,
     val isFavorite: Boolean = false,
     val isHidden: Boolean = false,
+    val isHdr: Boolean = false,
     val dateExpiration: Long = 0,
     val thumbnailPath: String? = null
 ) : Parcelable {

@@ -72,6 +72,16 @@
             android:textStyle="bold"
             android:visibility="gone" />
 
+        <!-- HDR 标签（右上角） -->
+        <ImageView
+            android:id="@+id/ivHdrTag"
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:layout_gravity="top|end"
+            android:layout_margin="4dp"
+            android:src="@drawable/bg_hdr_tag"
+            android:visibility="gone" />
+
         <!-- 收藏红心图标 -->
         <ImageView
             android:id="@+id/ivFavorite"

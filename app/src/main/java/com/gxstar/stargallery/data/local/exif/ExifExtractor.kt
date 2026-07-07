@@ -65,7 +65,10 @@ class ExifExtractor @Inject constructor(
                 }
             } catch (_: Exception) {}
 
-            // 3. 解析 EXIF 元数据
+            // 3. 检测 Ultra HDR（读前 128KB 搜索 gainmap XMP 命名空间）
+            val isHdr = detectUltraHdr(originalUri)
+
+            // 4. 解析 EXIF 元数据
             val inputStream = context.contentResolver.openInputStream(originalUri)
             if (inputStream == null) {
                 android.util.Log.w("ExifExtractor", "openInputStream returned null for $uri")
@@ -82,7 +85,8 @@ class ExifExtractor @Inject constructor(
                 return@withContext result.copy(
                     width = realWidth,
                     height = realHeight,
-                    size = fileSize
+                    size = fileSize,
+                    isHdr = isHdr
                 )
             }
         } catch (e: Exception) {
@@ -280,6 +284,23 @@ class ExifExtractor @Inject constructor(
     }
 
     /**
+     * 检测 Ultra HDR — 读取 JPEG 文件前 128KB 搜索 gainmap XMP 命名空间
+     * Google Ultra HDR 规范要求 XMP 中包含 "http://ns.adobe.com/hdr-gain-map/1.0/"
+     */
+    private fun detectUltraHdr(uri: Uri): Boolean {
+        return try {
+            context.contentResolver.openInputStream(uri)?.use { stream ->
+                val buffer = ByteArray(128 * 1024)
+                val bytesRead = stream.read(buffer)
+                bytesRead > 0 && String(buffer, 0, bytesRead, Charsets.ISO_8859_1)
+                    .contains("hdr-gain-map")
+            } ?: false
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    /**
      * EXIF 提取结果数据类
      */
     data class ExifData(
@@ -306,6 +327,7 @@ class ExifExtractor @Inject constructor(
         val exposureCompensation: Float? = null,
         val meteringMode: String? = null,
         val photoStyle: String? = null,
+        val isHdr: Boolean = false,
         val dateTimeOriginal: Long? = null,
         val dateTimeDigitized: Long? = null,
         val ifd0DateTime: Long? = null
@@ -352,6 +374,7 @@ class ExifExtractor @Inject constructor(
                 exposureCompensation = exifData.exposureCompensation,
                 meteringMode = exifData.meteringMode,
                 photoStyle = exifData.photoStyle,
+                isHdr = exifData.isHdr,
                 dateTaken = dateTaken
             )
         }

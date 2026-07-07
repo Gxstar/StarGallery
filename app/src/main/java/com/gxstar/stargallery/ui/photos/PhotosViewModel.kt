@@ -471,6 +471,7 @@ class PhotosViewModel @Inject constructor(
             orientation = orientation,
             isFavorite = isFavorite,
             isHidden = isHidden,
+            isHdr = isHdr,
             thumbnailPath = thumbnailPath
         )
     }

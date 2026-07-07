@@ -46,7 +46,8 @@ class TrashAdapter(
                 showFavorite = false,
                 showVideoIndicator = false,
                 showFormatTag = false,
-                showExpirationTag = true
+                showExpirationTag = true,
+                showHdrTag = false
             )
         )
     }
