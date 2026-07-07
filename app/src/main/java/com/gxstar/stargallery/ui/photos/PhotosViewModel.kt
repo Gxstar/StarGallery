@@ -16,7 +16,6 @@ import com.gxstar.stargallery.util.ExcludedAlbumManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import com.gxstar.stargallery.R
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -24,13 +23,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.retryWhen
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -142,40 +140,20 @@ class PhotosViewModel @Inject constructor(
 
     private val _rawPhotoEntities = MutableStateFlow<List<PhotoEntity>>(emptyList())
 
-    init {
-        // 启动定时刷新协程：每 2 秒从 Room 拉取全量数据
-        // 彻底规避 Room.Flow 的 cursor 竞态问题（InvalidationTracker 触发时 cursor 被关闭导致 IllegalStateException）
-        viewModelScope.launch {
-            while (isActive) {
-                try {
-                    val entities = withContext(Dispatchers.IO) {
-                        photoDao.getAllPhotos()
-                    }
-                    _rawPhotoEntities.value = entities
-                } catch (e: Exception) {
-                    android.util.Log.e("PhotosViewModel", "refreshRawPhotoEntities failed", e)
-                }
-                delay(2000)
-            }
-        }
+    private val TAG = "PhotosViewModel"
 
-        // EXIF 提取完成后立即刷新，避免等待 2 秒定时器
+    init {
+        // Room Flow 自动监听表变化推送更新，替代 2 秒轮询
         viewModelScope.launch {
-            var wasExtracting = false
-            mediaScanner.isExtractingExifFlow.collect { isExtracting ->
-                if (wasExtracting && !isExtracting) {
-                    // EXIF 提取刚完成，立即刷新一次
-                    try {
-                        val entities = withContext(Dispatchers.IO) {
-                            photoDao.getAllPhotos()
-                        }
-                        _rawPhotoEntities.value = entities
-                    } catch (e: Exception) {
-                        android.util.Log.e("PhotosViewModel", "refresh after EXIF extraction failed", e)
-                    }
+            photoDao.getAllPhotosFlow()
+                .retryWhen { cause, attempt ->
+                    android.util.Log.w(TAG, "Room Flow error #$attempt: ${cause.message}")
+                    delay(minOf(2000L * (attempt + 1), 10000L))
+                    true
                 }
-                wasExtracting = isExtracting
-            }
+                .collect { entities ->
+                    _rawPhotoEntities.value = entities
+                }
         }
 
         viewModelScope.launch {
@@ -187,7 +165,6 @@ class PhotosViewModel @Inject constructor(
                     _isScanning.value = false
                 }
             } else if (!scanPreferences.isExifExtractionCompleted) {
-                // 全量扫描已完成但 EXIF 提取被中断（如进程被杀），恢复提取
                 mediaScanner.recoverExifExtraction()
             }
         }
