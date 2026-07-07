@@ -27,8 +27,9 @@ import com.gxstar.stargallery.R
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.databinding.ItemPhotoPageBinding
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
@@ -59,6 +60,7 @@ class PhotoPageViewHolder(
 
     @OptIn(UnstableApi::class)
     private var viewHolderScope: CoroutineScope? = null
+    private var viewHolderJob: Job? = null
 
     private var downX = 0f
     private var lastX = 0f
@@ -169,10 +171,11 @@ class PhotoPageViewHolder(
             return
         }
 
-        // 取消之前的作用域
-        viewHolderScope?.coroutineContext?.cancelChildren()
-        // 使用传入的 scope 或创建新的(用于预览图加载的协程)
-        viewHolderScope = scope
+        // 取消当前 ViewHolder 自己的协程（不影响其他 ViewHolder）
+        viewHolderJob?.cancel()
+        // 创建独立的子协程作用域，与 lifecycleScope 解耦
+        viewHolderJob = scope?.let { SupervisorJob(it.coroutineContext[Job]) }
+        viewHolderScope = scope?.let { CoroutineScope(it.coroutineContext + viewHolderJob!!) }
 
         currentPhoto = photo
         binding.progressBar.visibility = View.VISIBLE
@@ -452,7 +455,8 @@ class PhotoPageViewHolder(
     fun recycle() {
         hdrHandler.removeCallbacksAndMessages(null)
 
-        viewHolderScope?.coroutineContext?.cancelChildren()
+        viewHolderJob?.cancel()
+        viewHolderJob = null
         viewHolderScope = null
 
         resetWindowColorMode()
