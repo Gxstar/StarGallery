@@ -44,18 +44,19 @@ StarGallery 当前主题已是 `Theme.Material3.Light.NoActionBar` / `Theme.Mate
 
 **代价**：放弃 Android 11 用户（2024 年 <3% 市占，且持续下降）。AGENTS.md 当前 `targetSdk = 35`，提升 minSdk 不影响 Play Store 兼容性。
 
-### 4.2 主题 parent 调整
+### 4.2 启动页主题 parent 调整
 
 | 文件 | 改动 |
 |---|---|
-| `app/src/main/res/values/themes.xml:5` | `Theme.App.Starting parent="Theme.StarGallery"` 改用 `Theme.Material3.DynamicColors.Light` 包裹，避免启动闪屏与主屏颜色断层 |
-| `app/src/main/res/values-night/themes.xml` | 同步 `Theme.Material3.DynamicColors.Dark` 包裹 |
+| `app/src/main/res/values-v31/themes.xml:5` | `Theme.App.Starting parent="Theme.SplashScreen"` 改为 `parent="Theme.Material3.DynamicColors.Light"`（DynamicColors 主题继承自 SplashScreen，保留启动屏能力） |
+| `app/src/main/res/values-night-v31/themes.xml:3` | `Theme.App.Starting parent="Theme.SplashScreen"` 改为 `parent="Theme.Material3.DynamicColors.Dark"` |
 
-**values-v31/values-night-v31 不动**：
-- 这两个文件中的 `Theme.App.Starting` 已是 `Theme.SplashScreen` 子类
-- 其 `postSplashScreenTheme` 已指向 `Theme.StarGallery`（`values-v31/themes.xml:13`、`values-night-v31/themes.xml:7`）
-- 启动闪屏的 `windowSplashScreenBackground` 保持现状（白色/background_white），不引入闪屏色调变化，避免色调跳变
-- 启动后由 `postSplashScreenTheme` 跳转到 `Theme.StarGallery`，再由 `DynamicColors.applyToActivitiesIfAvailable` 在 MainActivity `onCreate` 中应用动态色
+**为什么改 v31 文件而不是 `values/themes.xml`**：
+- minSdk 31 后 `values/themes.xml:5` 的 `Theme.App.Starting`（parent=Theme.StarGallery）成为 dead code，运行时系统按 device API 选资源，minSdk=31 永远走 v31 资源
+- 启动页 SplashScreen 行为由 `Theme.Material3.DynamicColors.{Light,Dark}` 继承（其自身继承自 `Theme.SplashScreen`），不会丢失
+- `postSplashScreenTheme=@style/Theme.StarGallery` 保留不动，启动后跳转逻辑不变
+- `windowSplashScreenBackground`（白色/background_white）保持现状，避免闪屏色调跳变
+- `values-night-v31` 的 dark 版本同改 dark parent，保持 night mode 行为对称
 
 ### 4.3 Dynamic Color 接入
 
@@ -161,7 +162,7 @@ StarGallery 当前主题已是 `Theme.Material3.Light.NoActionBar` / `Theme.Mate
 
 执行顺序：
 1. 改 `app/build.gradle.kts:19` `minSdk = 31`
-2. 改 `values/themes.xml:5` 和 `values-night/themes.xml` 的 `Theme.App.Starting` parent 为 `Theme.Material3.DynamicColors.{Light,Dark}`
+2. 改 `values-v31/themes.xml:5` 和 `values-night-v31/themes.xml:3` 的 `Theme.App.Starting` parent 为 `Theme.Material3.DynamicColors.{Light,Dark}`
 3. 改 `StarGalleryApp.kt` `onCreate` 在 `applyThemeFromPreferences()` 之后加入 `DynamicColors.applyToActivitiesIfAvailable(this)` 和 import
 4. `./gradlew.bat assembleDebug` 验证
 5. 设备回归（Android 12 + Android 14 真机）

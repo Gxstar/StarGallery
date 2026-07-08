@@ -29,8 +29,8 @@
 | 文件 | 改动类型 | 职责 |
 |---|---|---|
 | `app/build.gradle.kts:19` | 数值改 1 行 | 提升 minSdk |
-| `app/src/main/res/values/themes.xml:5` | parent 改 1 行 | 启动页跟随 light dynamic |
-| `app/src/main/res/values-night/themes.xml:5` | parent 改 1 行 | 启动页跟随 dark dynamic |
+| `app/src/main/res/values-v31/themes.xml:5` | parent 改 1 行 | 启动页跟随 light dynamic |
+| `app/src/main/res/values-night-v31/themes.xml:3` | parent 改 1 行 | 启动页跟随 dark dynamic |
 | `app/src/main/java/com/gxstar/stargallery/StarGalleryApp.kt` | 加 1 个 import + 1 行调用 | Application 级别应用 dynamic color |
 
 新建文件：
@@ -85,55 +85,57 @@ git commit -m "chore(m3): 提升 minSdk 到 31 (阶段 A 第 1 步)"
 
 ---
 
-## Task 2：Theme.App.Starting 接入 DynamicColors Light/Dark
+## Task 2：启动页主题接入 DynamicColors Light/Dark
 
 **Files:**
-- Modify: `app/src/main/res/values/themes.xml:5`
-- Modify: `app/src/main/res/values-night/themes.xml:5`
+- Modify: `app/src/main/res/values-v31/themes.xml:5`
+- Modify: `app/src/main/res/values-night-v31/themes.xml:3`
 
 **Interfaces:**
 - Consumes: Task 1 产出的 `minSdk = 31` 构建基线
 - Produces: 启动页主题父类变为 `Theme.Material3.DynamicColors.Light` / `Dark`，避免闪屏与主页颜色断层
 
-- [ ] **Step 1: 读 `values/themes.xml:5` 确认当前 parent**
+- [ ] **Step 1: 读 `values-v31/themes.xml` 确认当前 parent**
 
 ```bash
-sed -n '1,10p' app/src/main/res/values/themes.xml
+cat app/src/main/res/values-v31/themes.xml
 ```
 
 预期第 5 行：
 ```xml
-    <style name="Theme.App.Starting" parent="Theme.StarGallery" />
+    <style name="Theme.App.Starting" parent="Theme.SplashScreen">
 ```
 
-- [ ] **Step 2: 改 `values/themes.xml:5`**
+- [ ] **Step 2: 改 `values-v31/themes.xml:5`**
 
-用 `edit` 工具将 `parent="Theme.StarGallery"` 改为 `parent="Theme.Material3.DynamicColors.Light"`。
+用 `edit` 工具将 `parent="Theme.SplashScreen"` 改为 `parent="Theme.Material3.DynamicColors.Light"`。
 
-改后：
+改后第 5 行：
 ```xml
-    <style name="Theme.App.Starting" parent="Theme.Material3.DynamicColors.Light" />
+    <style name="Theme.App.Starting" parent="Theme.Material3.DynamicColors.Light">
 ```
 
-- [ ] **Step 3: 读 `values-night/themes.xml:5` 确认当前 parent**
+**为什么可以换**：`Theme.Material3.DynamicColors.Light` 本身继承自 `Theme.SplashScreen`，会保留所有 SplashScreen 能力（`windowSplashScreenBackground` / `windowSplashScreenAnimatedIcon` / `postSplashScreenTheme` 仍生效）。
+
+- [ ] **Step 3: 读 `values-night-v31/themes.xml` 确认当前 parent**
 
 ```bash
-sed -n '1,10p' app/src/main/res/values-night/themes.xml
+cat app/src/main/res/values-night-v31/themes.xml
 ```
 
-预期找到 `Theme.App.Starting` 一行。
-
-- [ ] **Step 4: 改 `values-night/themes.xml` 中 `Theme.App.Starting` parent**
-
-注意：`values-night/themes.xml` 中**没有** `Theme.App.Starting` 的定义（它只在 `values/themes.xml:5` 定义），night 模式下的启动页走 `values-night-v31/themes.xml:3` 的 `Theme.SplashScreen` 子类。所以本 Task 在 `values-night/themes.xml` **没有改动**。
-
-确认方法：用 `grep` 工具搜索 `values-night/themes.xml`，无 `Theme.App.Starting` 即为预期。
-
-```bash
-grep "Theme.App.Starting" app/src/main/res/values-night/themes.xml
+预期第 3 行：
+```xml
+    <style name="Theme.App.Starting" parent="Theme.SplashScreen">
 ```
 
-预期：无输出（exit code 1）。
+- [ ] **Step 4: 改 `values-night-v31/themes.xml:3`**
+
+用 `edit` 工具将 `parent="Theme.SplashScreen"` 改为 `parent="Theme.Material3.DynamicColors.Dark"`。
+
+改后第 3 行：
+```xml
+    <style name="Theme.App.Starting" parent="Theme.Material3.DynamicColors.Dark">
+```
 
 - [ ] **Step 5: 验证编译通过**
 
@@ -146,8 +148,8 @@ grep "Theme.App.Starting" app/src/main/res/values-night/themes.xml
 - [ ] **Step 6: Commit**
 
 ```bash
-git add app/src/main/res/values/themes.xml
-git commit -m "feat(m3): 启动页接入 Theme.Material3.DynamicColors.Light (阶段 A 第 2 步)"
+git add app/src/main/res/values-v31/themes.xml app/src/main/res/values-night-v31/themes.xml
+git commit -m "feat(m3): 启动页接入 Theme.Material3.DynamicColors Light/Dark (阶段 A 第 2 步)"
 ```
 
 ---
