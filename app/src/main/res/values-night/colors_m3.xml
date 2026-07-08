@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Material3 Dark Color Scheme (seed: #007AFF 品牌蓝) -->
+    <color name="md_theme_dark_primary">#9ECAFF</color>
+    <color name="md_theme_dark_onPrimary">#003258</color>
+    <color name="md_theme_dark_primaryContainer">#00497D</color>
+    <color name="md_theme_dark_onPrimaryContainer">#CDE5FF</color>
+    <color name="md_theme_dark_secondary">#BBC7DB</color>
+    <color name="md_theme_dark_onSecondary">#253140</color>
+    <color name="md_theme_dark_secondaryContainer">#3B4858</color>
+    <color name="md_theme_dark_onSecondaryContainer">#D7E3F7</color>
+    <color name="md_theme_dark_tertiary">#D6BEE4</color>
+    <color name="md_theme_dark_onTertiary">#3B2948</color>
+    <color name="md_theme_dark_tertiaryContainer">#523F5F</color>
+    <color name="md_theme_dark_onTertiaryContainer">#F2DAFF</color>
+    <color name="md_theme_dark_error">#FFB4AB</color>
+    <color name="md_theme_dark_onError">#690005</color>
+    <color name="md_theme_dark_errorContainer">#93000A</color>
+    <color name="md_theme_dark_onErrorContainer">#FFDAD6</color>
+    <color name="md_theme_dark_background">#1A1C1E</color>
+    <color name="md_theme_dark_onBackground">#E2E2E6</color>
+    <color name="md_theme_dark_surface">#1A1C1E</color>
+    <color name="md_theme_dark_onSurface">#E2E2E6</color>
+    <color name="md_theme_dark_surfaceVariant">#43474E</color>
+    <color name="md_theme_dark_onSurfaceVariant">#C3C6CF</color>
+    <color name="md_theme_dark_outline">#8D9199</color>
+    <color name="md_theme_dark_outlineVariant">#43474E</color>
+    <color name="md_theme_dark_surfaceContainer">#1E1E21</color>
+    <color name="md_theme_dark_surfaceContainerLow">#1A1A1D</color>
+    <color name="md_theme_dark_surfaceContainerHigh">#28282B</color>
+    <color name="md_theme_dark_surfaceContainerHighest">#333336</color>
+    <color name="md_theme_dark_scrim">#000000</color>
+</resources>
