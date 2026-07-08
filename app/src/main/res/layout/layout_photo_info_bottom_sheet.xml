@@ -43,6 +43,21 @@
                 android:fontFamily="sans-serif-medium"
                 android:visibility="gone"
                 android:text="---" />
+
+            <TextView
+                android:id="@+id/badgeHdr"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:paddingTop="3dp"
+                android:paddingBottom="3dp"
+                android:text="HDR"
+                android:textColor="#FFFFFF"
+                android:textSize="11sp"
+                android:fontFamily="sans-serif-medium"
+                android:visibility="gone" />
         </LinearLayout>
 
         <!-- Date -->

@@ -3,8 +3,8 @@ package com.gxstar.stargallery.ui.detail
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
-import android.graphics.Rect
 import android.os.Build
+import android.util.Log
 import com.github.panpf.zoomimage.subsampling.ContentImageSource
 import com.github.panpf.zoomimage.subsampling.ImageInfo
 import com.github.panpf.zoomimage.subsampling.ImageSource
@@ -27,6 +27,11 @@ class AvifRegionDecoder(
     private var cachedBitmap: Bitmap? = null
     private var cachedSampleSize: Int = 0
 
+    companion object {
+        private const val TAG = "AvifRegionDecoder"
+        private const val MAX_DECODE_DIM = 4096
+    }
+
     private fun decodeImageInfo(): ImageInfo {
         val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         imageSource.openSource().use { source ->
@@ -46,36 +51,51 @@ class AvifRegionDecoder(
     override fun decodeRegion(region: IntRectCompat, sampleSize: Int): TileBitmap {
         val currentSampleSize = sampleSize.coerceAtLeast(1)
 
-        // AVIF 不支持 BitmapRegionDecoder，改用全图缩放 + 裁切
-        // 缓存全图解码结果，仅在 sampleSize 变化时重新解码
         if (cachedBitmap == null || cachedSampleSize != currentSampleSize) {
-            cachedBitmap?.recycle()
-            val imgWidth = imageInfo.width.coerceAtLeast(1)
-            val imgHeight = imageInfo.height.coerceAtLeast(1)
-            val source = ImageDecoder.createSource(
-                imageSource.context.contentResolver,
-                imageSource.uri
-            )
-            cachedBitmap = ImageDecoder.decodeBitmap(source) { decoder, _, _ ->
-                decoder.setTargetSize(
-                    (imgWidth / currentSampleSize).coerceAtLeast(1),
-                    (imgHeight / currentSampleSize).coerceAtLeast(1)
+            cachedBitmap?.let { if (!it.isRecycled) it.recycle() }
+            cachedBitmap = null
+            try {
+                val imgWidth = imageInfo.width.coerceAtLeast(1)
+                val imgHeight = imageInfo.height.coerceAtLeast(1)
+
+                val targetWidth = (imgWidth / currentSampleSize).coerceAtLeast(1)
+                val targetHeight = (imgHeight / currentSampleSize).coerceAtLeast(1)
+                val maxDim = maxOf(targetWidth, targetHeight)
+                val scale = if (maxDim > MAX_DECODE_DIM) {
+                    MAX_DECODE_DIM.toFloat() / maxDim
+                } else 1f
+
+                val source = ImageDecoder.createSource(
+                    imageSource.context.contentResolver,
+                    imageSource.uri
                 )
+                cachedBitmap = ImageDecoder.decodeBitmap(source) { decoder, _, _ ->
+                    decoder.setTargetSize(
+                        (targetWidth * scale).toInt().coerceAtLeast(1),
+                        (targetHeight * scale).toInt().coerceAtLeast(1)
+                    )
+                }
+                cachedSampleSize = currentSampleSize
+            } catch (e: Exception) {
+                Log.w(TAG, "Decode failed at sampleSize=$currentSampleSize: ${e.message}")
             }
-            cachedSampleSize = currentSampleSize
         }
 
-        // 从缓存的全图中裁切出需要的区域
-        val scaleX = cachedBitmap!!.width.toFloat() / imageInfo.width.toFloat()
-        val scaleY = cachedBitmap!!.height.toFloat() / imageInfo.height.toFloat()
+        val bitmap = cachedBitmap
+            ?: return Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
+
+        val scaleX = bitmap.width.toFloat() / imageInfo.width.toFloat()
+        val scaleY = bitmap.height.toFloat() / imageInfo.height.toFloat()
         val cropLeft = (region.left * scaleX).toInt()
         val cropTop = (region.top * scaleY).toInt()
-        val cropWidth = (region.width * scaleX).toInt().coerceAtMost(cachedBitmap!!.width - cropLeft)
-        val cropHeight = (region.height * scaleY).toInt().coerceAtMost(cachedBitmap!!.height - cropTop)
-        return Bitmap.createBitmap(
-            cachedBitmap!!,
+        val cropWidth = (region.width * scaleX).toInt().coerceAtMost(bitmap.width - cropLeft)
+        val cropHeight = (region.height * scaleY).toInt().coerceAtMost(bitmap.height - cropTop)
+
+        val cropped = Bitmap.createBitmap(
+            bitmap,
             cropLeft, cropTop, cropWidth.coerceAtLeast(1), cropHeight.coerceAtLeast(1)
         )
+        return cropped.copy(cropped.config ?: Bitmap.Config.ARGB_8888, false) ?: cropped
     }
 
     override fun close() {

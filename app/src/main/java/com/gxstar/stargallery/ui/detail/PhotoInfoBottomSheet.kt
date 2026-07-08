@@ -99,6 +99,9 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
         val formatName = resolveFormatName(photo.mimeType)
         setupFormatBadge(formatName)
 
+        // HDR 徽章
+        setupHdrBadge(photo.isHdr)
+
         // 日期
         val dateMs = if (photo.dateTaken > 0) photo.dateTaken else System.currentTimeMillis()
         val sizeStr = formatFileSize(photo.size)
@@ -294,6 +297,9 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
         // 格式徽章
         val formatName = resolveFormatName(entity.mimeType)
         setupFormatBadge(formatName)
+
+        // HDR 徽章
+        setupHdrBadge(entity.isHdr)
 
         // 日期（优先使用数据库中最新值，而非传入的快照对象）
         val dateMs = when {
@@ -550,6 +556,20 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
             setColor(color)
         }
         binding.badgeFormat.background = drawable
+    }
+
+    private fun setupHdrBadge(isHdr: Boolean) {
+        if (!isHdr) {
+            binding.badgeHdr.visibility = View.GONE
+            return
+        }
+        binding.badgeHdr.visibility = View.VISIBLE
+        val drawable = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = 8f * resources.displayMetrics.density
+            setColor(0xFFFF9500.toInt())
+        }
+        binding.badgeHdr.background = drawable
     }
 
     private fun readExposureTimeFromExif(photo: Photo) {

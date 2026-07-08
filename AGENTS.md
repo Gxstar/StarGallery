@@ -28,7 +28,7 @@ Kotlin 2.3.20，AGP 9.2.1，minSdk 30，compileSdk 36，targetSdk 35，Java 21�
 **项目已从 Paging 3 迁移到 Room Flow + ListAdapter 模式：**
 
 - `PhotoDao.getAllPhotosFlow()` 返回 `Flow<List<PhotoEntity>>`，Room 自动监听表变化推送更新
-- `PhotosViewModel.photoListFlow` 通过 `combine` 合并排序、收藏过滤、EXIF 过滤、分组、搜索等状态，在内存中排序/过滤/插入 `SeparatorItem`
+- `PhotosViewModel.photoListFlow` 通过 `combine` 合并排序、收藏过滤、EXIF 过滤、**排除相册**、分组、搜索等状态，在内存中排序/过滤/插入 `SeparatorItem`
 - `PhotoListAdapter` 继承 `ListAdapter<PhotoModel, RecyclerView.ViewHolder>`，使用 `submitList()` 提交数据
 - 数据收集使用 `lifecycleScope.launch` + `repeatOnLifecycle(STARTED)` 组合
 
@@ -71,6 +71,7 @@ Kotlin 2.3.20，AGP 9.2.1，minSdk 30，compileSdk 36，targetSdk 35，Java 21�
 - `DragSelectTouchListener` 实现拖动多选，通过 `isSelected(index)` / `setSelected(index, selected)` 与底层 ID 集合交互
 - **Payload 精准刷新**：`PAYLOAD_SELECTION_CHANGED` 仅更新选择 UI（`updateSelectionState()`），不重新加载图片
 - `PhotoGridViewHolder` 长按使用 `bindingAdapterPosition`（RecyclerView 实时维护），而非 `bind()` 传入的旧 position
+- 子类：`PhotoSelectionManager`、`AlbumSelectionManager`、`TrashSelectionManager`、`HiddenSelectionManager`
 
 ## MediaStore 操作 (IntentSender 模式)
 
@@ -86,6 +87,13 @@ Kotlin 2.3.20，AGP 9.2.1，minSdk 30，compileSdk 36，targetSdk 35，Java 21�
 - **动态预加载数量**：`currentSpanCount * 3`（`RecyclerViewPreloader` 预加载图片数）、`currentSpanCount * 4`（`GridLayoutManager.initialPrefetchItemCount` 布局预取数），切换列数时自动重建预加载器
 - **ZoomImageView**（ZoomImage 1.4.0）大图子采样（>=2000px 启用）
 - **ExoPlayerManager**：全局单例，跨页面保持播放状态
+
+## 缩略图缓存（ThumbnailManager）
+
+- `data/local/ThumbnailManager.kt`：通过 `ContentResolver.loadThumbnail()` 生成 512px JPEG 缩略图
+- 缓存目录：`cache/thumbnails/{photoId}.jpg`，首次生成后 Glide 优先加载本地缓存文件
+- 支持：批量删除、孤儿清理（`cleanupOrphanedThumbnails()`）、数量统计
+- RAW 格式跳过缩略图生成（`image/x-*`）
 
 ## RecyclerView 网格
 
@@ -125,6 +133,19 @@ Kotlin 2.3.20，AGP 9.2.1，minSdk 30，compileSdk 36，targetSdk 35，Java 21�
 - **400ms 加载延迟**：`PhotoDetailViewModel.loadPhotosInBackground()` 等待导航动画完成，避免掉帧
 - **底部工具栏 systemBars inset**：与 `TrashPhotoPreviewDialog` 同样的 `ViewCompat.setOnApplyWindowInsetsListener` 处理 `systemBars.bottom`，保证按钮在系统导航栏之上
 
+## 详情页列表缓存（PhotoDetailListCache）
+
+- `ui/detail/PhotoDetailListCache.kt`：@Singleton，导航跳转前快照当前网格可见列表
+- `put(photos)` 写入 → `take(expectedPhotoId)` 读取后立即清空
+- 详情页 `PhotoDetailViewModel` 初始化时优先读取缓存，避免重新 Room 查询 + 过滤 + 排序
+- `take()` 验证 `expectedPhotoId` 存在性，不匹配则回退 Room 查询
+
+## AVIF 子采样解码（AvifRegionDecoder）
+
+- `ui/detail/AvifRegionDecoder.kt`：ZoomImage 的 `RegionDecoder` 扩展，Android 12+ 支持
+- AVIF 不支持 `BitmapRegionDecoder` → 采用 `ImageDecoder` 全图缩放 + 裁切策略
+- `Factory` 注册模式识别 `image/avif` MIME，仅 Android 12+ 启用
+
 ## HDR 检测（PhotoPageViewHolder）
 
 三重检测逻辑：
@@ -156,12 +177,13 @@ data class ViewHolderConfig(
     val showFavorite: Boolean = true,
     val showVideoIndicator: Boolean = true,
     val showFormatTag: Boolean = true,
-    val showExpirationTag: Boolean = false  // 回收站专用
+    val showExpirationTag: Boolean = false,
+    val showHdrTag: Boolean = true
 )
 ```
-- Photos/Albums 默认显示所有状态
+- Photos/Albums 默认显示所有状态（含 HDR 标签）
 - Trash：`showExpirationTag=true`，显示剩余天数
-- Hidden：全关
+- Hidden：全关（`showHdrTag=false`）
 
 ## PhotoListAdapter
 
@@ -179,13 +201,14 @@ data class ViewHolderConfig(
 - **ScanState**（SharedFlow）：`Idle` / `Scanning(current, total, progress)` / `Completed` / `Error`
 - **ScanningProgressDialog**：DialogFragment，底部卡片进度条，含完成动画，1.5 秒自动关闭
 - **ScanViewModel**：ActivityViewModels，管理扫描生命周期
-- 初始化触发：`PhotosViewModel.init` 检查 `!scanPreferences.isScanCompleted` → 执行全量扫描
+- 初始化触发：`PhotosViewModel.init` 检查 `!scanPreferences.isScanCompleted` → 执行全量扫描；若 `isCompleted=true 但 isExifExtractionCompleted=false` → 恢复 EXIF 提取
 
 ## ScanPreferences 键
 
 | 键 | 类型 | 默认值 | 说明 |
 |----|------|--------|------|
 | `scan_completed` | Boolean | false | 首次扫描是否完成 |
+| `exif_extraction_completed` | Boolean | false | EXIF 提取是否完成（进程被杀后恢复用） |
 | `last_scan_time` | Long | 0L | 最后扫描时间（秒） |
 | `last_media_count` | Int | 0 | 最后扫描媒体数量 |
 | `incremental_since_deletion_check` | Int | 0 | 上次删除检查后的增量扫描次数 |
@@ -206,6 +229,38 @@ data class ViewHolderConfig(
 - `HiddenFragment`：BiometricPrompt 认证（BIOMETRIC_STRONG + DEVICE_CREDENTIAL），认证失败自动返回
 - 数据源：Room Flow（`photoDao.getAllPhotosFlow()` → filter `isHidden`）
 - 恢复操作：`photoDao.updateHiddenBatch(ids, false)`（无需 IntentSender，直接写 Room）
+- `HiddenAdapter`：继承 `ListAdapter<Photo, PhotoGridViewHolder>`，`setHasStableIds(true)`
+- `HiddenSelectionManager`：继承 `BaseSelectionManager`
+- ViewHolderConfig：全关（`showFavorite=false`、`showVideoIndicator=false`、`showFormatTag=false`、`showExpirationTag=false`、`showHdrTag=false`）
+
+## 设置页面
+
+- `ui/settings/SettingsFragment.kt`：Hilt 注入，三个设置项：
+  - **语言选择**：系统/中文/英文三档，单选对话框切换
+  - **排除相册**：点击进入 ExcludedAlbumsFragment
+  - **HDR 显示**：MaterialSwitch 实时控制 HDR 标签全局开关
+
+### 语言切换（LocaleManager）
+
+- `util/LocaleManager.kt`：@Singleton，SharedPreferences 持久化语言选择
+- 通过 `AppCompatDelegate.setApplicationLocales()` 全局设置，触发 Activity 重建
+- 三档：`system`（跟随系统）/ `zh`（简体中文）/ `en`（English）
+- `StateFlow<String>` 实时监听当前语言
+- `StarGalleryApp.onCreate()` 调用 `localeManager.applyLocale()` 冷启动恢复
+
+### 排除相册（ExcludedAlbumManager）
+
+- `util/ExcludedAlbumManager.kt`：@Singleton，SharedPreferences 存储 `Set<String>(bucketId)` → `StateFlow<Set<Long>>`
+- 方法：`isExcluded()`、`setExcluded()`、`setExcludedBatch()`、`setAllExcluded()`
+- `PhotosViewModel.baseFilteredList` 通过 `combine` 联动排除 → Room Flow 自动推送更新
+- `ExcludedAlbumsFragment`：动态加载相册列表，多选弹窗管理排除项，`MaterialAlertDialogBuilder` + `setMultiChoiceItems`
+- 隔离扫描：MediaScanner 增量/全量扫描时检查 exclude 状态
+
+### HDR 显示开关（HdrDisplayManager）
+
+- `util/HdrDisplayManager.kt`：@Singleton，SharedPreferences 存储 HDR 标签显示状态（默认 true）
+- SettingsFragment 内 MaterialSwitch 实时切换
+- PhotoGridViewHolder 通过 `config.showHdrTag` 控制显示
 
 ## 相册管理
 
@@ -216,6 +271,7 @@ data class ViewHolderConfig(
   - **网格列数偏好** prefix = `"album_span_count"`，与首页各自独立，**通过 `GridSpanPreferences` 复用同一套解析/写入规则**（竖横屏独立 + 旋转不写偏好 + resolver 跨方向 fallback）
   - 排序/分组：独立的 `KEY_SORT_TYPE_ALBUM` / `KEY_GROUP_TYPE_ALBUM` 键
   - 数据源：MediaStore 直接查询（非 Room），手动排序/分组
+- `AlbumSelectionManager`：继承 `BaseSelectionManager`，只选择 `PhotoItem`（跳过 `SeparatorItem`）
 
 ## 导航图
 
@@ -225,10 +281,10 @@ photosFragment (start)
   → trashFragment
   → hiddenFragment         [需生物识别]
   → aboutFragment
+  → settingsFragment
 
 albumsFragment
   → albumDetailFragment
-  → photoDetailFragment    (slide)
 
 albumDetailFragment
   → photoDetailFragment    (slide)
@@ -238,6 +294,9 @@ hiddenFragment
 
 aboutFragment
   → privacyPolicyFragment, permissionsFragment, thirdPartyLibrariesFragment, contactFragment, licenseFragment
+
+settingsFragment
+  → excludedAlbumsFragment
 ```
 
 `photoDetailFragment` 参数：`initialPhoto`（Photo?）、`photoId`（long）、`sortType`（int）、`bucketId`（long, default=-1）、`favoritesOnly`（boolean, default=false）、`filterCameraMake`（string?）、`filterCameraModel`（string?）、`filterLensModel`（string?）
@@ -251,6 +310,7 @@ EXIF 筛选参数以 `\n` 分隔 `Set<String>` 编码传递，详情页解码后
 - 调用时机：`onCreate` 末尾 + `onConfigurationChanged`
 - 底部 systemBars insets：与目标宽度叠加使用，通过 `ViewCompat.setOnApplyWindowInsetsListener` 把 `systemBars.bottom` 加到 `bottomMargin`，避开系统导航栏
 - XML 中 `bottom_nav` 用 `wrap_content` + 居中约束 + 32dp marginStart/End（代码动态覆盖实际值）
+- **底部导航可见性**：`NavController.addOnDestinationChangedListener` 监听目标变化，`photoDetailFragment` / `albumDetailFragment` / `trashFragment` / `hiddenFragment` / `aboutFragment` / 6 个 about 子页面 / `settingsFragment` / `excludedAlbumsFragment` 时隐藏底部导航；photosFragment / albumsFragment 时显示
 
 ## 横屏适配（layout-land/）
 
@@ -270,16 +330,21 @@ EXIF 筛选参数以 `\n` 分隔 `Set<String>` 编码传递，详情页解码后
 ```
 app/src/main/java/com/gxstar/stargallery/
 ├── MainActivity.kt                  # applyBottomNavWidth + insets + 旋转
-├── StarGalleryApp.kt
+├── StarGalleryApp.kt                # @HiltAndroidApp + LocaleManager.applyLocale()
 ├── data/
 │   ├── local/
 │   │   ├── db/             # PhotoDao, PhotoEntity, AppDatabase (Room, v7)
 │   │   ├── scanner/        # MediaScanner (全量/增量扫描)
 │   │   ├── exif/           # ExifExtractor, PhotoStyleResolver (7品牌)
-│   │   └── preferences/    # ScanPreferences (4 keys)
+│   │   ├── preferences/    # ScanPreferences (5 keys)
+│   │   └── ThumbnailManager.kt     # 512px JPEG 缩略图缓存
 │   ├── model/              # Photo (Parcelable, 25+ fields), Album
 │   └── repository/         # MediaRepository (MediaStore 操作)
 ├── di/                     # Hilt 模块 (AppModule, DatabaseModule, PreferenceModule)
+├── util/                   # 工具类（根级）
+│   ├── ExcludedAlbumManager.kt     # 排除相册管理 (StateFlow)
+│   ├── HdrDisplayManager.kt        # HDR 显示开关
+│   └── LocaleManager.kt            # 语言切换 (system/zh/en)
 ├── ui/
 │   ├── photos/             # 首页网格 (PhotosFragment, PhotosViewModel)
 │   │   ├── action/         # BatchActionHandler (6种操作)
@@ -293,16 +358,21 @@ app/src/main/java/com/gxstar/stargallery/
 │   │   ├── GridSpacingItemDecoration.kt
 │   │   ├── PhotoListAdapter.kt
 │   │   └── PhotoPreloadModelProvider.kt
-│   ├── albums/             # 相册列表 (AlbumsFragment) + 详情 (AlbumDetailFragment)
+│   ├── albums/             # 相册列表 (AlbumsFragment) + 详情 (AlbumDetailFragment, AlbumDetailAdapter, AlbumSelectionManager)
 │   ├── detail/             # 照片详情 (ViewPager2 + ZoomImageView + ExoPlayer + HDR)
 │   │   ├── ExoPlayerManager.kt        # 单例
 │   │   ├── PhotoDetailFragment.kt
 │   │   ├── PhotoDetailViewModel.kt
+│   │   ├── PhotoDetailListCache.kt    # 列表快照缓存
 │   │   ├── PhotoInfoBottomSheet.kt    # (EXIF + 地图)
 │   │   ├── PhotoPagerAdapter.kt       # DiffUtil
-│   │   └── PhotoPageViewHolder.kt     # (缩放/视频/GIF/HDR)
+│   │   ├── PhotoPageViewHolder.kt     # (缩放/视频/GIF/HDR)
+│   │   └── AvifRegionDecoder.kt       # AVIF 子采样 (Android 12+)
+│   ├── settings/           # 设置页
+│   │   ├── SettingsFragment.kt         # 语言 + 排除相册 + HDR 开关
+│   │   └── ExcludedAlbumsFragment.kt  # 排除相册管理
 │   ├── trash/              # 回收站 (TrashFragment, TrashPhotoPreviewDialog)
-│   ├── hidden/             # 隐藏照片 (HiddenFragment, 需生物识别)
+│   ├── hidden/             # 隐藏照片 (HiddenFragment, HiddenAdapter, HiddenSelectionManager, HiddenViewModel)
 │   ├── about/              # 6个子页面
 │   ├── common/             # 共享组件
 │   │   ├── BaseSelectionManager.kt
@@ -339,6 +409,11 @@ app/src/main/java/com/gxstar/stargallery/
 - **搜索**：按文件名/文件夹名实时过滤
 - **HDR 检测**：三重检测（Ultra HDR / RGBA_F16 / ColorSpace）
 - **照片风格解析**：7 大相机品牌照片风格/胶片模拟映射
+- **语言切换**：系统/中文/英文三档，`AppCompatDelegate.setApplicationLocales()` 全局持久化，无需重启
+- **排除相册**：在设置中排除指定相册，`baseFilteredList` 自动过滤，Room Flow 实时同步
+- **HDR 显示开关**：设置中控制 HDR 标签全局显示，不影响检测逻辑
+- **AVIF 支持**：Android 12+ 子采样解码，ZoomImageView 集成，全图缩放 + 裁剪策略
+- **缩略图缓存**：`ThumbnailManager` 本地缓存 512px JPEG，减少 Glide 重复加载
 - **坐标转换**：WGS84→GCJ02，适配中国地图
 - **动态预加载**：预加载量随列数自动调整（列数 × 3/4）
 - **列数偏好竖横屏独立**：首页与相册详情各自独立；当前方向未设时复用另一方向值；都没设时按屏宽计算
