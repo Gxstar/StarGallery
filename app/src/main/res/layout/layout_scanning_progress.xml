@@ -17,7 +17,7 @@
         android:clickable="true"
         android:focusable="true"
         app:cardBackgroundColor="?attr/colorSurface"
-        app:cardCornerRadius="16dp"
+        app:cardCornerRadius="@dimen/shape_corner_lg"
         app:cardElevation="4dp">
 
         <LinearLayout
