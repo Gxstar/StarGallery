@@ -43,8 +43,8 @@
 
     <!-- ===== 新增：从 drawable 提取的资源 ===== -->
     <color name="bottom_nav_bg">#E61C1C1E</color>
-    <color name="fastscroll_popup_bg">#E6F5F5F5</color>
-    <color name="fastscroll_popup_text">#FF000000</color>
+    <color name="fastscroll_popup_bg">#E6343436</color>
+    <color name="fastscroll_popup_text">#FFFFFFFF</color>
     <color name="photo_detail_bar_bg">#F21C1C1E</color>
     <color name="tag_overlay">#1AFFFFFF</color>
     <color name="tag_overlay_light">#0DFFFFFF</color>
