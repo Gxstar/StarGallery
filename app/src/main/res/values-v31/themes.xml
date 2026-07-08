@@ -2,7 +2,7 @@
 <resources>
 
     <!-- 启动画面主题 (Android 12+ API 31+) -->
-    <style name="Theme.App.Starting" parent="Theme.SplashScreen">
+    <style name="Theme.App.Starting" parent="Theme.Material3.DynamicColors.Light">
         <!-- 启动画面背景色 -->
         <item name="windowSplashScreenBackground">@color/white</item>
         <!-- 启动画面图标 -->
