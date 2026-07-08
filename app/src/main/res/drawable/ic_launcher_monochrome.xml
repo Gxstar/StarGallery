@@ -5,80 +5,89 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- 8 片花瓣:与 F1 排列一致,起始偏移 22.5° -->
+    <!-- 整体缩放到 85%，增加外围留白 -->
     <group
+        android:scaleX="0.80"
+        android:scaleY="0.80"
         android:pivotX="54"
-        android:pivotY="54"
-        android:rotation="22.5">
-        <path
-            android:fillColor="#000000"
-            android:pathData="M54,37 C58,38 60,44 60,50 C60,55 57,58 54,58 C51,58 48,55 48,50 C48,44 50,38 54,37 Z" />
-    </group>
-    <group
-        android:pivotX="54"
-        android:pivotY="54"
-        android:rotation="67.5">
-        <path
-            android:fillColor="#000000"
-            android:pathData="M54,37 C58,38 60,44 60,50 C60,55 57,58 54,58 C51,58 48,55 48,50 C48,44 50,38 54,37 Z" />
-    </group>
-    <group
-        android:pivotX="54"
-        android:pivotY="54"
-        android:rotation="112.5">
-        <path
-            android:fillColor="#000000"
-            android:pathData="M54,37 C58,38 60,44 60,50 C60,55 57,58 54,58 C51,58 48,55 48,50 C48,44 50,38 54,37 Z" />
-    </group>
-    <group
-        android:pivotX="54"
-        android:pivotY="54"
-        android:rotation="157.5">
-        <path
-            android:fillColor="#000000"
-            android:pathData="M54,37 C58,38 60,44 60,50 C60,55 57,58 54,58 C51,58 48,55 48,50 C48,44 50,38 54,37 Z" />
-    </group>
-    <group
-        android:pivotX="54"
-        android:pivotY="54"
-        android:rotation="202.5">
-        <path
-            android:fillColor="#000000"
-            android:pathData="M54,37 C58,38 60,44 60,50 C60,55 57,58 54,58 C51,58 48,55 48,50 C48,44 50,38 54,37 Z" />
-    </group>
-    <group
-        android:pivotX="54"
-        android:pivotY="54"
-        android:rotation="247.5">
-        <path
-            android:fillColor="#000000"
-            android:pathData="M54,37 C58,38 60,44 60,50 C60,55 57,58 54,58 C51,58 48,55 48,50 C48,44 50,38 54,37 Z" />
-    </group>
-    <group
-        android:pivotX="54"
-        android:pivotY="54"
-        android:rotation="292.5">
-        <path
-            android:fillColor="#000000"
-            android:pathData="M54,37 C58,38 60,44 60,50 C60,55 57,58 54,58 C51,58 48,55 48,50 C48,44 50,38 54,37 Z" />
-    </group>
-    <group
-        android:pivotX="54"
-        android:pivotY="54"
-        android:rotation="337.5">
-        <path
-            android:fillColor="#000000"
-            android:pathData="M54,37 C58,38 60,44 60,50 C60,55 57,58 54,58 C51,58 48,55 48,50 C48,44 50,38 54,37 Z" />
-    </group>
+        android:pivotY="54">
 
-    <!-- 中心圆环 (evenOdd 实现镂空) -->
-    <path
-        android:fillColor="#000000"
-        android:fillType="evenOdd"
-        android:pathData="M54,54 m-11,0 a11,11 0 1,0 22,0 a11,11 0 1,0 -22,0 M54,54 m-8,0 a8,8 0 1,1 16,0 a8,8 0 1,1 -16,0 Z" />
+        <!-- 8 片花瓣:与 F1 排列一致,起始偏移 22.5° -->
+        <group
+            android:pivotX="54"
+            android:pivotY="54"
+            android:rotation="22.5">
+            <path
+                android:fillColor="#000000"
+                android:pathData="M54,37 C58,38 60,44 60,50 C60,55 57,58 54,58 C51,58 48,55 48,50 C48,44 50,38 54,37 Z" />
+        </group>
+        <group
+            android:pivotX="54"
+            android:pivotY="54"
+            android:rotation="67.5">
+            <path
+                android:fillColor="#000000"
+                android:pathData="M54,37 C58,38 60,44 60,50 C60,55 57,58 54,58 C51,58 48,55 48,50 C48,44 50,38 54,37 Z" />
+        </group>
+        <group
+            android:pivotX="54"
+            android:pivotY="54"
+            android:rotation="112.5">
+            <path
+                android:fillColor="#000000"
+                android:pathData="M54,37 C58,38 60,44 60,50 C60,55 57,58 54,58 C51,58 48,55 48,50 C48,44 50,38 54,37 Z" />
+        </group>
+        <group
+            android:pivotX="54"
+            android:pivotY="54"
+            android:rotation="157.5">
+            <path
+                android:fillColor="#000000"
+                android:pathData="M54,37 C58,38 60,44 60,50 C60,55 57,58 54,58 C51,58 48,55 48,50 C48,44 50,38 54,37 Z" />
+        </group>
+        <group
+            android:pivotX="54"
+            android:pivotY="54"
+            android:rotation="202.5">
+            <path
+                android:fillColor="#000000"
+                android:pathData="M54,37 C58,38 60,44 60,50 C60,55 57,58 54,58 C51,58 48,55 48,50 C48,44 50,38 54,37 Z" />
+        </group>
+        <group
+            android:pivotX="54"
+            android:pivotY="54"
+            android:rotation="247.5">
+            <path
+                android:fillColor="#000000"
+                android:pathData="M54,37 C58,38 60,44 60,50 C60,55 57,58 54,58 C51,58 48,55 48,50 C48,44 50,38 54,37 Z" />
+        </group>
+        <group
+            android:pivotX="54"
+            android:pivotY="54"
+            android:rotation="292.5">
+            <path
+                android:fillColor="#000000"
+                android:pathData="M54,37 C58,38 60,44 60,50 C60,55 57,58 54,58 C51,58 48,55 48,50 C48,44 50,38 54,37 Z" />
+        </group>
+        <group
+            android:pivotX="54"
+            android:pivotY="54"
+            android:rotation="337.5">
+            <path
+                android:fillColor="#000000"
+                android:pathData="M54,37 C58,38 60,44 60,50 C60,55 57,58 54,58 C51,58 48,55 48,50 C48,44 50,38 54,37 Z" />
+        </group>
 
-    <!-- 中心四芒星 (sharp sparkle, 镂空圆环内) -->
-    <path
-        android:fillColor="#000000"
-        android:pathData="M54,47 L55.49,52.51 L61,54 L55.49,55.49 L54,61 L52.51,55.49 L47,54 L52.51,52.51 Z" />
+        <!-- 中心圆环 (evenOdd 实现镂空) -->
+        <path
+            android:fillColor="#000000"
+            android:fillType="evenOdd"
+            android:pathData="M54,54 m-11,0 a11,11 0 1,0 22,0 a11,11 0 1,0 -22,0 M54,54 m-8,0 a8,8 0 1,1 16,0 a8,8 0 1,1 -16,0 Z" />
+
+        <!-- 中心四芒星 (sharp sparkle, 镂空圆环内) -->
+        <path
+            android:fillColor="#000000"
+            android:pathData="M54,47 L55.49,52.51 L61,54 L55.49,55.49 L54,61 L52.51,55.49 L47,54 L52.51,52.51 Z" />
+
+    </group>
 </vector>
