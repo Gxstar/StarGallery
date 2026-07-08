@@ -48,7 +48,7 @@ StarGallery 当前主题已是 `Theme.Material3.Light.NoActionBar` / `Theme.Mate
 
 | 文件 | 改动 |
 |---|---|
-| `app/src/main/res/values-v31/themes.xml:5` | `Theme.App.Starting parent="Theme.SplashScreen"` 改为 `parent="Theme.Material3.DynamicColors.Light"`（DynamicColors 主题继承自 SplashScreen，保留启动屏能力） |
+| `app/src/main/res/values-v31/themes.xml:5` | `Theme.App.Starting parent="Theme.SplashScreen"` 改为 `parent="Theme.Material3.DynamicColors.Light"`（SplashScreen 能力由显式子属性 + AndroidX core-splashscreen 内部 resolveAttribute 维持，不依赖 parent 继承） |
 | `app/src/main/res/values-night-v31/themes.xml:3` | `Theme.App.Starting parent="Theme.SplashScreen"` 改为 `parent="Theme.Material3.DynamicColors.Dark"` |
 
 **为什么改 v31 文件而不是 `values/themes.xml`**：

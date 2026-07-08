@@ -10,7 +10,7 @@
 ## Progress
 
 ### Task 1: 提升 minSdk 到 31
-- Status: pending
+- Status: complete (commits 08bab10..cf3edc4, review clean)
 
 ### Task 2: 启动页主题接入 DynamicColors Light/Dark
 - Status: pending

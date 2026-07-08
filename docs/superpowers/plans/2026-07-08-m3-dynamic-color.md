@@ -115,7 +115,12 @@ cat app/src/main/res/values-v31/themes.xml
     <style name="Theme.App.Starting" parent="Theme.Material3.DynamicColors.Light">
 ```
 
-**为什么可以换**：`Theme.Material3.DynamicColors.Light` 本身继承自 `Theme.SplashScreen`，会保留所有 SplashScreen 能力（`windowSplashScreenBackground` / `windowSplashScreenAnimatedIcon` / `postSplashScreenTheme` 仍生效）。
+**为什么可以换**（三层保障，互不依赖 parent 继承链）：
+1. SplashScreen 三个子属性（`windowSplashScreenBackground` / `windowSplashScreenAnimatedIcon` / `postSplashScreenTheme`）在 `Theme.App.Starting` style 内**显式**设置
+2. `MainActivity.kt:32` `installSplashScreen()`（AndroidX core-splashscreen 1.2.0）在 API 31+ 内部用 `resolveAttribute` 直接读取当前主题属性，不依赖 parent
+3. Android 12+ 系统直接读 `android:windowSplashScreen*` 命名空间属性，与 parent 无关
+
+实际 AAR 继承链（已验证 `~/.gradle/caches/.../material/1.11.0/.../values/values.xml`）：`Theme.Material3.DynamicColors.Light` → `Theme.Material3.Light` → `Base.Theme.Material3.Light` → `Theme.MaterialComponents.Light`，链上无 `Theme.SplashScreen` 节点。`Theme.SplashScreen` 来自 `androidx.core:core-splashscreen` 包，是独立主题族。
 
 - [ ] **Step 3: 读 `values-night-v31/themes.xml` 确认当前 parent**
 
@@ -136,6 +141,8 @@ cat app/src/main/res/values-night-v31/themes.xml
 ```xml
     <style name="Theme.App.Starting" parent="Theme.Material3.DynamicColors.Dark">
 ```
+
+**Dark 模式同理由**（父主题为 `Theme.Material3.DynamicColors.Dark`，三层保障同 Step 2）。
 
 - [ ] **Step 5: 验证编译通过**
 
