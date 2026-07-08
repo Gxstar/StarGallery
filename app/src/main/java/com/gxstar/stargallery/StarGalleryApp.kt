@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import androidx.appcompat.app.AppCompatDelegate
 import com.gxstar.stargallery.util.LocaleManager
+import com.google.android.material.color.DynamicColors
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 
@@ -23,6 +24,7 @@ class StarGalleryApp : Application() {
         super.onCreate()
         localeManager.applyLocale()
         applyThemeFromPreferences()
+        DynamicColors.applyToActivitiesIfAvailable(this)
     }
 
     private fun applyThemeFromPreferences() {
