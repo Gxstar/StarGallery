@@ -60,7 +60,7 @@
             android:layout_weight="1"
             android:layout_marginStart="8dp"
             android:text="@string/delete_permanently"
-            android:backgroundTint="@color/delete_red"
+            android:backgroundTint="?attr/colorError"
             app:icon="@drawable/ic_delete"
             app:iconTint="@color/white" />
 
