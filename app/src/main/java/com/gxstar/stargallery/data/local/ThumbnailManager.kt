@@ -42,8 +42,6 @@ class ThumbnailManager @Inject constructor(
                 val bitmap = ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
                     decoder.setTargetSize(THUMBNAIL_SIZE, THUMBNAIL_SIZE)
                 }
-                Log.d(TAG, "decodeBitmap: ${bitmap.width}x${bitmap.height} for $uri")
-
                 val file = File(cacheDir, "${photoId}.jpg")
                 file.outputStream().use { out ->
                     bitmap.compress(Bitmap.CompressFormat.JPEG, THUMBNAIL_QUALITY, out)
