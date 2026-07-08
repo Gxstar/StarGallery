@@ -13,10 +13,10 @@
 - Status: complete (commits 08bab10..cf3edc4, review clean)
 
 ### Task 2: 启动页主题接入 DynamicColors Light/Dark
-- Status: pending
+- Status: complete (commits cf3edc4..8903241, review clean)
 
 ### Task 3: StarGalleryApp 接入 DynamicColors
-- Status: pending
+- Status: complete (commits b0826eb..703fb52, review clean)
 
 ### Task 4: 设备回归 + 截图归档
 - Status: pending
