@@ -58,7 +58,7 @@
                     android:layout_marginStart="12dp"
                     android:layout_weight="1"
                     android:text="@string/scanning_title"
-                    android:textColor="@color/text_primary"
+                    android:textColor="?attr/colorOnSurface"
                     android:textSize="16sp"
                     android:textStyle="bold" />
 
@@ -70,7 +70,7 @@
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:src="@drawable/ic_close"
                     android:contentDescription="@string/cancel"
-                    android:tint="@color/text_tertiary" />
+                    android:tint="?attr/colorOnSurfaceVariant" />
 
             </LinearLayout>
 
@@ -81,7 +81,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
                 android:text="@string/scanning_description_short"
-                android:textColor="@color/text_secondary"
+                android:textColor="?attr/colorOnSurfaceVariant"
                 android:textSize="13sp" />
 
             <!-- 进度条 -->
@@ -91,7 +91,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
                 app:indicatorColor="@color/primary"
-                app:trackColor="@color/divider"
+                app:trackColor="?attr/colorOutlineVariant"
                 app:trackCornerRadius="4dp" />
 
             <!-- 进度文本 -->
@@ -100,7 +100,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
-                android:textColor="@color/text_tertiary"
+                android:textColor="?attr/colorOnSurfaceVariant"
                 android:textSize="12sp" />
 
         </LinearLayout>
