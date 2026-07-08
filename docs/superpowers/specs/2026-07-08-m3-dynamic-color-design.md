@@ -61,14 +61,17 @@ StarGallery 当前主题已是 `Theme.Material3.Light.NoActionBar` / `Theme.Mate
 
 | 文件 | 改动 |
 |---|---|
-| `app/src/main/java/com/gxstar/stargallery/MainActivity.kt` | `onCreate` 中在 `super.onCreate(savedInstanceState)` 之后、`LocaleManager.applyLocale()` 之后调用 `DynamicColors.applyToActivitiesIfAvailable(this)` |
+| `app/src/main/java/com/gxstar/stargallery/StarGalleryApp.kt` | `onCreate` 中在 `applyThemeFromPreferences()` 之后调用 `DynamicColors.applyToActivitiesIfAvailable(this)` |
 
 **API 选型**：`DynamicColors.applyToActivitiesIfAvailable(Application)` 是 Material Components 1.11.0 提供的标准入口。它会：
 - 检测系统是否支持动态颜色（API 31+）
 - 不支持时静默跳过
 - 自动应用 light + dark scheme，运行时跟随系统 `Configuration.UI_MODE_NIGHT_MASK`
 
-**放置位置**：`super.onCreate` 之后即可调用，不依赖任何 View 创建，因此对所有 fragment 一视同仁。`LocaleManager.applyLocale()` 必须先于 DynamicColors 调用，因为 locale 切换会触发 Activity 重建，DynamicColors 需要在重建后重新应用。
+**放置位置**：`Application.onCreate` 阶段，早于所有 Activity 创建。调用顺序必须是 `localeManager.applyLocale()` → `applyThemeFromPreferences()` → `DynamicColors.applyToActivitiesIfAvailable(this)`：
+- `LocaleManager.applyLocale()` 必须先调用，因为它决定 Activity Configuration 中的 locale
+- `applyThemeFromPreferences()`（即 `AppCompatDelegate.setDefaultNightMode`）必须先调用，因为它决定 Activity 使用 light 还是 dark 主题
+- DynamicColors 在最后调用，会基于已确定的 locale + nightMode 应用对应 scheme
 
 ### 4.4 关于保留主题属性
 
@@ -158,11 +161,12 @@ StarGallery 当前主题已是 `Theme.Material3.Light.NoActionBar` / `Theme.Mate
 
 执行顺序：
 1. 改 `app/build.gradle.kts:19` `minSdk = 31`
-2. 改 `MainActivity.kt` `onCreate` 加入 `DynamicColors.applyToActivitiesIfAvailable(this)`
-3. `./gradlew.bat assembleDebug` 验证
-4. 设备回归（Android 12 + Android 14 真机）
-5. 截图归档
-6. 提交（用户确认后）
+2. 改 `values/themes.xml:5` 和 `values-night/themes.xml` 的 `Theme.App.Starting` parent 为 `Theme.Material3.DynamicColors.{Light,Dark}`
+3. 改 `StarGalleryApp.kt` `onCreate` 在 `applyThemeFromPreferences()` 之后加入 `DynamicColors.applyToActivitiesIfAvailable(this)` 和 import
+4. `./gradlew.bat assembleDebug` 验证
+5. 设备回归（Android 12 + Android 14 真机）
+6. 截图归档
+7. 提交（用户确认后）
 
 ---
 
