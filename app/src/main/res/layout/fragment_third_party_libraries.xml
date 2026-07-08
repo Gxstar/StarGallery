@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fitsSystemWindows="true"
-    android:background="@color/background">
+    android:background="?attr/colorSurface">
 
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
@@ -16,7 +16,7 @@
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            android:background="@color/background_white"
+            android:background="?attr/colorSurfaceContainer"
             app:title="@string/third_party_title"
             app:navigationIcon="@drawable/ic_back"/>
 
@@ -33,7 +33,7 @@
             android:layout_height="wrap_content"
             android:text="@string/third_party_intro"
             android:textSize="14sp"
-            android:textColor="@color/text_secondary"
+            android:textColor="?attr/colorOnSurfaceVariant"
             android:padding="16dp"
             android:lineSpacingMultiplier="1.4"/>
 

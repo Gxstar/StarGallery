@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fitsSystemWindows="true"
-    android:background="@color/background">
+    android:background="?attr/colorSurface">
 
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
@@ -16,7 +16,7 @@
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            android:background="@color/background_white"
+            android:background="?attr/colorSurfaceContainer"
             app:title="@string/contact_title"
             app:navigationIcon="@drawable/ic_back"/>
 
@@ -39,7 +39,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/contact_intro"
                 android:textSize="14sp"
-                android:textColor="@color/text_secondary"
+                android:textColor="?attr/colorOnSurfaceVariant"
                 android:lineSpacingMultiplier="1.5"
                 android:layout_marginBottom="24dp"/>
 
@@ -58,7 +58,7 @@
                     android:layout_width="40dp"
                     android:layout_height="40dp"
                     android:src="@drawable/ic_email"
-                    app:tint="@color/primary"/>
+                    app:tint="?attr/colorPrimary"/>
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -71,7 +71,7 @@
                         android:layout_height="wrap_content"
                         android:text="@string/contact_email_title"
                         android:textSize="16sp"
-                        android:textColor="@color/text_primary"
+                        android:textColor="?attr/colorOnSurface"
                         android:fontFamily="sans-serif-medium"/>
                     <TextView
                         android:id="@+id/tvEmail"
@@ -79,7 +79,7 @@
                         android:layout_height="wrap_content"
                         android:text="@string/contact_email"
                         android:textSize="13sp"
-                        android:textColor="@color/primary"
+                        android:textColor="?attr/colorPrimary"
                         android:layout_marginTop="2dp"/>
                 </LinearLayout>
 
@@ -87,7 +87,7 @@
                     android:layout_width="20dp"
                     android:layout_height="20dp"
                     android:src="@drawable/ic_arrow_right"
-                    app:tint="@color/text_secondary"/>
+                    app:tint="?attr/colorOnSurfaceVariant"/>
             </LinearLayout>
 
             

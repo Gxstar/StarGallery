@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fitsSystemWindows="true"
-    android:background="@color/background">
+    android:background="?attr/colorSurface">
 
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
@@ -16,7 +16,7 @@
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            android:background="@color/background_white"
+            android:background="?attr/colorSurfaceContainer"
             app:title="@string/permissions_title"
             app:navigationIcon="@drawable/ic_back"/>
 
@@ -39,7 +39,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/permissions_intro"
                 android:textSize="14sp"
-                android:textColor="@color/text_secondary"
+                android:textColor="?attr/colorOnSurfaceVariant"
                 android:lineSpacingMultiplier="1.5"
                 android:layout_marginBottom="24dp"/>
 
@@ -62,14 +62,14 @@
                         android:layout_height="wrap_content"
                         android:text="@string/permission_media_images_title"
                         android:textSize="15sp"
-                        android:textColor="@color/text_primary"
+                        android:textColor="?attr/colorOnSurface"
                         android:fontFamily="sans-serif-medium"/>
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/permission_media_images_desc"
                         android:textSize="13sp"
-                        android:textColor="@color/text_secondary"
+                        android:textColor="?attr/colorOnSurfaceVariant"
                         android:lineSpacingMultiplier="1.4"
                         android:layout_marginTop="4dp"/>
                 </LinearLayout>
@@ -85,14 +85,14 @@
                         android:layout_height="wrap_content"
                         android:text="@string/permission_media_video_title"
                         android:textSize="15sp"
-                        android:textColor="@color/text_primary"
+                        android:textColor="?attr/colorOnSurface"
                         android:fontFamily="sans-serif-medium"/>
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/permission_media_video_desc"
                         android:textSize="13sp"
-                        android:textColor="@color/text_secondary"
+                        android:textColor="?attr/colorOnSurfaceVariant"
                         android:lineSpacingMultiplier="1.4"
                         android:layout_marginTop="4dp"/>
                 </LinearLayout>
@@ -108,14 +108,14 @@
                         android:layout_height="wrap_content"
                         android:text="@string/permission_storage_title"
                         android:textSize="15sp"
-                        android:textColor="@color/text_primary"
+                        android:textColor="?attr/colorOnSurface"
                         android:fontFamily="sans-serif-medium"/>
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/permission_storage_desc"
                         android:textSize="13sp"
-                        android:textColor="@color/text_secondary"
+                        android:textColor="?attr/colorOnSurfaceVariant"
                         android:lineSpacingMultiplier="1.4"
                         android:layout_marginTop="4dp"/>
                 </LinearLayout>
@@ -130,14 +130,14 @@
                         android:layout_height="wrap_content"
                         android:text="@string/permission_user_selected_title"
                         android:textSize="15sp"
-                        android:textColor="@color/text_primary"
+                        android:textColor="?attr/colorOnSurface"
                         android:fontFamily="sans-serif-medium"/>
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/permission_user_selected_desc"
                         android:textSize="13sp"
-                        android:textColor="@color/text_secondary"
+                        android:textColor="?attr/colorOnSurfaceVariant"
                         android:lineSpacingMultiplier="1.4"
                         android:layout_marginTop="4dp"/>
                 </LinearLayout>
@@ -150,7 +150,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/permissions_note"
                 android:textSize="13sp"
-                android:textColor="@color/text_secondary"
+                android:textColor="?attr/colorOnSurfaceVariant"
                 android:lineSpacingMultiplier="1.4"
                 android:layout_marginTop="20dp"/>
 
