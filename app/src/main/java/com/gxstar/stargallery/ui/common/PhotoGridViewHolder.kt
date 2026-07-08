@@ -1,10 +1,16 @@
 package com.gxstar.stargallery.ui.common
 
+import android.graphics.drawable.BitmapDrawable
+import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
+import com.bumptech.glide.load.DataSource
 import com.bumptech.glide.load.engine.DiskCacheStrategy
+import com.bumptech.glide.load.engine.GlideException
+import com.bumptech.glide.request.RequestListener
+import com.bumptech.glide.request.target.Target
 import com.gxstar.stargallery.R
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.databinding.ItemPhotoBinding
@@ -81,6 +87,7 @@ class PhotoGridViewHolder(
 
         val thumbFile = photo.thumbnailPath?.let { File(it) }
         val loadUri = if (thumbFile?.exists() == true) thumbFile else photo.uri
+        Log.d("ThumbDebug", "loadImage source: ${if (thumbFile?.exists() == true) "thumbnail" else "original"}, loadUri=$loadUri")
 
         val requestBuilder = Glide.with(ctx)
             .load(loadUri)
@@ -95,7 +102,30 @@ class PhotoGridViewHolder(
             requestBuilder.override(itemSize, itemSize)
         }
 
-        requestBuilder.into(binding.ivPhoto)
+        requestBuilder.listener(object : RequestListener<android.graphics.drawable.Drawable> {
+            override fun onResourceReady(
+                resource: android.graphics.drawable.Drawable,
+                model: Any,
+                target: Target<android.graphics.drawable.Drawable>,
+                dataSource: DataSource,
+                isFirstResource: Boolean
+            ): Boolean {
+                if (resource is BitmapDrawable) {
+                    val bmp = resource.bitmap
+                    val vw = binding.ivPhoto.width
+                    val vh = binding.ivPhoto.height
+                    Log.d("ThumbDebug", "Glide bitmap: ${bmp.width}x${bmp.height}, view: ${vw}x${vh}, itemSize: $itemSize, uri: ${photo.uri}")
+                }
+                return false
+            }
+
+            override fun onLoadFailed(
+                e: GlideException?,
+                model: Any?,
+                target: Target<android.graphics.drawable.Drawable>,
+                isFirstResource: Boolean
+            ): Boolean = false
+        }).into(binding.ivPhoto)
     }
 
     private fun updateSelectionUI(isSelectionMode: Boolean, isSelected: Boolean, photo: Photo) {

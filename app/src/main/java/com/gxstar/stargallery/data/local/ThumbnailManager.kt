@@ -2,9 +2,9 @@ package com.gxstar.stargallery.data.local
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.ImageDecoder
 import android.net.Uri
 import android.util.Log
-import android.util.Size
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -38,9 +38,11 @@ class ThumbnailManager @Inject constructor(
             }
 
             try {
-                val size = Size(THUMBNAIL_SIZE, THUMBNAIL_SIZE)
-                val bitmap = context.contentResolver.loadThumbnail(uri, size, null)
-                    ?: return@withContext null
+                val source = ImageDecoder.createSource(context.contentResolver, uri)
+                val bitmap = ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
+                    decoder.setTargetSize(THUMBNAIL_SIZE, THUMBNAIL_SIZE)
+                }
+                Log.d(TAG, "decodeBitmap: ${bitmap.width}x${bitmap.height} for $uri")
 
                 val file = File(cacheDir, "${photoId}.jpg")
                 file.outputStream().use { out ->
