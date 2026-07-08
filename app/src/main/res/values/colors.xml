@@ -1,36 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- 主色调 - 小米相册风格 -->
-    <color name="primary">#FF000000</color>
-    <color name="primary_dark">#FF000000</color>
-    <color name="accent">#FF007AFF</color>
+    <!-- 主色调 - M3 scheme 派生 -->
+    <color name="primary">@color/md_theme_light_primary</color>
+    <color name="primary_dark">@color/md_theme_light_primary</color>
+    <color name="accent">@color/md_theme_light_primary</color>
     
     <!-- 背景色 -->
-    <color name="background">#FFFAFAFA</color>
-    <color name="background_white">#FFFFFFFF</color>
-    <color name="background_card">#FFF5F5F5</color>
+    <color name="background">@color/md_theme_light_background</color>
+    <color name="background_white">@color/md_theme_light_surface</color>
+    <color name="background_card">@color/md_theme_light_surfaceContainerHigh</color>
     
     <!-- 文字颜色 -->
-    <color name="text_primary">#FF000000</color>
-    <color name="text_secondary">#FF666666</color>
+    <color name="text_primary">@color/md_theme_light_onSurface</color>
+    <color name="text_secondary">@color/md_theme_light_onSurfaceVariant</color>
     <color name="text_tertiary">#FF999999</color>
     <color name="text_hint">#FFCCCCCC</color>
     
     <!-- 图标颜色 -->
-    <color name="icon_normal">#FF222222</color>
-    <color name="icon_selected">#FF007AFF</color>
-    <color name="icon_disabled">#FFCCCCCC</color>
+    <color name="icon_normal">@color/md_theme_light_onSurface</color>
+    <color name="icon_selected">@color/md_theme_light_primary</color>
+    <color name="icon_disabled">@color/md_theme_light_onSurface</color>
     
     <!-- 分隔线 -->
-    <color name="divider">#FFE5E5E5</color>
+    <color name="divider">@color/md_theme_light_outlineVariant</color>
     
     <!-- 选中状态 -->
     <color name="selected_overlay">#33FFFFFF</color>
-    <color name="selected_border">#FF007AFF</color>
+    <color name="selected_border">@color/md_theme_light_primary</color>
     
     <!-- 快速滚动条 -->
-    <color name="fastscroll_thumb">#FF007AFF</color>
-    <color name="fastscroll_track">#FFDDDDDD</color>
+    <color name="fastscroll_thumb">@color/md_theme_light_primary</color>
+    <color name="fastscroll_track">@color/md_theme_light_surfaceVariant</color>
     
     <!-- 基础颜色 -->
     <color name="black">#FF000000</color>
@@ -38,10 +38,10 @@
     <color name="transparent">#00000000</color>
     
     <!-- 收藏心形 -->
-    <color name="heart_red">#FFFF3B30</color>
+    <color name="heart_red">@color/md_theme_light_error</color>
     
     <!-- 危险操作颜色 -->
-    <color name="delete_red">#FFFF453A</color>
+    <color name="delete_red">@color/md_theme_light_error</color>
 
     <!-- ===== 暗色主题适配 ===== -->
     <color name="bottom_nav_bg">#E6FFFFFF</color>
@@ -57,8 +57,8 @@
     <color name="play_button_bg">#80000000</color>
     <color name="video_controls_bg">#60000000</color>
     <color name="dot_bg">#80000000</color>
-    <color name="card_secondary_bg">#F2F2F7</color>
-    <color name="exif_progress_tint">#FF64B5F6</color>
-    <color name="card_light_stroke">#FFE5E5EA</color>
-    <color name="delete_drag_handle">#FFE0E0E0</color>
+    <color name="card_secondary_bg">@color/md_theme_light_surfaceContainerHigh</color>
+    <color name="exif_progress_tint">@color/md_theme_light_primary</color>
+    <color name="card_light_stroke">@color/md_theme_light_outline</color>
+    <color name="delete_drag_handle">@color/md_theme_light_onSurfaceVariant</color>
 </resources>
