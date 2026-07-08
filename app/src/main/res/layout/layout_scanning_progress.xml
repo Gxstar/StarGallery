@@ -8,7 +8,7 @@
     android:focusable="false">
 
     <!-- 底部提示卡片 -->
-    <androidx.cardview.widget.CardView
+    <com.google.android.material.card.MaterialCardView
         android:id="@+id/cardScanProgress"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -17,7 +17,6 @@
         android:clickable="true"
         android:focusable="true"
         app:cardBackgroundColor="?attr/colorSurface"
-        app:cardCornerRadius="@dimen/shape_corner_lg"
         app:cardElevation="4dp">
 
         <LinearLayout
@@ -105,6 +104,6 @@
 
         </LinearLayout>
 
-    </androidx.cardview.widget.CardView>
+    </com.google.android.material.card.MaterialCardView>
 
 </FrameLayout>
