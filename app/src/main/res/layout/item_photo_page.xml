@@ -43,7 +43,7 @@
             android:src="@drawable/ic_play_circle"
             android:visibility="gone"
             android:background="@drawable/bg_play_button"
-            android:elevation="4dp" />
+            android:elevation="@dimen/elevation_level_2" />
 
         <!-- Video Player View -->
         <androidx.media3.ui.PlayerView

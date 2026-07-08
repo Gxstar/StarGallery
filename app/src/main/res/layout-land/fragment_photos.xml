@@ -12,7 +12,7 @@
         android:layout_height="wrap_content"
         android:background="?attr/colorSurface"
         android:stateListAnimator="@null"
-        app:elevation="0dp"
+        app:elevation="@dimen/elevation_level_2"
         app:liftOnScroll="false"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
