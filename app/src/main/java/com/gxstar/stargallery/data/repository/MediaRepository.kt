@@ -18,6 +18,7 @@ import com.gxstar.stargallery.data.model.Photo
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -630,14 +631,33 @@ class MediaRepository @Inject constructor(
     }
 
     /**
+     * 打开 Uri 用于 EXIF 写入。支持 file:// 和 content:// 两种 URI。
+     * file:// 直接用 ParcelFileDescriptor.open(File, MODE_READ_WRITE)，避免 contentResolver 对 file:// 不可靠的问题。
+     */
+    private fun openFileDescriptorForWrite(uri: Uri): ParcelFileDescriptor? {
+        return try {
+            if (uri.scheme == "file") {
+                val path = uri.path ?: return null
+                ParcelFileDescriptor.open(File(path), ParcelFileDescriptor.MODE_READ_WRITE)
+            } else {
+                contentResolver.openFileDescriptor(uri, "rw")
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    /**
      * 从源文件复制所有 EXIF 信息到目标文件。
      * 方向强制设为 1（编辑后旋转/翻转已直接应用到图像数据），尺寸更新为编辑后的值。
+     * 支持 file:// 和 content:// 两种 URI。
      */
     fun copyAllExif(sourceUri: Uri, destUri: Uri, newWidth: Int, newHeight: Int) {
         try {
             contentResolver.openInputStream(sourceUri)?.use { sourceStream ->
                 val srcExif = ExifInterface(sourceStream)
-                val pfd = contentResolver.openFileDescriptor(destUri, "rw") ?: return
+                val pfd = openFileDescriptorForWrite(destUri) ?: return
                 val destExif = ExifInterface(pfd.fileDescriptor)
                 copyExifAttributes(srcExif, destExif)
                 destExif.setAttribute(ExifInterface.TAG_ORIENTATION, "1")

@@ -274,7 +274,19 @@ class PhotoDetailFragment : Fragment() {
             .setPositiveButton(R.string.save) { _, _ ->
                 lifecycleScope.launch(Dispatchers.IO) {
                     val photo = viewModel.currentPhoto.value
-                    val destUri = photo?.let { mediaRepository.createImageCopyPlaceholder(it) }
+                    if (photo == null) {
+                        tempFile.delete()
+                        return@launch
+                    }
+                    val opts = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                    android.graphics.BitmapFactory.decodeFile(tempFile.absolutePath, opts)
+                    mediaRepository.copyAllExif(
+                        photo.uri,
+                        android.net.Uri.fromFile(tempFile),
+                        opts.outWidth,
+                        opts.outHeight
+                    )
+                    val destUri = mediaRepository.createImageCopyPlaceholder(photo)
                     if (destUri != null) {
                         requireContext().contentResolver.openOutputStream(destUri)?.use { output ->
                             tempFile.inputStream().use { input -> input.copyTo(output) }
