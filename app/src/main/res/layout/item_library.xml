@@ -20,7 +20,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:textSize="16sp"
-            android:textColor="?attr/colorOnSurface"
+            android:textColor="@color/text_primary"
             android:fontFamily="sans-serif-medium"/>
 
         <TextView
@@ -28,7 +28,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textSize="12sp"
-            android:textColor="?attr/colorOnSurfaceVariant"
+            android:textColor="@color/text_secondary"
             android:background="@drawable/bg_tag"
             android:paddingHorizontal="8dp"
             android:paddingVertical="2dp"/>
@@ -39,7 +39,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:textSize="13sp"
-        android:textColor="?attr/colorOnSurfaceVariant"
+        android:textColor="@color/text_secondary"
         android:layout_marginTop="4dp"/>
 
     <TextView
@@ -47,6 +47,6 @@
         android:layout_height="wrap_content"
         android:text="@string/tap_to_view"
         android:textSize="11sp"
-        android:textColor="?attr/colorPrimary"
+        android:textColor="@color/primary"
         android:layout_marginTop="8dp"/>
 </LinearLayout>

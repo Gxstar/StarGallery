@@ -8,7 +8,7 @@
     android:focusable="false">
 
     <!-- 底部提示卡片 -->
-    <com.google.android.material.card.MaterialCardView
+    <androidx.cardview.widget.CardView
         android:id="@+id/cardScanProgress"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -17,6 +17,7 @@
         android:clickable="true"
         android:focusable="true"
         app:cardBackgroundColor="?attr/colorSurface"
+        app:cardCornerRadius="16dp"
         app:cardElevation="4dp">
 
         <LinearLayout
@@ -57,7 +58,7 @@
                     android:layout_marginStart="12dp"
                     android:layout_weight="1"
                     android:text="@string/scanning_title"
-                    android:textColor="?attr/colorOnSurface"
+                    android:textColor="@color/text_primary"
                     android:textSize="16sp"
                     android:textStyle="bold" />
 
@@ -69,7 +70,7 @@
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:src="@drawable/ic_close"
                     android:contentDescription="@string/cancel"
-                    android:tint="?attr/colorOnSurfaceVariant" />
+                    android:tint="@color/text_tertiary" />
 
             </LinearLayout>
 
@@ -80,7 +81,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
                 android:text="@string/scanning_description_short"
-                android:textColor="?attr/colorOnSurfaceVariant"
+                android:textColor="@color/text_secondary"
                 android:textSize="13sp" />
 
             <!-- 进度条 -->
@@ -90,7 +91,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
                 app:indicatorColor="@color/primary"
-                app:trackColor="?attr/colorOutlineVariant"
+                app:trackColor="@color/divider"
                 app:trackCornerRadius="4dp" />
 
             <!-- 进度文本 -->
@@ -99,11 +100,11 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
-                android:textColor="?attr/colorOnSurfaceVariant"
+                android:textColor="@color/text_tertiary"
                 android:textSize="12sp" />
 
         </LinearLayout>
 
-    </com.google.android.material.card.MaterialCardView>
+    </androidx.cardview.widget.CardView>
 
 </FrameLayout>

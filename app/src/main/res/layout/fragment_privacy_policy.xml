@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fitsSystemWindows="true"
-    android:background="?attr/colorSurface">
+    android:background="@color/background">
 
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
@@ -16,7 +16,7 @@
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            android:background="?attr/colorSurfaceContainer"
+            android:background="@color/background_white"
             app:title="@string/privacy_policy_title"
             app:navigationIcon="@drawable/ic_back"/>
 
@@ -39,7 +39,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/privacy_policy_date"
                 android:textSize="12sp"
-                android:textColor="?attr/colorOnSurfaceVariant"
+                android:textColor="@color/text_secondary"
                 android:layout_marginBottom="16dp"/>
 
             <!-- 介绍 -->
@@ -48,7 +48,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/privacy_policy_intro"
                 android:textSize="14sp"
-                android:textColor="?attr/colorOnSurface"
+                android:textColor="@color/text_primary"
                 android:lineSpacingMultiplier="1.5"
                 android:layout_marginBottom="24dp"/>
 
@@ -58,7 +58,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/privacy_section_1_title"
                 android:textSize="17sp"
-                android:textColor="?attr/colorOnSurface"
+                android:textColor="@color/text_primary"
                 android:fontFamily="sans-serif-medium"
                 android:layout_marginBottom="8dp"/>
 
@@ -67,7 +67,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/privacy_section_1_content"
                 android:textSize="14sp"
-                android:textColor="?attr/colorOnSurfaceVariant"
+                android:textColor="@color/text_secondary"
                 android:lineSpacingMultiplier="1.4"
                 android:layout_marginBottom="20dp"/>
 
@@ -77,7 +77,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/privacy_section_2_title"
                 android:textSize="17sp"
-                android:textColor="?attr/colorOnSurface"
+                android:textColor="@color/text_primary"
                 android:fontFamily="sans-serif-medium"
                 android:layout_marginBottom="8dp"/>
 
@@ -86,7 +86,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/privacy_section_2_content"
                 android:textSize="14sp"
-                android:textColor="?attr/colorOnSurfaceVariant"
+                android:textColor="@color/text_secondary"
                 android:lineSpacingMultiplier="1.4"
                 android:layout_marginBottom="20dp"/>
 
@@ -96,7 +96,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/privacy_section_3_title"
                 android:textSize="17sp"
-                android:textColor="?attr/colorOnSurface"
+                android:textColor="@color/text_primary"
                 android:fontFamily="sans-serif-medium"
                 android:layout_marginBottom="8dp"/>
 
@@ -105,7 +105,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/privacy_section_3_content"
                 android:textSize="14sp"
-                android:textColor="?attr/colorOnSurfaceVariant"
+                android:textColor="@color/text_secondary"
                 android:lineSpacingMultiplier="1.4"
                 android:layout_marginBottom="20dp"/>
 
@@ -115,7 +115,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/privacy_section_5_title"
                 android:textSize="17sp"
-                android:textColor="?attr/colorOnSurface"
+                android:textColor="@color/text_primary"
                 android:fontFamily="sans-serif-medium"
                 android:layout_marginBottom="8dp"/>
 
@@ -124,7 +124,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/privacy_section_5_content"
                 android:textSize="14sp"
-                android:textColor="?attr/colorOnSurfaceVariant"
+                android:textColor="@color/text_secondary"
                 android:lineSpacingMultiplier="1.4"
                 android:layout_marginBottom="20dp"/>
 
@@ -134,7 +134,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/privacy_section_7_title"
                 android:textSize="17sp"
-                android:textColor="?attr/colorOnSurface"
+                android:textColor="@color/text_primary"
                 android:fontFamily="sans-serif-medium"
                 android:layout_marginBottom="8dp"/>
 
@@ -143,7 +143,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/privacy_section_7_content"
                 android:textSize="14sp"
-                android:textColor="?attr/colorOnSurfaceVariant"
+                android:textColor="@color/text_secondary"
                 android:lineSpacingMultiplier="1.4"
                 android:layout_marginBottom="20dp"/>
 
@@ -153,7 +153,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/privacy_section_9_title"
                 android:textSize="17sp"
-                android:textColor="?attr/colorOnSurface"
+                android:textColor="@color/text_primary"
                 android:fontFamily="sans-serif-medium"
                 android:layout_marginBottom="8dp"/>
 
@@ -162,7 +162,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/privacy_section_9_content"
                 android:textSize="14sp"
-                android:textColor="?attr/colorOnSurfaceVariant"
+                android:textColor="@color/text_secondary"
                 android:lineSpacingMultiplier="1.4"/>
 
         </LinearLayout>

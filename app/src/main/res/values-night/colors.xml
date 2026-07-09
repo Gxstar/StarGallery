@@ -1,36 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- 主色调 - M3 dark scheme 派生 -->
-    <color name="primary">@color/md_theme_dark_primary</color>
-    <color name="primary_dark">@color/md_theme_dark_primary</color>
-    <color name="accent">@color/md_theme_dark_primary</color>
+    <!-- 主色调 -->
+    <color name="primary">#FFFFFFFF</color>
+    <color name="primary_dark">#FFE1E1E1</color>
+    <color name="accent">#FF0A84FF</color>
 
     <!-- 背景色 -->
-    <color name="background">@color/md_theme_dark_background</color>
-    <color name="background_white">@color/md_theme_dark_surface</color>
-    <color name="background_card">@color/md_theme_dark_surfaceContainerHigh</color>
+    <color name="background">#FF0D0D0D</color>
+    <color name="background_white">#FF1C1C1E</color>
+    <color name="background_card">#FF2C2C2E</color>
 
     <!-- 文字颜色 -->
-    <color name="text_primary">@color/md_theme_dark_onSurface</color>
-    <color name="text_secondary">@color/md_theme_dark_onSurfaceVariant</color>
+    <color name="text_primary">#FFF5F5F5</color>
+    <color name="text_secondary">#FF8E8E93</color>
     <color name="text_tertiary">#FF636366</color>
     <color name="text_hint">#FF48484A</color>
 
     <!-- 图标颜色 -->
-    <color name="icon_normal">@color/md_theme_dark_onSurface</color>
-    <color name="icon_selected">@color/md_theme_dark_primary</color>
-    <color name="icon_disabled">@color/md_theme_dark_onSurface</color>
+    <color name="icon_normal">#FFE5E5E5</color>
+    <color name="icon_selected">#FF0A84FF</color>
+    <color name="icon_disabled">#FF48484A</color>
 
     <!-- 分隔线 -->
-    <color name="divider">@color/md_theme_dark_outlineVariant</color>
+    <color name="divider">#FF38383A</color>
 
     <!-- 选中状态 -->
     <color name="selected_overlay">#1A0A84FF</color>
-    <color name="selected_border">@color/md_theme_dark_primary</color>
+    <color name="selected_border">#FF0A84FF</color>
 
     <!-- 快速滚动条 -->
-    <color name="fastscroll_thumb">@color/md_theme_dark_primary</color>
-    <color name="fastscroll_track">@color/md_theme_dark_surfaceVariant</color>
+    <color name="fastscroll_thumb">#FF0A84FF</color>
+    <color name="fastscroll_track">#FF38383A</color>
 
     <!-- 基础颜色 -->
     <color name="black">#FF000000</color>
@@ -38,13 +38,13 @@
     <color name="transparent">#00000000</color>
 
     <!-- 语义色 -->
-    <color name="heart_red">@color/md_theme_dark_error</color>
-    <color name="delete_red">@color/md_theme_dark_error</color>
+    <color name="heart_red">#FFFF3B30</color>
+    <color name="delete_red">#FFFF453A</color>
 
     <!-- ===== 新增：从 drawable 提取的资源 ===== -->
     <color name="bottom_nav_bg">#E61C1C1E</color>
-    <color name="fastscroll_popup_bg">#E6343436</color>
-    <color name="fastscroll_popup_text">#FFFFFFFF</color>
+    <color name="fastscroll_popup_bg">#E6F5F5F5</color>
+    <color name="fastscroll_popup_text">#FF000000</color>
     <color name="photo_detail_bar_bg">#F21C1C1E</color>
     <color name="tag_overlay">#1AFFFFFF</color>
     <color name="tag_overlay_light">#0DFFFFFF</color>
@@ -55,8 +55,8 @@
     <color name="play_button_bg">#80FFFFFF</color>
     <color name="video_controls_bg">#60FFFFFF</color>
     <color name="dot_bg">#80FFFFFF</color>
-    <color name="card_secondary_bg">@color/md_theme_dark_surfaceContainerHigh</color>
-    <color name="exif_progress_tint">@color/md_theme_dark_primary</color>
-    <color name="card_light_stroke">@color/md_theme_dark_outlineVariant</color>
-    <color name="delete_drag_handle">@color/md_theme_dark_onSurfaceVariant</color>
+    <color name="card_secondary_bg">#2C2C2E</color>
+    <color name="exif_progress_tint">#FF64B5F6</color>
+    <color name="card_light_stroke">#FF48484A</color>
+    <color name="delete_drag_handle">#FF48484A</color>
 </resources>

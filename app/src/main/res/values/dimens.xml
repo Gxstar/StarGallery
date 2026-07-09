@@ -1,22 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- 圆角系统化 token -->
-    <dimen name="shape_corner_xs">4dp</dimen>
-    <dimen name="shape_corner_sm">8dp</dimen>
-    <dimen name="shape_corner_md">12dp</dimen>
-    <dimen name="shape_corner_lg">16dp</dimen>
-    <dimen name="shape_corner_xl">28dp</dimen>
-
-    <!-- Surface container 高度 (elevation) token -->
-    <dimen name="elevation_level_0">0dp</dimen>
-    <dimen name="elevation_level_1">1dp</dimen>
-    <dimen name="elevation_level_2">3dp</dimen>
-    <dimen name="elevation_level_3">6dp</dimen>
-    <dimen name="elevation_level_4">8dp</dimen>
-    <dimen name="elevation_level_5">12dp</dimen>
-
-    <!-- Spacing token -->
+    <!-- 间距 -->
+    <dimen name="spacing_xs">4dp</dimen>
     <dimen name="spacing_sm">8dp</dimen>
     <dimen name="spacing_md">12dp</dimen>
     <dimen name="spacing_lg">16dp</dimen>
+    <dimen name="spacing_xl">24dp</dimen>
+    
+    <!-- 图片网格 -->
+    <dimen name="grid_spacing">2dp</dimen>
+    <dimen name="grid_spacing_lg">8dp</dimen>
+    <dimen name="photo_corner_radius">8dp</dimen>
+    
+    <!-- 顶部栏 -->
+    <dimen name="toolbar_height">56dp</dimen>
+    <dimen name="toolbar_icon_size">24dp</dimen>
+    
+    <!-- 底部导航 -->
+    <dimen name="bottom_nav_height">64dp</dimen>
+    
+    <!-- 文字大小 -->
+    <dimen name="text_size_headline">28sp</dimen>
+    <dimen name="text_size_title">18sp</dimen>
+    <dimen name="text_size_subtitle">14sp</dimen>
+    <dimen name="text_size_caption">12sp</dimen>
+    
+    <!-- 相册封面 -->
+    <dimen name="album_cover_height">100dp</dimen>
 </resources>

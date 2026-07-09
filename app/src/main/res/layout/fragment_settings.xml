@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fitsSystemWindows="true"
-    android:background="?attr/colorSurface">
+    android:background="@color/background">
 
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
@@ -16,7 +16,7 @@
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            android:background="?attr/colorSurfaceContainer"
+            android:background="@color/background_white"
             app:title="@string/settings"
             app:navigationIcon="@drawable/ic_back" />
 
@@ -37,7 +37,9 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/about_section_general"
-                style="@style/TextAppearance.M3.LabelMedium"
+                android:textSize="12sp"
+                android:textColor="@color/text_secondary"
+                android:fontFamily="sans-serif-medium"
                 android:paddingHorizontal="16dp"
                 android:paddingTop="16dp"
                 android:paddingBottom="8dp" />
@@ -57,7 +59,7 @@
                     android:layout_width="24dp"
                     android:layout_height="24dp"
                     android:src="@drawable/ic_feedback"
-                    app:tint="?attr/colorOnSurface" />
+                    app:tint="@color/text_primary" />
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -71,14 +73,14 @@
                         android:layout_height="wrap_content"
                         android:text="@string/settings_language"
                         android:textSize="16sp"
-                        android:textColor="?attr/colorOnSurface" />
+                        android:textColor="@color/text_primary" />
 
                     <TextView
                         android:id="@+id/tvLanguageSummary"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textSize="13sp"
-                        android:textColor="?attr/colorOnSurfaceVariant"
+                        android:textColor="@color/text_secondary"
                         android:layout_marginTop="2dp" />
                 </LinearLayout>
 
@@ -86,7 +88,7 @@
                     android:layout_width="20dp"
                     android:layout_height="20dp"
                     android:src="@drawable/ic_arrow_right"
-                    app:tint="?attr/colorOnSurfaceVariant" />
+                    app:tint="@color/text_secondary" />
             </LinearLayout>
 
             <!-- Excluded Albums -->
@@ -104,7 +106,7 @@
                     android:layout_width="24dp"
                     android:layout_height="24dp"
                     android:src="@drawable/ic_albums"
-                    app:tint="?attr/colorOnSurface" />
+                    app:tint="@color/text_primary" />
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -118,14 +120,14 @@
                         android:layout_height="wrap_content"
                         android:text="@string/settings_excluded_albums"
                         android:textSize="16sp"
-                        android:textColor="?attr/colorOnSurface" />
+                        android:textColor="@color/text_primary" />
 
                     <TextView
                         android:id="@+id/tvExcludedSummary"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textSize="13sp"
-                        android:textColor="?attr/colorOnSurfaceVariant"
+                        android:textColor="@color/text_secondary"
                         android:layout_marginTop="2dp" />
                 </LinearLayout>
 
@@ -133,7 +135,7 @@
                     android:layout_width="20dp"
                     android:layout_height="20dp"
                     android:src="@drawable/ic_arrow_right"
-                    app:tint="?attr/colorOnSurfaceVariant" />
+                    app:tint="@color/text_secondary" />
             </LinearLayout>
 
             <!-- HDR Display -->
@@ -149,7 +151,7 @@
                     android:layout_width="24dp"
                     android:layout_height="24dp"
                     android:src="@drawable/ic_camera"
-                    app:tint="?attr/colorOnSurface" />
+                    app:tint="@color/text_primary" />
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -163,14 +165,14 @@
                         android:layout_height="wrap_content"
                         android:text="@string/settings_hdr_display"
                         android:textSize="16sp"
-                        android:textColor="?attr/colorOnSurface" />
+                        android:textColor="@color/text_primary" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/settings_hdr_display_summary"
                         android:textSize="13sp"
-                        android:textColor="?attr/colorOnSurfaceVariant"
+                        android:textColor="@color/text_secondary"
                         android:layout_marginTop="2dp" />
                 </LinearLayout>
 

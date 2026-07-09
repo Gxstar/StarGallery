@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fitsSystemWindows="true"
-    android:background="?attr/colorSurface">
+    android:background="@color/background">
 
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
@@ -16,7 +16,7 @@
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            android:background="?attr/colorSurfaceContainer"
+            android:background="@color/background_white"
             app:title="@string/settings_excluded_albums"
             app:navigationIcon="@drawable/ic_back" />
 
@@ -38,7 +38,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/settings_excluded_hint"
                 android:textSize="13sp"
-                android:textColor="?attr/colorOnSurfaceVariant"
+                android:textColor="@color/text_tertiary"
                 android:paddingHorizontal="16dp"
                 android:paddingTop="16dp"
                 android:paddingBottom="8dp" />
@@ -49,7 +49,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/settings_excluded_empty"
                 android:textSize="14sp"
-                android:textColor="?attr/colorOnSurfaceVariant"
+                android:textColor="@color/text_secondary"
                 android:paddingHorizontal="16dp"
                 android:paddingVertical="24dp"
                 android:gravity="center" />

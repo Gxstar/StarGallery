@@ -102,7 +102,7 @@
                         android:id="@+id/tvSelectionCount"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:textColor="?attr/colorOnSurface"
+                        android:textColor="@color/text_primary"
                         android:textSize="18sp"
                         android:textStyle="bold"
                         app:layout_constraintBottom_toBottomOf="parent"
@@ -150,7 +150,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center"
         android:text="@string/hidden_empty"
-        android:textColor="?attr/colorOnSurfaceVariant"
+        android:textColor="@color/text_secondary"
         android:textSize="16sp"
         android:visibility="gone" />
 

@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fitsSystemWindows="true"
-    android:background="?attr/colorSurface">
+    android:background="@color/background">
 
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
@@ -16,7 +16,7 @@
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            android:background="?attr/colorSurfaceContainer"
+            android:background="@color/background_white"
             app:title="@string/about"
             app:navigationIcon="@drawable/ic_back"/>
 
@@ -52,7 +52,7 @@
                     android:layout_height="wrap_content"
                     android:text="@string/app_name"
                     android:textSize="20sp"
-                    android:textColor="?attr/colorOnSurface"
+                    android:textColor="@color/text_primary"
                     android:fontFamily="sans-serif-medium"
                     android:layout_marginTop="16dp"/>
 
@@ -61,7 +61,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:textSize="14sp"
-                    android:textColor="?attr/colorOnSurfaceVariant"
+                    android:textColor="@color/text_secondary"
                     android:layout_marginTop="4dp"/>
             </LinearLayout>
 
@@ -69,14 +69,16 @@
             <View
                 android:layout_width="match_parent"
                 android:layout_height="8dp"
-                android:background="?attr/colorOutlineVariant"/>
+                android:background="@color/divider"/>
 
             <!-- About Section Title -->
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/about_section_general"
-                style="@style/TextAppearance.M3.LabelMedium"
+                android:textSize="12sp"
+                android:textColor="@color/text_secondary"
+                android:fontFamily="sans-serif-medium"
                 android:paddingHorizontal="16dp"
                 android:paddingTop="16dp"
                 android:paddingBottom="8dp"/>
@@ -96,7 +98,7 @@
                     android:layout_width="24dp"
                     android:layout_height="24dp"
                     android:src="@drawable/ic_privacy"
-                    app:tint="?attr/colorOnSurface"/>
+                    app:tint="@color/text_primary"/>
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -110,14 +112,14 @@
                         android:layout_height="wrap_content"
                         android:text="@string/privacy_policy"
                         android:textSize="16sp"
-                        android:textColor="?attr/colorOnSurface"/>
+                        android:textColor="@color/text_primary"/>
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/privacy_policy_subtitle"
                         android:textSize="13sp"
-                        android:textColor="?attr/colorOnSurfaceVariant"
+                        android:textColor="@color/text_secondary"
                         android:layout_marginTop="2dp"/>
                 </LinearLayout>
 
@@ -125,7 +127,7 @@
                     android:layout_width="20dp"
                     android:layout_height="20dp"
                     android:src="@drawable/ic_arrow_right"
-                    app:tint="?attr/colorOnSurfaceVariant"/>
+                    app:tint="@color/text_secondary"/>
             </LinearLayout>
 
             <!-- Permissions -->
@@ -143,7 +145,7 @@
                     android:layout_width="24dp"
                     android:layout_height="24dp"
                     android:src="@drawable/ic_permission"
-                    app:tint="?attr/colorOnSurface"/>
+                    app:tint="@color/text_primary"/>
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -157,14 +159,14 @@
                         android:layout_height="wrap_content"
                         android:text="@string/permissions_title"
                         android:textSize="16sp"
-                        android:textColor="?attr/colorOnSurface"/>
+                        android:textColor="@color/text_primary"/>
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/permissions_subtitle"
                         android:textSize="13sp"
-                        android:textColor="?attr/colorOnSurfaceVariant"
+                        android:textColor="@color/text_secondary"
                         android:layout_marginTop="2dp"/>
                 </LinearLayout>
 
@@ -172,7 +174,7 @@
                     android:layout_width="20dp"
                     android:layout_height="20dp"
                     android:src="@drawable/ic_arrow_right"
-                    app:tint="?attr/colorOnSurfaceVariant"/>
+                    app:tint="@color/text_secondary"/>
             </LinearLayout>
 
             <!-- Third Party Libraries -->
@@ -190,7 +192,7 @@
                     android:layout_width="24dp"
                     android:layout_height="24dp"
                     android:src="@drawable/ic_code"
-                    app:tint="?attr/colorOnSurface"/>
+                    app:tint="@color/text_primary"/>
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -204,14 +206,14 @@
                         android:layout_height="wrap_content"
                         android:text="@string/third_party_title"
                         android:textSize="16sp"
-                        android:textColor="?attr/colorOnSurface"/>
+                        android:textColor="@color/text_primary"/>
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/third_party_subtitle"
                         android:textSize="13sp"
-                        android:textColor="?attr/colorOnSurfaceVariant"
+                        android:textColor="@color/text_secondary"
                         android:layout_marginTop="2dp"/>
                 </LinearLayout>
 
@@ -219,7 +221,7 @@
                     android:layout_width="20dp"
                     android:layout_height="20dp"
                     android:src="@drawable/ic_arrow_right"
-                    app:tint="?attr/colorOnSurfaceVariant"/>
+                    app:tint="@color/text_secondary"/>
             </LinearLayout>
 
             <!-- Contact -->
@@ -237,7 +239,7 @@
                     android:layout_width="24dp"
                     android:layout_height="24dp"
                     android:src="@drawable/ic_email"
-                    app:tint="?attr/colorOnSurface"/>
+                    app:tint="@color/text_primary"/>
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -251,14 +253,14 @@
                         android:layout_height="wrap_content"
                         android:text="@string/contact_title"
                         android:textSize="16sp"
-                        android:textColor="?attr/colorOnSurface"/>
+                        android:textColor="@color/text_primary"/>
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/contact_subtitle"
                         android:textSize="13sp"
-                        android:textColor="?attr/colorOnSurfaceVariant"
+                        android:textColor="@color/text_secondary"
                         android:layout_marginTop="2dp"/>
                 </LinearLayout>
 
@@ -266,21 +268,23 @@
                     android:layout_width="20dp"
                     android:layout_height="20dp"
                     android:src="@drawable/ic_arrow_right"
-                    app:tint="?attr/colorOnSurfaceVariant"/>
+                    app:tint="@color/text_secondary"/>
             </LinearLayout>
 
             <!-- Open Source Section -->
             <View
                 android:layout_width="match_parent"
                 android:layout_height="8dp"
-                android:background="?attr/colorOutlineVariant"
+                android:background="@color/divider"
                 android:layout_marginTop="16dp"/>
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/about_section_open_source"
-                style="@style/TextAppearance.M3.LabelMedium"
+                android:textSize="12sp"
+                android:textColor="@color/text_secondary"
+                android:fontFamily="sans-serif-medium"
                 android:paddingHorizontal="16dp"
                 android:paddingTop="16dp"
                 android:paddingBottom="8dp"/>
@@ -300,7 +304,7 @@
                     android:layout_width="24dp"
                     android:layout_height="24dp"
                     android:src="@drawable/ic_license"
-                    app:tint="?attr/colorOnSurface"/>
+                    app:tint="@color/text_primary"/>
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -314,14 +318,14 @@
                         android:layout_height="wrap_content"
                         android:text="@string/open_source_license"
                         android:textSize="16sp"
-                        android:textColor="?attr/colorOnSurface"/>
+                        android:textColor="@color/text_primary"/>
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/open_source_license_desc"
                         android:textSize="13sp"
-                        android:textColor="?attr/colorOnSurfaceVariant"
+                        android:textColor="@color/text_secondary"
                         android:layout_marginTop="2dp"/>
                 </LinearLayout>
 
@@ -329,7 +333,7 @@
                     android:layout_width="20dp"
                     android:layout_height="20dp"
                     android:src="@drawable/ic_arrow_right"
-                    app:tint="?attr/colorOnSurfaceVariant"/>
+                    app:tint="@color/text_secondary"/>
             </LinearLayout>
 
         </LinearLayout>

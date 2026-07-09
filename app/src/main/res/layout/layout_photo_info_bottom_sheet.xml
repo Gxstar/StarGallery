@@ -23,7 +23,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:textColor="?attr/colorOnSurface"
+                android:textColor="@color/text_primary"
                 android:textSize="17sp"
                 android:fontFamily="sans-serif-medium"
                 android:maxLines="1"
@@ -67,7 +67,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
             android:layout_marginBottom="12dp"
-            android:textColor="?attr/colorOnSurfaceVariant"
+            android:textColor="@color/text_tertiary"
             android:textSize="13sp"
             android:text="---" />
 
@@ -93,13 +93,13 @@
                     android:layout_width="20dp"
                     android:layout_height="20dp"
                     android:src="@drawable/ic_camera"
-                    app:tint="?attr/colorOnSurfaceVariant" />
+                    app:tint="@color/text_tertiary" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/photo_info_camera"
-                    android:textColor="?attr/colorOnSurfaceVariant"
+                    android:textColor="@color/text_tertiary"
                     android:textSize="13sp"
                     android:layout_marginStart="10dp"
                     android:layout_marginEnd="8dp" />
@@ -109,7 +109,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:textColor="?attr/colorOnSurface"
+                    android:textColor="@color/text_primary"
                     android:textSize="14sp"
                     android:fontFamily="sans-serif-medium"
                     android:gravity="end"
@@ -129,13 +129,13 @@
                     android:layout_width="20dp"
                     android:layout_height="20dp"
                     android:src="@drawable/ic_lens"
-                    app:tint="?attr/colorOnSurfaceVariant" />
+                    app:tint="@color/text_tertiary" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/photo_info_lens"
-                    android:textColor="?attr/colorOnSurfaceVariant"
+                    android:textColor="@color/text_tertiary"
                     android:textSize="13sp"
                     android:layout_marginStart="10dp"
                     android:layout_marginEnd="8dp" />
@@ -145,7 +145,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:textColor="?attr/colorOnSurface"
+                    android:textColor="@color/text_primary"
                     android:textSize="14sp"
                     android:fontFamily="sans-serif-medium"
                     android:gravity="end"
@@ -165,13 +165,13 @@
                     android:layout_width="20dp"
                     android:layout_height="20dp"
                     android:src="@drawable/ic_info"
-                    app:tint="?attr/colorOnSurfaceVariant" />
+                    app:tint="@color/text_tertiary" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/photo_info_resolution"
-                    android:textColor="?attr/colorOnSurfaceVariant"
+                    android:textColor="@color/text_tertiary"
                     android:textSize="13sp"
                     android:layout_marginStart="10dp"
                     android:layout_marginEnd="8dp" />
@@ -181,7 +181,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:textColor="?attr/colorOnSurface"
+                    android:textColor="@color/text_primary"
                     android:textSize="14sp"
                     android:fontFamily="sans-serif-medium"
                     android:gravity="end"
@@ -218,13 +218,13 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/photo_info_iso"
-                        android:textColor="?attr/colorOnSurfaceVariant"
+                        android:textColor="@color/text_tertiary"
                         android:textSize="11sp" />
                     <TextView
                         android:id="@+id/tvIsoValue"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:textColor="?attr/colorOnSurface"
+                        android:textColor="@color/text_primary"
                         android:textSize="14sp"
                         android:fontFamily="sans-serif-medium"
                         android:layout_marginTop="4dp"
@@ -234,7 +234,7 @@
                 <View
                     android:layout_width="1dp"
                     android:layout_height="match_parent"
-                    android:background="?attr/colorOutlineVariant" />
+                    android:background="@color/divider" />
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -248,13 +248,13 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/photo_info_aperture"
-                        android:textColor="?attr/colorOnSurfaceVariant"
+                        android:textColor="@color/text_tertiary"
                         android:textSize="11sp" />
                     <TextView
                         android:id="@+id/tvApertureValue"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:textColor="?attr/colorOnSurface"
+                        android:textColor="@color/text_primary"
                         android:textSize="14sp"
                         android:fontFamily="sans-serif-medium"
                         android:layout_marginTop="4dp"
@@ -264,7 +264,7 @@
                 <View
                     android:layout_width="1dp"
                     android:layout_height="match_parent"
-                    android:background="?attr/colorOutlineVariant" />
+                    android:background="@color/divider" />
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -278,13 +278,13 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/photo_info_exposure_comp"
-                        android:textColor="?attr/colorOnSurfaceVariant"
+                        android:textColor="@color/text_tertiary"
                         android:textSize="11sp" />
                     <TextView
                         android:id="@+id/tvExposureCompValue"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:textColor="?attr/colorOnSurface"
+                        android:textColor="@color/text_primary"
                         android:textSize="14sp"
                         android:fontFamily="sans-serif-medium"
                         android:layout_marginTop="4dp"
@@ -296,7 +296,7 @@
             <View
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
-                android:background="?attr/colorOutlineVariant" />
+                android:background="@color/divider" />
 
             <!-- Row 2: Shutter + Focal + Metering -->
             <LinearLayout
@@ -317,13 +317,13 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/photo_info_shutter"
-                        android:textColor="?attr/colorOnSurfaceVariant"
+                        android:textColor="@color/text_tertiary"
                         android:textSize="11sp" />
                     <TextView
                         android:id="@+id/tvShutterValue"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:textColor="?attr/colorOnSurface"
+                        android:textColor="@color/text_primary"
                         android:textSize="14sp"
                         android:fontFamily="sans-serif-medium"
                         android:layout_marginTop="4dp"
@@ -333,7 +333,7 @@
                 <View
                     android:layout_width="1dp"
                     android:layout_height="match_parent"
-                    android:background="?attr/colorOutlineVariant" />
+                    android:background="@color/divider" />
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -348,13 +348,13 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/photo_info_focal"
-                        android:textColor="?attr/colorOnSurfaceVariant"
+                        android:textColor="@color/text_tertiary"
                         android:textSize="11sp" />
                     <TextView
                         android:id="@+id/tvFocalValue"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:textColor="?attr/colorOnSurface"
+                        android:textColor="@color/text_primary"
                         android:textSize="14sp"
                         android:fontFamily="sans-serif-medium"
                         android:layout_marginTop="4dp"
@@ -364,7 +364,7 @@
                 <View
                     android:layout_width="1dp"
                     android:layout_height="match_parent"
-                    android:background="?attr/colorOutlineVariant" />
+                    android:background="@color/divider" />
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -378,13 +378,13 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/photo_info_metering_mode"
-                        android:textColor="?attr/colorOnSurfaceVariant"
+                        android:textColor="@color/text_tertiary"
                         android:textSize="11sp" />
                     <TextView
                         android:id="@+id/tvMeteringModeValue"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:textColor="?attr/colorOnSurface"
+                        android:textColor="@color/text_primary"
                         android:textSize="14sp"
                         android:fontFamily="sans-serif-medium"
                         android:layout_marginTop="4dp"
@@ -416,14 +416,14 @@
                 android:layout_width="20dp"
                 android:layout_height="20dp"
                 android:src="@drawable/ic_location"
-                app:tint="?attr/colorPrimary" />
+                app:tint="@color/accent" />
 
             <TextView
                 android:id="@+id/tvLocationCoords"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="10dp"
-                android:textColor="?attr/colorPrimary"
+                android:textColor="@color/accent"
                 android:textSize="14sp"
                 android:fontFamily="sans-serif-medium"
                 android:clickable="true"
@@ -455,14 +455,14 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="照片风格"
-                    android:textColor="?attr/colorOnSurfaceVariant"
+                    android:textColor="@color/text_tertiary"
                     android:textSize="13sp" />
 
                 <TextView
                     android:id="@+id/tvPhotoStyleValue"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:textColor="?attr/colorOnSurface"
+                    android:textColor="@color/text_primary"
                     android:textSize="14sp"
                     android:fontFamily="sans-serif-medium"
                     android:layout_marginStart="10dp"
@@ -484,7 +484,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="松下LUT"
-                    android:textColor="?attr/colorOnSurfaceVariant"
+                    android:textColor="@color/text_tertiary"
                     android:textSize="13sp" />
 
                 <LinearLayout

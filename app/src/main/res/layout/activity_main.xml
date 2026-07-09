@@ -26,7 +26,7 @@
         android:layout_marginStart="32dp"
         android:layout_marginEnd="32dp"
         android:background="@drawable/bg_bottom_nav"
-        android:elevation="@dimen/elevation_level_4"
+        android:elevation="8dp"
         app:itemBackground="@drawable/bg_bottom_nav_item"
         app:itemIconSize="24dp"
         app:itemIconTint="@color/bottom_nav_color"
