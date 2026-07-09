@@ -272,4 +272,18 @@
 
     <string name="settings_hdr_display">超动态显示</string>
     <string name="settings_hdr_display_summary">开启后以高动态范围显示 HDR 照片</string>
+
+    <!-- 图片编辑 -->
+    <string name="save">保存</string>
+    <string name="saved">已保存</string>
+    <string name="save_failed">保存失败</string>
+    <string name="save_crop_confirm">保存裁剪后的照片？</string>
+    <string name="edit_raw_unsupported">RAW 格式暂不支持编辑</string>
+    <string name="edit_video_unsupported">视频暂不支持编辑</string>
+    <string name="crop">裁剪</string>
+    <string name="adjust">调整</string>
+    <string name="flip">翻转</string>
+    <string name="filter">滤镜</string>
+    <string name="rotate">旋转</string>
+    <string name="redo">重做</string>
 </resources>

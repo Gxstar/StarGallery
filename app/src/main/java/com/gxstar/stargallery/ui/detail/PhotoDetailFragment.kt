@@ -4,6 +4,7 @@ import android.content.res.Configuration
 import android.app.Activity
 import android.content.Intent
 import android.content.IntentSender
+import android.graphics.Bitmap
 import android.graphics.Color
 import android.os.Bundle
 import android.util.TypedValue
@@ -23,6 +24,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.setFragmentResult
+import androidx.fragment.app.setFragmentResultListener
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -35,8 +37,11 @@ import com.gxstar.stargallery.util.HdrDisplayManager
 import com.gxstar.stargallery.databinding.FragmentPhotoDetailBinding
 import com.gxstar.stargallery.ui.common.DeleteOptionsBottomSheet
 import com.gxstar.stargallery.ui.photos.PhotosFragment
+import com.yalantis.ucrop.UCrop
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -97,7 +102,19 @@ class PhotoDetailFragment : Fragment() {
             viewModel.onFavoriteConfirmed()
         }
     }
-    
+
+    private var cropTempFile: java.io.File? = null
+
+    private val cropLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val tempFile = cropTempFile
+        cropTempFile = null
+        if (result.resultCode == Activity.RESULT_OK && tempFile?.exists() == true) {
+            showCropConfirmDialog(tempFile)
+        } else {
+            tempFile?.delete()
+        }
+    }
+
     private fun handlePhotoDeleted() {
         val currentPosition = binding.viewPager.currentItem
         pagerAdapter.removePhotoAt(currentPosition)
@@ -120,6 +137,10 @@ class PhotoDetailFragment : Fragment() {
         setupViews()
         setupSwipeToDismiss()
         observeData()
+
+        setFragmentResultListener("photo_edited") { _, _ ->
+            viewModel.refreshCurrentPhoto()
+        }
 
         // 初始状态下应用状态栏图标颜色
         updateSystemBarIcons(!isFullscreen)
@@ -212,9 +233,69 @@ class PhotoDetailFragment : Fragment() {
             }
         }
 
+        binding.btnEdit.setOnClickListener {
+            val photo = viewModel.currentPhoto.value ?: return@setOnClickListener
+            if (photo.isRaw) {
+                Toast.makeText(requireContext(), R.string.edit_raw_unsupported, Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            if (photo.isVideo) {
+                Toast.makeText(requireContext(), R.string.edit_video_unsupported, Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            startCrop(photo)
+        }
+
         binding.btnMore.setOnClickListener {
             showPopupMenu(it)
         }
+    }
+
+    private fun startCrop(photo: com.gxstar.stargallery.data.model.Photo) {
+        val tempFile = java.io.File(requireContext().cacheDir, "crop_${System.currentTimeMillis()}.jpg")
+        cropTempFile = tempFile
+        val options = UCrop.Options().apply {
+            setCompressionFormat(Bitmap.CompressFormat.JPEG)
+            setCompressionQuality(95)
+            setToolbarColor(Color.WHITE)
+            setToolbarWidgetColor(Color.BLACK)
+            setHideBottomControls(false)
+            setFreeStyleCropEnabled(true)
+        }
+        UCrop.of(photo.uri, android.net.Uri.fromFile(tempFile))
+            .withOptions(options)
+            .start(requireContext(), cropLauncher)
+    }
+
+    private fun showCropConfirmDialog(tempFile: java.io.File) {
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.edit)
+            .setMessage(R.string.save_crop_confirm)
+            .setPositiveButton(R.string.save) { _, _ ->
+                lifecycleScope.launch(Dispatchers.IO) {
+                    val photo = viewModel.currentPhoto.value
+                    val destUri = photo?.let { mediaRepository.createImageCopyPlaceholder(it) }
+                    if (destUri != null) {
+                        requireContext().contentResolver.openOutputStream(destUri)?.use { output ->
+                            tempFile.inputStream().use { input -> input.copyTo(output) }
+                        }
+                        mediaRepository.finalizeImageCopy(destUri)
+                    }
+                    tempFile.delete()
+                    withContext(Dispatchers.Main) {
+                        if (destUri != null) {
+                            Toast.makeText(requireContext(), R.string.saved, Toast.LENGTH_SHORT).show()
+                            viewModel.refreshCurrentPhoto()
+                        } else {
+                            Toast.makeText(requireContext(), R.string.save_failed, Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            }
+            .setNegativeButton(R.string.cancel) { _, _ ->
+                tempFile.delete()
+            }
+            .show()
     }
 
     private fun showPopupMenu(view: View) {

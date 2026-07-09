@@ -111,29 +111,18 @@ class MainActivity : AppCompatActivity() {
         binding.bottomNav.setupWithNavController(navController)
         
         // 监听导航目标变化，控制底部导航栏显示/隐藏
+        // 仅在首页网格和相册列表两个主页面显示，其余页面一律隐藏
         navController.addOnDestinationChangedListener { _, destination, _ ->
             when (destination.id) {
-                R.id.photoDetailFragment,
-                R.id.albumDetailFragment,
-                R.id.trashFragment,
-                R.id.hiddenFragment,
-                R.id.aboutFragment,
-                R.id.privacyPolicyFragment,
-                R.id.permissionsFragment,
-                R.id.thirdPartyLibrariesFragment,
-                R.id.contactFragment,
-                R.id.licenseFragment,
-                R.id.settingsFragment,
-                R.id.excludedAlbumsFragment -> {
-                    // 详情页和关于页面完全移除底部导航栏（不占用空间）
-                    if (binding.bottomNav.visibility != View.GONE) {
-                        binding.bottomNav.visibility = View.GONE
+                R.id.photosFragment,
+                R.id.albumsFragment -> {
+                    if (binding.bottomNav.visibility != View.VISIBLE) {
+                        binding.bottomNav.visibility = View.VISIBLE
                     }
                 }
                 else -> {
-                    // 主页面显示底部导航栏
-                    if (binding.bottomNav.visibility != View.VISIBLE) {
-                        binding.bottomNav.visibility = View.VISIBLE
+                    if (binding.bottomNav.visibility != View.GONE) {
+                        binding.bottomNav.visibility = View.GONE
                     }
                 }
             }

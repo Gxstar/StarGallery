@@ -6,8 +6,12 @@ import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
 import android.database.Cursor
+import android.graphics.Bitmap
+import android.media.ExifInterface
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.ParcelFileDescriptor
 import android.provider.MediaStore
 import com.gxstar.stargallery.data.model.Album
 import com.gxstar.stargallery.data.model.Photo
@@ -516,5 +520,283 @@ class MediaRepository @Inject constructor(
                 cursor.getLong(0)
             } else 0L
         } ?: 0L
+    }
+
+    fun getContentResolver(): ContentResolver = contentResolver
+
+    suspend fun insertImageCopy(
+        sourcePhoto: Photo,
+        bitmap: Bitmap
+    ): Uri? = withContext(Dispatchers.IO) {
+        try {
+            val values = ContentValues().apply {
+                put(MediaStore.Images.Media.DISPLAY_NAME, "EDIT_${System.currentTimeMillis()}.jpg")
+                put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+                put(MediaStore.Images.Media.BUCKET_ID, sourcePhoto.bucketId)
+                put(MediaStore.Images.Media.BUCKET_DISPLAY_NAME, sourcePhoto.bucketName)
+                put(MediaStore.Images.Media.IS_PENDING, 1)
+                put(MediaStore.Images.Media.DATE_ADDED, System.currentTimeMillis() / 1000)
+                put(MediaStore.Images.Media.DATE_MODIFIED, System.currentTimeMillis() / 1000)
+            }
+            val insertUri = contentResolver.insert(
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values
+            ) ?: return@withContext null
+            contentResolver.openOutputStream(insertUri)?.use { stream ->
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 95, stream)
+            }
+            copyAllExif(sourcePhoto.uri, insertUri, bitmap.width, bitmap.height)
+            values.clear()
+            values.put(MediaStore.Images.Media.IS_PENDING, 0)
+            contentResolver.update(insertUri, values, null, null)
+            insertUri
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    /**
+     * 创建空的 MediaStore 条目（IS_PENDING=1），返回 Uri 供外部写入。
+     * 用于 uCrop 直接输出裁剪结果到 MediaStore，避免临时文件。
+     */
+    suspend fun createImageCopyPlaceholder(photo: Photo): Uri? = withContext(Dispatchers.IO) {
+        try {
+            val values = ContentValues().apply {
+                put(MediaStore.Images.Media.DISPLAY_NAME, "EDIT_${System.currentTimeMillis()}.jpg")
+                put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+                put(MediaStore.Images.Media.BUCKET_ID, photo.bucketId)
+                put(MediaStore.Images.Media.BUCKET_DISPLAY_NAME, photo.bucketName)
+                put(MediaStore.Images.Media.IS_PENDING, 1)
+                put(MediaStore.Images.Media.DATE_ADDED, System.currentTimeMillis() / 1000)
+                put(MediaStore.Images.Media.DATE_MODIFIED, System.currentTimeMillis() / 1000)
+            }
+            contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    /**
+     * 将 IS_PENDING 设为 0，完成 MediaStore 条目的发布。
+     */
+    suspend fun finalizeImageCopy(uri: Uri) = withContext(Dispatchers.IO) {
+        try {
+            val values = ContentValues().apply {
+                put(MediaStore.Images.Media.IS_PENDING, 0)
+            }
+            contentResolver.update(uri, values, null, null)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    /**
+     * 删除空的 MediaStore 条目（用户取消裁剪时调用）。
+     */
+    suspend fun deleteImagePlaceholder(uri: Uri) = withContext(Dispatchers.IO) {
+        try {
+            contentResolver.delete(uri, null, null)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun overwriteOriginal(photo: Photo): android.content.IntentSender? {
+        return try {
+            val editRequest = MediaStore.createWriteRequest(contentResolver, listOf(photo.uri))
+            editRequest.intentSender
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    suspend fun applyOverwrite(
+        uri: Uri,
+        bitmap: Bitmap,
+        originalUri: Uri
+    ): Boolean = withContext(Dispatchers.IO) {
+        try {
+            contentResolver.openOutputStream(uri, "wt")?.use { stream ->
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 95, stream)
+            }
+            copyAllExif(originalUri, uri, bitmap.width, bitmap.height)
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
+
+    /**
+     * 从源文件复制所有 EXIF 信息到目标文件。
+     * 方向强制设为 1（编辑后旋转/翻转已直接应用到图像数据），尺寸更新为编辑后的值。
+     */
+    fun copyAllExif(sourceUri: Uri, destUri: Uri, newWidth: Int, newHeight: Int) {
+        try {
+            contentResolver.openInputStream(sourceUri)?.use { sourceStream ->
+                val srcExif = ExifInterface(sourceStream)
+                val pfd = contentResolver.openFileDescriptor(destUri, "rw") ?: return
+                val destExif = ExifInterface(pfd.fileDescriptor)
+                copyExifAttributes(srcExif, destExif)
+                destExif.setAttribute(ExifInterface.TAG_ORIENTATION, "1")
+                destExif.setAttribute(ExifInterface.TAG_IMAGE_WIDTH, newWidth.toString())
+                destExif.setAttribute(ExifInterface.TAG_IMAGE_LENGTH, newHeight.toString())
+                destExif.setAttribute(ExifInterface.TAG_PIXEL_X_DIMENSION, newWidth.toString())
+                destExif.setAttribute(ExifInterface.TAG_PIXEL_Y_DIMENSION, newHeight.toString())
+                destExif.saveAttributes()
+                pfd.close()
+            }
+        } catch (_: Exception) {
+        }
+    }
+
+    /**
+     * 逐标签复制 EXIF，跳过缩略图相关标签（编辑后尺寸不匹配）。
+     */
+    private fun copyExifAttributes(source: ExifInterface, dest: ExifInterface) {
+        for (tag in exifTagNames) {
+            val value = source.getAttribute(tag) ?: continue
+            dest.setAttribute(tag, value)
+        }
+    }
+
+    companion object {
+        /**
+         * 所有可用 EXIF 标签（字符串形式），排除缩略图/已修正的标签。
+         * TAG_ORIENTATION 和 TAG_IMAGE_WIDTH/LENGTH 由调用方根据编辑结果覆盖。
+         */
+        private val exifTagNames = listOf(
+            ExifInterface.TAG_APERTURE_VALUE,
+            ExifInterface.TAG_ARTIST,
+            ExifInterface.TAG_BITS_PER_SAMPLE,
+            ExifInterface.TAG_BRIGHTNESS_VALUE,
+            ExifInterface.TAG_CFA_PATTERN,
+            ExifInterface.TAG_COLOR_SPACE,
+            ExifInterface.TAG_COMPONENTS_CONFIGURATION,
+            ExifInterface.TAG_COMPRESSED_BITS_PER_PIXEL,
+            ExifInterface.TAG_COMPRESSION,
+            ExifInterface.TAG_CONTRAST,
+            ExifInterface.TAG_COPYRIGHT,
+            ExifInterface.TAG_CUSTOM_RENDERED,
+            ExifInterface.TAG_DATETIME,
+            ExifInterface.TAG_DATETIME_DIGITIZED,
+            ExifInterface.TAG_DATETIME_ORIGINAL,
+            ExifInterface.TAG_DEFAULT_CROP_SIZE,
+            ExifInterface.TAG_DEVICE_SETTING_DESCRIPTION,
+            ExifInterface.TAG_DIGITAL_ZOOM_RATIO,
+            ExifInterface.TAG_DNG_VERSION,
+            ExifInterface.TAG_EXIF_VERSION,
+            ExifInterface.TAG_EXPOSURE_BIAS_VALUE,
+            ExifInterface.TAG_EXPOSURE_INDEX,
+            ExifInterface.TAG_EXPOSURE_MODE,
+            ExifInterface.TAG_EXPOSURE_PROGRAM,
+            ExifInterface.TAG_EXPOSURE_TIME,
+            ExifInterface.TAG_F_NUMBER,
+            ExifInterface.TAG_FILE_SOURCE,
+            ExifInterface.TAG_FLASH,
+            ExifInterface.TAG_FLASHPIX_VERSION,
+            ExifInterface.TAG_FLASH_ENERGY,
+            ExifInterface.TAG_FOCAL_LENGTH,
+            ExifInterface.TAG_FOCAL_LENGTH_IN_35MM_FILM,
+            ExifInterface.TAG_FOCAL_PLANE_RESOLUTION_UNIT,
+            ExifInterface.TAG_FOCAL_PLANE_X_RESOLUTION,
+            ExifInterface.TAG_FOCAL_PLANE_Y_RESOLUTION,
+            ExifInterface.TAG_GAIN_CONTROL,
+            ExifInterface.TAG_GPS_ALTITUDE,
+            ExifInterface.TAG_GPS_ALTITUDE_REF,
+            ExifInterface.TAG_GPS_AREA_INFORMATION,
+            ExifInterface.TAG_GPS_DATESTAMP,
+            ExifInterface.TAG_GPS_DEST_BEARING,
+            ExifInterface.TAG_GPS_DEST_BEARING_REF,
+            ExifInterface.TAG_GPS_DEST_DISTANCE,
+            ExifInterface.TAG_GPS_DEST_DISTANCE_REF,
+            ExifInterface.TAG_GPS_DEST_LATITUDE,
+            ExifInterface.TAG_GPS_DEST_LATITUDE_REF,
+            ExifInterface.TAG_GPS_DEST_LONGITUDE,
+            ExifInterface.TAG_GPS_DEST_LONGITUDE_REF,
+            ExifInterface.TAG_GPS_DIFFERENTIAL,
+            ExifInterface.TAG_GPS_DOP,
+            ExifInterface.TAG_GPS_IMG_DIRECTION,
+            ExifInterface.TAG_GPS_IMG_DIRECTION_REF,
+            ExifInterface.TAG_GPS_LATITUDE,
+            ExifInterface.TAG_GPS_LATITUDE_REF,
+            ExifInterface.TAG_GPS_LONGITUDE,
+            ExifInterface.TAG_GPS_LONGITUDE_REF,
+            ExifInterface.TAG_GPS_MAP_DATUM,
+            ExifInterface.TAG_GPS_MEASURE_MODE,
+            ExifInterface.TAG_GPS_PROCESSING_METHOD,
+            ExifInterface.TAG_GPS_SATELLITES,
+            ExifInterface.TAG_GPS_SPEED,
+            ExifInterface.TAG_GPS_SPEED_REF,
+            ExifInterface.TAG_GPS_STATUS,
+            ExifInterface.TAG_GPS_TIMESTAMP,
+            ExifInterface.TAG_GPS_TRACK,
+            ExifInterface.TAG_GPS_TRACK_REF,
+            ExifInterface.TAG_GPS_VERSION_ID,
+            ExifInterface.TAG_IMAGE_DESCRIPTION,
+            ExifInterface.TAG_IMAGE_UNIQUE_ID,
+            ExifInterface.TAG_INTEROPERABILITY_INDEX,
+            ExifInterface.TAG_ISO_SPEED_RATINGS,
+            ExifInterface.TAG_LIGHT_SOURCE,
+            ExifInterface.TAG_MAKE,
+            ExifInterface.TAG_MAKER_NOTE,
+            ExifInterface.TAG_MAX_APERTURE_VALUE,
+            ExifInterface.TAG_METERING_MODE,
+            ExifInterface.TAG_MODEL,
+            ExifInterface.TAG_OECF,
+            ExifInterface.TAG_PHOTOMETRIC_INTERPRETATION,
+            ExifInterface.TAG_PLANAR_CONFIGURATION,
+            ExifInterface.TAG_PRIMARY_CHROMATICITIES,
+            ExifInterface.TAG_REFERENCE_BLACK_WHITE,
+            ExifInterface.TAG_RELATED_SOUND_FILE,
+            ExifInterface.TAG_RESOLUTION_UNIT,
+            ExifInterface.TAG_ROWS_PER_STRIP,
+            ExifInterface.TAG_SAMPLES_PER_PIXEL,
+            ExifInterface.TAG_SATURATION,
+            ExifInterface.TAG_SCENE_CAPTURE_TYPE,
+            ExifInterface.TAG_SCENE_TYPE,
+            ExifInterface.TAG_SENSING_METHOD,
+            ExifInterface.TAG_SHARPNESS,
+            ExifInterface.TAG_SHUTTER_SPEED_VALUE,
+            ExifInterface.TAG_SOFTWARE,
+            ExifInterface.TAG_SPATIAL_FREQUENCY_RESPONSE,
+            ExifInterface.TAG_SPECTRAL_SENSITIVITY,
+            ExifInterface.TAG_STRIP_BYTE_COUNTS,
+            ExifInterface.TAG_STRIP_OFFSETS,
+            ExifInterface.TAG_SUBFILE_TYPE,
+            ExifInterface.TAG_SUBJECT_AREA,
+            ExifInterface.TAG_SUBJECT_DISTANCE,
+            ExifInterface.TAG_SUBJECT_DISTANCE_RANGE,
+            ExifInterface.TAG_SUBJECT_LOCATION,
+            ExifInterface.TAG_SUBSEC_TIME,
+            ExifInterface.TAG_SUBSEC_TIME_DIGITIZED,
+            ExifInterface.TAG_SUBSEC_TIME_ORIGINAL,
+            ExifInterface.TAG_TRANSFER_FUNCTION,
+            ExifInterface.TAG_USER_COMMENT,
+            ExifInterface.TAG_WHITE_BALANCE,
+            ExifInterface.TAG_WHITE_POINT,
+            ExifInterface.TAG_X_RESOLUTION,
+            ExifInterface.TAG_Y_CB_CR_COEFFICIENTS,
+            ExifInterface.TAG_Y_CB_CR_POSITIONING,
+            ExifInterface.TAG_Y_CB_CR_SUB_SAMPLING,
+            ExifInterface.TAG_Y_RESOLUTION,
+            "LensMake",
+            "LensModel",
+            "LensSerialNumber",
+            "LensSpecification",
+            "BodySerialNumber",
+            "FocalPlaneXResolution",
+            "FocalPlaneYResolution",
+            "OwnerName",
+            "CameraOwnerName",
+            "RecommendedExposureIndex",
+            "SensitivityType",
+            "StandardOutputSensitivity",
+            "OffsetTime",
+            "OffsetTimeOriginal",
+            "OffsetTimeDigitized",
+        )
     }
 }

@@ -146,6 +146,9 @@ dependencies {
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.ui)
 
+    // 图片裁剪 - uCrop
+    implementation(libs.ucrop)
+
     // 生物识别 (指纹/密码验证)
     implementation(libs.androidx.biometric)
 

@@ -18,6 +18,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.flatMapLatest
@@ -267,6 +268,49 @@ class PhotoDetailViewModel @Inject constructor(
     }
 
     /**
+     * 编辑页面返回后刷新当前照片数据
+     * （覆盖原图时 MediaStore 的 DATE_MODIFIED 会变，需要从 Room 重新读取）
+     */
+    fun refreshCurrentPhoto() {
+        viewModelScope.launch {
+            val id = _currentPhotoId.value
+            if (id <= 0) return@launch
+            val entity = photoDao.getPhotoByIdFlow(id).first { it != null } ?: return@launch
+            val updated = entity.toPhoto()
+            _currentPhoto.value = updated
+            val list = _photos.value.toMutableList()
+            val idx = list.indexOfFirst { it.id == id }
+            if (idx >= 0) {
+                list[idx] = updated
+                _photos.value = list
+            }
+        }
+    }
+
+    private fun PhotoEntity.toPhoto(): Photo {
+        return Photo(
+            id = id,
+            uri = android.net.Uri.parse(uri),
+            dateTaken = dateTaken,
+            dateModified = dateModified,
+            dateAdded = dateAdded,
+            mimeType = mimeType,
+            width = width,
+            height = height,
+            size = size,
+            bucketId = bucketId,
+            bucketName = bucketName,
+            latitude = latitude,
+            longitude = longitude,
+            orientation = orientation,
+            isFavorite = isFavorite,
+            isHidden = isHidden,
+            isHdr = isHdr,
+            thumbnailPath = thumbnailPath
+        )
+    }
+
+    /**
      * 从列表中移除指定位置的照片
      * @param position 要移除的照片位置
      * @return 是否还有剩余照片（如果返回 false 表示已删除最后一张，需要返回列表页）
@@ -305,26 +349,4 @@ class PhotoDetailViewModel @Inject constructor(
         return _photos.value.indexOfFirst { it.id == initialPhotoId }.takeIf { it >= 0 } ?: 0
     }
 
-    private fun PhotoEntity.toPhoto(): Photo {
-        return Photo(
-            id = id,
-            uri = android.net.Uri.parse(uri),
-            dateTaken = dateTaken,
-            dateModified = dateModified,
-            dateAdded = dateAdded,
-            mimeType = mimeType,
-            width = width,
-            height = height,
-            size = size,
-            bucketId = bucketId,
-            bucketName = bucketName,
-            latitude = latitude,
-            longitude = longitude,
-            orientation = orientation,
-            isFavorite = isFavorite,
-            isHidden = isHidden,
-            isHdr = isHdr,
-            thumbnailPath = thumbnailPath
-        )
-    }
 }
