@@ -65,9 +65,9 @@ class MainActivity : AppCompatActivity() {
             val insets = windowInsets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars())
             val params = view.layoutParams as ViewGroup.MarginLayoutParams
 
-            // 基础 Margin (12dp) 加上系统导航栏的高度
+            // 基础 Margin (18dp) 加上系统导航栏的高度
             val baseMarginBottom = TypedValue.applyDimension(
-                TypedValue.COMPLEX_UNIT_DIP, 12f, resources.displayMetrics
+                TypedValue.COMPLEX_UNIT_DIP, 18f, resources.displayMetrics
             ).toInt()
 
             params.bottomMargin = baseMarginBottom + insets.bottom

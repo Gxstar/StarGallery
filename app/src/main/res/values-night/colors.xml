@@ -59,4 +59,10 @@
     <color name="exif_progress_tint">#FF64B5F6</color>
     <color name="card_light_stroke">#FF48484A</color>
     <color name="delete_drag_handle">#FF48484A</color>
+
+    <!-- Liquid Glass 底部导航栏 -->
+    <color name="glass_nav_bg">#D91C1C1E</color>
+    <color name="glass_nav_highlight">#1AFFFFFF</color>
+    <color name="glass_nav_border">#26FFFFFF</color>
+    <color name="glass_indicator_bg">#330A84FF</color>
 </resources>

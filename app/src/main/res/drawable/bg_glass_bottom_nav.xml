@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Liquid Glass 风格底部导航栏背景 -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- 层 1：毛玻璃基底（半透明微着色） -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/glass_nav_bg" />
+            <corners android:radius="28dp" />
+        </shape>
+    </item>
+
+    <!-- 层 2：顶部高光渐变（模拟光线穿过玻璃上缘的折射） -->
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="90"
+                android:endColor="@android:color/transparent"
+                android:startColor="@color/glass_nav_highlight"
+                android:type="linear" />
+            <corners android:radius="28dp" />
+        </shape>
+    </item>
+
+    <!-- 层 3：玻璃边框（模拟玻璃边缘的柔和折射光） -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@android:color/transparent" />
+            <stroke
+                android:width="0.5dp"
+                android:color="@color/glass_nav_border" />
+            <corners android:radius="28dp" />
+        </shape>
+    </item>
+
+</layer-list>

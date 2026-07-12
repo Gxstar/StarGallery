@@ -57,6 +57,14 @@
         <item name="android:textSize">11sp</item>
     </style>
 
+    <!-- Liquid Glass 选中指示器：半透明玻璃质感胶囊 -->
+    <style name="GlassActiveIndicator" parent="Widget.Material3.BottomNavigationView.ActiveIndicator">
+        <item name="android:color">@color/glass_indicator_bg</item>
+        <item name="shapeAppearance">@style/ShapeAppearance.GlassPill</item>
+    </style>
+
+    <style name="ShapeAppearance.GlassPill" parent="ShapeAppearance.Material3.Corner.Full" />
+
     <style name="DialogAnimation">
         <item name="android:windowEnterAnimation">@android:anim/fade_in</item>
         <item name="android:windowExitAnimation">@android:anim/fade_out</item>
