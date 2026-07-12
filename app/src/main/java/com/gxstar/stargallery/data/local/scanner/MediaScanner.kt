@@ -601,7 +601,8 @@ class MediaScanner @Inject constructor(
 
                 // 过滤出需要生成缩略图的照片
                 val photosNeedingThumbnail = allPhotos.filter { photo ->
-                    photo.thumbnailPath == null || !File(photo.thumbnailPath).exists()
+                    val expected = thumbnailManager.thumbnailFileFor(photo.id)
+                    photo.thumbnailPath != expected.absolutePath || !expected.exists()
                 }
 
                 val totalToProcess = photosNeedingThumbnail.size
@@ -687,7 +688,8 @@ class MediaScanner @Inject constructor(
 
                 // 过滤出需要生成缩略图的照片
                 val photosNeedingThumbnail = allPhotos.filter { photo ->
-                    photo.thumbnailPath == null || !File(photo.thumbnailPath).exists()
+                    val expected = thumbnailManager.thumbnailFileFor(photo.id)
+                    photo.thumbnailPath != expected.absolutePath || !expected.exists()
                 }
 
                 if (photosNeedingThumbnail.isEmpty()) {
