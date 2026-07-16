@@ -33,6 +33,8 @@ class ExifExtractor @Inject constructor(
      * 从 Uri 提取 EXIF 信息，返回包含 EXIF 字段的 PhotoEntity（仅 EXIF 字段有值）
      */
     suspend fun extractExif(uri: Uri): ExifData? = withContext(Dispatchers.IO) {
+        // isHdr 在 try 外声明，确保 catch 分支也能访问
+        var isHdr = false
         try {
             // 使用 setRequireOriginal 请求未被红删（含 GPS）的原始文件
             // ACCESS_MEDIA_LOCATION 权限不足时抛出 SecurityException，降级到普通流
@@ -66,7 +68,7 @@ class ExifExtractor @Inject constructor(
             } catch (_: Exception) {}
 
             // 3. 检测 Ultra HDR（读前 128KB 搜索 gainmap XMP 命名空间）
-            val isHdr = detectUltraHdr(originalUri)
+            isHdr = detectUltraHdr(originalUri)
 
             // 4. 解析 EXIF 元数据
             val inputStream = context.contentResolver.openInputStream(originalUri)
@@ -78,7 +80,7 @@ class ExifExtractor @Inject constructor(
                 val metadata = ImageMetadataReader.readMetadata(stream)
                 val result = parseExifMetadata(metadata)
                 android.util.Log.d("ExifExtractor", "EXIF parsed for $uri: $result")
-                if (result.isAllNull()) {
+                if (result.isAllNull() && !isHdr) {
                     android.util.Log.w("ExifExtractor", "All EXIF fields are null for $uri")
                     return@withContext null
                 }
@@ -91,6 +93,7 @@ class ExifExtractor @Inject constructor(
             }
         } catch (e: Exception) {
             android.util.Log.e("ExifExtractor", "Failed to extract EXIF for $uri", e)
+            if (isHdr) return@withContext ExifData(isHdr = true)
             return@withContext null
         }
     }
@@ -374,7 +377,7 @@ class ExifExtractor @Inject constructor(
                 exposureCompensation = exifData.exposureCompensation,
                 meteringMode = exifData.meteringMode,
                 photoStyle = exifData.photoStyle,
-                isHdr = exifData.isHdr,
+                isHdr = exifData.isHdr || entity.isHdr,
                 dateTaken = dateTaken
             )
         }

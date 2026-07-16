@@ -4,6 +4,7 @@ import android.content.ContentResolver
 import android.content.ContentUris
 import android.content.Context
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
@@ -170,7 +171,7 @@ class MediaScanner @Inject constructor(
                             exposureCompensation = exif?.exposureCompensation,
                             meteringMode = exif?.meteringMode,
                             photoStyle = exif?.photoStyle,
-                            isHdr = exif?.isHdr ?: false
+                            isHdr = detectUltraHdr(item.uri)
                         )
                     }
                     photoDao.insertAll(entities)
@@ -283,6 +284,7 @@ class MediaScanner @Inject constructor(
             } finally {
                 _isExtractingExif.value = false
                 scanPreferences.isExifExtractionCompleted = true
+                fixLegacyHdrLabels()
                 generateThumbnailsForAllPhotos()
             }
         }
@@ -399,7 +401,7 @@ class MediaScanner @Inject constructor(
                         exposureCompensation = exif?.exposureCompensation,
                         meteringMode = exif?.meteringMode,
                         photoStyle = exif?.photoStyle,
-                        isHdr = exif?.isHdr ?: false
+                        isHdr = detectUltraHdr(item.uri)
                     )
                 }
                 photoDao.insertAll(entities)
@@ -491,7 +493,7 @@ class MediaScanner @Inject constructor(
                 exposureCompensation = exif?.exposureCompensation,
                 meteringMode = exif?.meteringMode,
                 photoStyle = exif?.photoStyle,
-                isHdr = exif?.isHdr ?: false
+                isHdr = detectUltraHdr(item.uri)
             )
         }
         photoDao.insertAll(entities)
@@ -575,6 +577,53 @@ class MediaScanner @Inject constructor(
             photoDao.updateAll(batchUpdates)
         } else {
             Log.w(TAG, "Retry EXIF still failed for all ${photoIds.size} photos")
+        }
+    }
+
+    /**
+     * 检测 Ultra HDR — 读取 JPEG 文件前 128KB 搜索 gainmap XMP 命名空间
+     * Google Ultra HDR 规范要求 XMP 中包含 "http://ns.adobe.com/hdr-gain-map/1.0/"
+     * 仅对 JPEG 格式做检测，HEIC/AVIF/其他格式直接返回 false
+     */
+    private fun detectUltraHdr(uriString: String): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return false
+        return try {
+            val uri = Uri.parse(uriString)
+            context.contentResolver.openInputStream(uri)?.use { stream ->
+                val buffer = ByteArray(128 * 1024)
+                val bytesRead = stream.read(buffer)
+                bytesRead > 0 && String(buffer, 0, bytesRead, Charsets.ISO_8859_1)
+                    .contains("hdr-gain-map")
+            } ?: false
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    /**
+     * 修正旧数据：全量扫描结束后，重新检测所有 isHdr=0 的 JPEG 照片
+     * 仅在全量扫描末尾执行，不在增量扫描或启动时执行
+     */
+    private suspend fun fixLegacyHdrLabels() = withContext(Dispatchers.IO) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return@withContext
+        try {
+            val ids = photoDao.getNonHdrJpegIds()
+            if (ids.isEmpty()) return@withContext
+
+            Log.i(TAG, "Fixing legacy HDR labels for ${ids.size} JPEG photos")
+            val updates = mutableListOf<PhotoEntity>()
+            ids.forEach { id ->
+                val photo = photoDao.getPhotoById(id) ?: return@forEach
+                if (detectUltraHdr(photo.uri)) {
+                    updates.add(photo.copy(isHdr = true))
+                }
+            }
+            if (updates.isNotEmpty()) {
+                photoDao.updateAll(updates)
+                Log.i(TAG, "Fixed HDR labels: ${updates.size} photos updated")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Legacy HDR label fix failed", e)
         }
     }
 

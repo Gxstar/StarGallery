@@ -127,6 +127,14 @@ interface PhotoDao {
     @Query("SELECT COUNT(*) FROM photos WHERE cameraMake IS NOT NULL OR cameraModel IS NOT NULL")
     fun getExifCompletedCountFlow(): Flow<Int>
 
+    // ==================== HDR 修正 ====================
+
+    /**
+     * 查询 isHdr=0 的 JPEG 照片 ID 列表（用于全量扫描后修正旧数据）
+     */
+    @Query("SELECT id FROM photos WHERE isHdr = 0 AND mimeType IN ('image/jpeg', 'image/jpg')")
+    suspend fun getNonHdrJpegIds(): List<Long>
+
     // ==================== 级联筛选关联查询 ====================
 
     @Query("SELECT DISTINCT cameraMake FROM photos WHERE lensModel IN (:lensModels) AND cameraMake IS NOT NULL AND cameraMake != ''")
