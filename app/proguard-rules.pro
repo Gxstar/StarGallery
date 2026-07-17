@@ -36,3 +36,7 @@
 -dontwarn com.yalantis.ucrop**
 -keep class com.yalantis.ucrop** { *; }
 -keep interface com.yalantis.ucrop** { *; }
+
+# jxl-coder
+-keep class io.github.awxkee.jxl.** { *; }
+-keep class awxkee.jxl.** { *; }

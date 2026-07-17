@@ -65,6 +65,9 @@ fastscroll = "1.3.0"
 # 图片编辑
 ucrop = "2.2.11"
 
+# JXL 解码
+jxlCoder = "2.4.1"
+
 # 测试
 junit = "4.13.2"
 junitVersion = "1.1.5"
@@ -128,6 +131,9 @@ fastscroll = { group = "me.zhanghai.android.fastscroll", name = "library", versi
 
 # 拖动选择
 drag-select = { group = "com.afollestad", name = "drag-select-recyclerview", version.ref = "dragSelect" }
+
+# JXL 解码
+jxl-coder-glide = { group = "io.github.awxkee", name = "jxl-coder-glide", version.ref = "jxlCoder" }
 
 # 图片编辑
 ucrop = { group = "com.github.yalantis", name = "ucrop", version.ref = "ucrop" }

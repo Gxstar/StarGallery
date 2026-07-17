@@ -142,6 +142,9 @@ dependencies {
     // 元数据提取
     implementation(libs.metadata.extractor)
 
+    // JXL 图片解码 - jxl-coder (Glide 集成)
+    implementation(libs.jxl.coder.glide)
+
     // 视频播放 - Media3 (ExoPlayer)
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.ui)

@@ -246,7 +246,8 @@ class PhotoPageViewHolder(
 
         val ctx = binding.root.context
         val maxDimension = maxOf(photo.width, photo.height)
-        val needSubsampling = maxDimension >= 2000 || photo.isRaw
+        // JXL 不支援 BitmapRegionDecoder，無法使用子採樣
+        val needSubsampling = !photo.isJxl && (maxDimension >= 2000 || photo.isRaw)
 
         val shouldProbeHdr = Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
             && photo.isUltraHdr

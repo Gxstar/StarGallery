@@ -36,6 +36,13 @@ data class Photo(
         get() = mimeType == "image/gif"
 
     /**
+     * 判断是否为 JPEG XL (JXL) 格式
+     * Android 14+ (API 34) 原生支持 JXL 解码
+     */
+    val isJxl: Boolean
+        get() = mimeType == "image/jxl"
+
+    /**
      * 判断是否为 AVIF 格式
      * Android 12+ (API 31) 原生支持 AVIF 解码
      */
