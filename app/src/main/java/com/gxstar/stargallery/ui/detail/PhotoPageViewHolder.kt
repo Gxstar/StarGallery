@@ -23,6 +23,7 @@ import com.bumptech.glide.request.target.CustomTarget
 import com.bumptech.glide.request.transition.Transition
 import com.github.panpf.zoomimage.ZoomImageView
 import com.github.panpf.zoomimage.subsampling.ContentImageSource
+import com.github.panpf.zoomimage.view.zoom.ScrollBarSpec
 import com.gxstar.stargallery.R
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.databinding.ItemPhotoPageBinding
@@ -95,7 +96,12 @@ class PhotoPageViewHolder(
     }
 
     private fun setupZoomImageView() {
-        binding.ivPhoto.scrollBar = null
+        // 启用滚动条并显示当前浏览位置（大图子采样后用户可见所处区域）。
+        // 传入 windowInsetsTypeMask 让滚动条避开系统状态栏/导航栏，
+        // 与底部工具栏的 systemBars inset 处理思路一致。
+        binding.ivPhoto.scrollBar = ScrollBarSpec(
+            windowInsetsTypeMask = androidx.core.view.WindowInsetsCompat.Type.systemBars()
+        )
     }
 
     private fun setupTapDetection() {

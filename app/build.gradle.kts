@@ -12,7 +12,7 @@ ksp {
 
 android {
     namespace = "com.gxstar.stargallery"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.gxstar.stargallery"
@@ -57,11 +57,13 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_21
         targetCompatibility = JavaVersion.VERSION_21
+        isCoreLibraryDesugaringEnabled = true
     }
     buildFeatures {
         viewBinding = true
         buildConfig = true
     }
+    buildToolsVersion = "36.0.0"
 }
 
 // 重命名产物为专业命名：{AppName}-v{versionName}-{versionCode}-{variant}[-{abi}].{ext}
@@ -163,6 +165,9 @@ dependencies {
 
     // 协程
     implementation(libs.kotlinx.coroutines.android)
+
+    // 核心库脱糖（zoomimage 1.6.0 要求启用）
+    coreLibraryDesugaring(libs.coreLibraryDesugaring)
 
     // 内存泄漏检测 (仅 debug)
     debugImplementation(libs.leakcanary)

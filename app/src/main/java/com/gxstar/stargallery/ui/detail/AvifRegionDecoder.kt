@@ -17,12 +17,14 @@ import okio.buffer
 import okio.use
 
 class AvifRegionDecoder(
-    override val subsamplingImage: SubsamplingImage,
+    private val subsamplingImage: SubsamplingImage,
     val imageSource: ContentImageSource,
-    imageInfo: ImageInfo? = subsamplingImage.imageInfo,
+    imageInfo: ImageInfo? = null,
 ) : RegionDecoder {
 
-    override val imageInfo: ImageInfo by lazy { imageInfo ?: decodeImageInfo() }
+    private val imageInfoValue: ImageInfo = imageInfo ?: decodeImageInfo()
+
+    override fun getImageInfo(): ImageInfo = imageInfoValue
 
     private var cachedBitmap: Bitmap? = null
     private var cachedSampleSize: Int = 0
@@ -55,8 +57,8 @@ class AvifRegionDecoder(
             cachedBitmap?.let { if (!it.isRecycled) it.recycle() }
             cachedBitmap = null
             try {
-                val imgWidth = imageInfo.width.coerceAtLeast(1)
-                val imgHeight = imageInfo.height.coerceAtLeast(1)
+                val imgWidth = imageInfoValue.width.coerceAtLeast(1)
+                val imgHeight = imageInfoValue.height.coerceAtLeast(1)
 
                 val targetWidth = (imgWidth / currentSampleSize).coerceAtLeast(1)
                 val targetHeight = (imgHeight / currentSampleSize).coerceAtLeast(1)
@@ -84,8 +86,8 @@ class AvifRegionDecoder(
         val bitmap = cachedBitmap
             ?: return Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
 
-        val scaleX = bitmap.width.toFloat() / imageInfo.width.toFloat()
-        val scaleY = bitmap.height.toFloat() / imageInfo.height.toFloat()
+        val scaleX = bitmap.width.toFloat() / imageInfoValue.width.toFloat()
+        val scaleY = bitmap.height.toFloat() / imageInfoValue.height.toFloat()
         val cropLeft = (region.left * scaleX).toInt()
         val cropTop = (region.top * scaleY).toInt()
         val cropWidth = (region.width * scaleX).toInt().coerceAtMost(bitmap.width - cropLeft)
@@ -106,7 +108,7 @@ class AvifRegionDecoder(
     override fun copy(): RegionDecoder = AvifRegionDecoder(
         subsamplingImage = subsamplingImage,
         imageSource = imageSource,
-        imageInfo = imageInfo,
+        imageInfo = imageInfoValue,
     )
 
     override fun equals(other: Any?): Boolean = this === other ||
@@ -130,7 +132,7 @@ class AvifRegionDecoder(
             }
         }
 
-        override fun create(
+        override suspend fun create(
             subsamplingImage: SubsamplingImage,
             imageSource: ImageSource,
         ): AvifRegionDecoder {
