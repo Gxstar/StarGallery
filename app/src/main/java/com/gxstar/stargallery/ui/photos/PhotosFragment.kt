@@ -192,6 +192,11 @@ class PhotosFragment : Fragment() {
 
     private var lastExplicitRefreshTime = 0L
 
+    // 首屏列表是否已渲染完成。用于解耦首屏渲染与后台静默同步：
+    // 先让 Room 已有数据立即渲染列表，渲染完成后再触发增量扫描，
+    // 避免冷启动时增量扫描（全量查 MediaStore + Room 差集）阻塞列表整体出现。
+    private var hasRenderedFirstList = false
+
     private fun setupSettings() {
         // 用当前方向（onCreate 时）解析。
         val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -578,6 +583,7 @@ class PhotosFragment : Fragment() {
                 ) { isScanning, isExtractingExif, photoModels ->
                     Triple(isScanning, isExtractingExif, photoModels)
                 }.collect { (isScanning, isExtractingExif, photoModels) ->
+                    val isSyncing = viewModel.isSyncing.value
                     val currentPos = gridLayoutManager?.findFirstVisibleItemPosition() ?: RecyclerView.NO_POSITION
                     val currentOffset = if (currentPos != RecyclerView.NO_POSITION) {
                         gridLayoutManager?.findViewByPosition(currentPos)?.top ?: 0
@@ -621,9 +627,16 @@ class PhotosFragment : Fragment() {
 
                     val isEmpty = photoModels.isEmpty()
 
+                    // 首屏列表首次渲染完成后，再触发后台静默同步（增量扫描）。
+                    // 这样 Room 已有数据先整体出现，扫描作为后台更新，不再阻塞首屏。
+                    if (!hasRenderedFirstList && !isEmpty) {
+                        hasRenderedFirstList = true
+                        mediaChangeDetector.triggerInitialSync()
+                    }
+
                     binding.scanningView.visibility = if (isScanning && !isEmpty) View.VISIBLE else View.GONE
-                    binding.progressBar.visibility = if (isScanning && isEmpty) View.VISIBLE else View.GONE
-                    binding.emptyStateView.visibility = if (!isScanning && isEmpty) View.VISIBLE else View.GONE
+                    binding.progressBar.visibility = if ((isScanning || isSyncing) && isEmpty) View.VISIBLE else View.GONE
+                    binding.emptyStateView.visibility = if (!isScanning && !isSyncing && isEmpty) View.VISIBLE else View.GONE
                 }
             }
         }

@@ -356,6 +356,9 @@ class MediaScanner @Inject constructor(
         val startTime = System.currentTimeMillis()
 
         try {
+            // 记录本次增量扫描次数，用于节流"全量差集"删除检查（每 50 次执行一次）
+            scanPreferences.incrementalSinceDeletionCheck += 1
+
             val lastScanTime = scanPreferences.lastScanTime
             val changedMedia = queryMediaModifiedAfter(lastScanTime)
 
@@ -413,22 +416,29 @@ class MediaScanner @Inject constructor(
                 generateThumbnailsForPhotos(changedMedia.map { it.id })
             }
 
-            val mediaStoreIds = queryAllMediaIdsFromMediaStore()
-            val roomIds = photoDao.getAllPhotoIds()
-            val mediaStoreIdSet = mediaStoreIds.toSet()
-            val roomIdSet = roomIds.toSet()
+            // 全量差集（清理孤立记录 + 补回回收站还原记录）开销大，
+            // 仅在达到删除检查间隔时执行，平时依赖时间戳增量扫描覆盖变更。
+            var removedIds: Set<Long> = emptySet()
+            if (scanPreferences.needsDeletionCheck()) {
+                val mediaStoreIds = queryAllMediaIdsFromMediaStore()
+                val roomIds = photoDao.getAllPhotoIds()
+                val mediaStoreIdSet = mediaStoreIds.toSet()
+                val roomIdSet = roomIds.toSet()
 
-            val removedIds = roomIdSet - mediaStoreIdSet
-            if (removedIds.isNotEmpty()) {
-                Log.i(TAG, "Removing ${removedIds.size} stale records (permanently deleted)")
-                thumbnailManager.deleteThumbnails(removedIds)
-                photoDao.deleteByIds(removedIds.toList())
-            }
+                removedIds = roomIdSet - mediaStoreIdSet
+                if (removedIds.isNotEmpty()) {
+                    Log.i(TAG, "Removing ${removedIds.size} stale records (permanently deleted)")
+                    thumbnailManager.deleteThumbnails(removedIds)
+                    photoDao.deleteByIds(removedIds.toList())
+                }
 
-            val missingIds = mediaStoreIdSet - roomIdSet
-            if (missingIds.isNotEmpty()) {
-                Log.i(TAG, "Adding ${missingIds.size} missing records (restored from trash)")
-                syncSpecificPhotos(missingIds.toList())
+                val missingIds = mediaStoreIdSet - roomIdSet
+                if (missingIds.isNotEmpty()) {
+                    Log.i(TAG, "Adding ${missingIds.size} missing records (restored from trash)")
+                    syncSpecificPhotos(missingIds.toList())
+                }
+
+                scanPreferences.resetIncrementalCounter()
             }
 
             val duration = System.currentTimeMillis() - startTime

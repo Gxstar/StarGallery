@@ -71,6 +71,10 @@ class PhotosViewModel @Inject constructor(
     private val _isScanning = MutableStateFlow(false)
     val isScanning: StateFlow<Boolean> = _isScanning.asStateFlow()
 
+    // 后台静默同步（增量扫描）状态，不阻塞首屏渲染，仅用于轻量进度提示
+    private val _isSyncing = MutableStateFlow(false)
+    val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
+
     val isSearching: StateFlow<Boolean> = _searchQuery.map { !it.isNullOrBlank() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
@@ -293,10 +297,15 @@ class PhotosViewModel @Inject constructor(
         }
     }
 
-    /** 静默增量扫描：不触发 _isScanning UI，用于后台补盲 */
+    /** 静默增量扫描：不触发 _isScanning UI，用于后台补盲，仅维护轻量 _isSyncing 提示 */
     fun silentRefresh() {
         viewModelScope.launch(Dispatchers.IO) {
-            mediaScanner.performIncrementalScan()
+            _isSyncing.value = true
+            try {
+                mediaScanner.performIncrementalScan()
+            } finally {
+                _isSyncing.value = false
+            }
         }
     }
 

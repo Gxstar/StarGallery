@@ -79,10 +79,21 @@ class MediaChangeDetector(
             
             isRegistered = true
 
-            // 后台切前台时，主动检查外部变化（补 ContentObserver 收不到历史通知的盲区）
-            onChangeDetected()
+            // 注意：不再在注册时主动触发 onChangeDetected()。
+            // 冷启动的"盲区补同步"改由 PhotosFragment 在首屏列表渲染完成后再主动调用一次，
+            // 避免增量扫描阻塞首屏列表整体出现（表现为空白/空状态等待）。
         } catch (e: Exception) {
             e.printStackTrace()
+        }
+    }
+
+    /**
+     * 主动触发一次变化检测（盲区补同步）。
+     * 供外部在首屏列表已渲染完成后调用，避免阻塞首屏。
+     */
+    fun triggerInitialSync() {
+        if (isRegistered && !shouldSkipRefresh()) {
+            onChangeDetected()
         }
     }
 
