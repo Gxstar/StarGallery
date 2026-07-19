@@ -76,9 +76,11 @@ fastscroll = "1.3.0"
 # 图片编辑
 ucrop = "2.2.11"
 
-# JXL 解码
+# JXL / AVIF 解码
 # jxl-coder-glide 2.6.1：运行时依赖 Glide 5.0.7，已随 glide 一并升级。
 jxlCoder = "2.6.1"
+# avif-coder 2.2.1：基于 libavif/libdav1d 的 AVIF/HEIC 解码库，minSdk 24。
+avifCoder = "2.2.1"
 
 # 测试
 junit = "4.13.2"
@@ -144,8 +146,10 @@ fastscroll = { group = "me.zhanghai.android.fastscroll", name = "library", versi
 # 拖动选择
 drag-select = { group = "com.afollestad", name = "drag-select-recyclerview", version.ref = "dragSelect" }
 
-# JXL 解码
+# JXL / AVIF 解码
 jxl-coder-glide = { group = "io.github.awxkee", name = "jxl-coder-glide", version.ref = "jxlCoder" }
+avif-coder = { group = "io.github.awxkee", name = "avif-coder", version.ref = "avifCoder" }
+avif-coder-glide = { group = "io.github.awxkee", name = "avif-coder-glide", version.ref = "avifCoder" }
 
 # 图片编辑
 ucrop = { group = "com.github.yalantis", name = "ucrop", version.ref = "ucrop" }

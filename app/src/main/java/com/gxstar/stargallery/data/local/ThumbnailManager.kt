@@ -2,9 +2,9 @@ package com.gxstar.stargallery.data.local
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.ImageDecoder
 import android.net.Uri
 import android.util.Log
+import com.bumptech.glide.Glide
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -48,43 +48,72 @@ class ThumbnailManager @Inject constructor(
     /** 当前版本下某照片的缩略图文件（不论是否存在），用于判断是否需要重新生成 */
     fun thumbnailFileFor(photoId: Long): File = File(cacheDir, "$photoId.jpg")
 
-    suspend fun generateThumbnail(uri: Uri, photoId: Long, mimeType: String): String? =
+    suspend fun generateThumbnail(uri: Uri, photoId: Long, mimeType: String, displayName: String? = null): String? =
         withContext(Dispatchers.IO) {
-            if (mimeType.startsWith("image/x-")) {
+            val ext = displayName?.substringAfterLast('.', "")?.lowercase() ?: ""
+            // 仅跳过 RAW 格式（image/x-*），不跳过 image/* 泛类型
+            if (mimeType.startsWith("image/x-") && mimeType != "image/jxl") {
                 return@withContext null
             }
 
             try {
-                val source = ImageDecoder.createSource(context.contentResolver, uri)
-                val bitmap = ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
-                    // setTargetSize 会精确缩放到给定宽高（不保比例）。
-                    // 必须按原图比例计算目标尺寸，否则竖图被压成正方形导致变形。
-                    val (tw, th) = fitSize(info.size.width, info.size.height, THUMBNAIL_SIZE)
-                    decoder.setTargetSize(tw, th)
+                // 使用与 Photo.isJxl 一致的双重判断：MIME + 扩展名兜底
+                // MediaStore 不识别 .jxl，其 MIME 可能为 null/"image/*"，必须用扩展名兜底
+                val isJxl = mimeType == "image/jxl" || ext == "jxl"
+                val bitmap = if (isJxl) {
+                    // JXL 不走 Glide 的 content:// 解码路径（MediaStore 缩略图对 JXL 失败），
+                    // 直接用 jxl-coder 核心库解码字节流。
+                    decodeJxlThumbnail(uri)
+                } else {
+                    // 统一走 Glide 解码，使缩略图生成与图片加载共用同一解码链
+                    // （AVIF/HEIC 等由第三方解码器正确处理）。
+                    Glide.with(context)
+                        .asBitmap()
+                        .load(uri)
+                        .submit(THUMBNAIL_SIZE, THUMBNAIL_SIZE)
+                        .get()
                 }
+
+                if (bitmap == null) return@withContext null
+
+                Log.d(TAG, "genThumb $uri config=${bitmap.config} w=${bitmap.width} h=${bitmap.height} cs=${bitmap.colorSpace}")
+
                 val file = thumbnailFileFor(photoId)
-                file.outputStream().use { out ->
+                val ok = file.outputStream().use { out ->
                     bitmap.compress(Bitmap.CompressFormat.JPEG, THUMBNAIL_QUALITY, out)
                 }
+                Log.d(TAG, "genThumb compressOk=$ok size=${file.length()}")
                 bitmap.recycle()
 
-                file.absolutePath
+                if (!ok) {
+                    file.delete()
+                    null
+                } else {
+                    file.absolutePath
+                }
             } catch (e: Exception) {
-                Log.w(TAG, "Failed to generate thumbnail for $uri (${e.message})")
+                Log.e(TAG, "Failed to generate thumbnail for $uri", e)
                 null
             }
         }
 
-    /**
-     * 在保持原图比例的前提下，把长边缩放到 max，返回 (宽, 高)。
-     * 例如竖图 3024x4032 → 384x512，横图 4032x3024 → 512x384。
-     */
-    private fun fitSize(srcW: Int, srcH: Int, max: Int): Pair<Int, Int> {
-        if (srcW <= 0 || srcH <= 0) return max to max
-        return if (srcW >= srcH) {
-            max to (max * srcH / srcW).coerceAtLeast(1)
-        } else {
-            (max * srcW / srcH).coerceAtLeast(1) to max
+    @androidx.annotation.WorkerThread
+    private fun decodeJxlThumbnail(uri: Uri): android.graphics.Bitmap? {
+        return try {
+            context.contentResolver.openInputStream(uri)?.use { stream ->
+                val bytes = stream.readBytes()
+                com.awxkee.jxlcoder.JxlCoder.decodeSampled(
+                    bytes,
+                    THUMBNAIL_SIZE,
+                    THUMBNAIL_SIZE,
+                    com.awxkee.jxlcoder.PreferredColorConfig.RGBA_8888,
+                    com.awxkee.jxlcoder.ScaleMode.FIT,
+                    com.awxkee.jxlcoder.JxlResizeFilter.CATMULL_ROM
+                )
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "JXL decode failed for $uri", e)
+            null
         }
     }
 

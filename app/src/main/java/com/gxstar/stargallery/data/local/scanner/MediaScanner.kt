@@ -720,7 +720,7 @@ class MediaScanner @Inject constructor(
                 return@forEach
             }
 
-            val path = thumbnailManager.generateThumbnail(uri, photo.id, photo.mimeType)
+            val path = thumbnailManager.generateThumbnail(uri, photo.id, photo.mimeType, photo.displayName)
             if (path != null) {
                 batchUpdates.add(photo.copy(thumbnailPath = path))
             }
@@ -817,7 +817,10 @@ class MediaScanner @Inject constructor(
             while (cursor.moveToNext()) {
                 val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns._ID))
                 val mediaType = cursor.getInt(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.MEDIA_TYPE))
-                val mimeType = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.MIME_TYPE)) ?: continue
+                // MediaStore 对 .jxl/.avif 等新格式可能返回 null MIME，不能直接跳过。
+                // 保留 displayName，后续通过扩展名在 Photo.isJxl/isAvif 中兜底识别。
+                val mimeType = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.MIME_TYPE))
+                    ?: "image/*"
 
                 val isVideo = mediaType == MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO
 
@@ -897,7 +900,9 @@ class MediaScanner @Inject constructor(
             while (cursor.moveToNext()) {
                 val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns._ID))
                 val mediaType = cursor.getInt(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.MEDIA_TYPE))
-                val mimeType = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.MIME_TYPE)) ?: continue
+                // MediaStore 对 .jxl/.avif 等新格式可能返回 null MIME，不能直接跳过
+                val mimeType = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.MIME_TYPE))
+                    ?: "image/*"
 
                 val isVideo = mediaType == MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO
 
@@ -975,7 +980,9 @@ class MediaScanner @Inject constructor(
             while (cursor.moveToNext()) {
                 val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns._ID))
                 val mediaType = cursor.getInt(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.MEDIA_TYPE))
-                val mimeType = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.MIME_TYPE)) ?: continue
+                // MediaStore 对 .jxl/.avif 等新格式可能返回 null MIME，不能直接跳过
+                val mimeType = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.MIME_TYPE))
+                    ?: "image/*"
 
                 val isVideo = mediaType == MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO
 

@@ -15,11 +15,7 @@ import androidx.core.view.updatePadding
 import androidx.fragment.app.DialogFragment
 import androidx.fragment.app.setFragmentResult
 import com.bumptech.glide.Glide
-import com.bumptech.glide.load.engine.DiskCacheStrategy
-import com.bumptech.glide.request.target.CustomTarget
-import com.bumptech.glide.request.transition.Transition
-import com.github.panpf.zoomimage.ZoomImageView
-import com.github.panpf.zoomimage.subsampling.ContentImageSource
+import com.github.panpf.zoomimage.GlideZoomImageView
 import com.gxstar.stargallery.R
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.data.repository.MediaRepository
@@ -108,87 +104,23 @@ class TrashPhotoPreviewDialog : DialogFragment() {
         (dp * resources.displayMetrics.density).toInt()
 
     private fun loadImage(photo: Photo) {
-        // 大图/Raw 使用 ZoomImageView 子采样加载，避免一次性全量解码占用过多内存；
-        // JXL 不支持 BitmapRegionDecoder，无法子采样，回退到 Glide 全量加载。
+        // 大图/Raw 使用 GlideZoomImageView 子采样加载，避免一次性全量解码占用过多内存；
+        // JXL 不支持 BitmapRegionDecoder，禁用子采样，由 Glide 全量显示。
         val maxDimension = max(photo.width, photo.height)
         val needSubsampling = !photo.isJxl && (maxDimension >= 2000 || photo.isRaw)
 
         if (needSubsampling) {
-            loadWithSubsampling(photo)
+            binding.ivPhoto.subsampling.setRegionDecoders(listOf(AvifRegionDecoder.Factory()))
         } else {
-            loadFullImage(photo)
+            binding.ivPhoto.subsampling.setDisabled(true)
         }
-    }
 
-    /**
-     * 子采样加载大图：先 Glide 预览，再启用 ZoomImageView 子采样
-     * （ZoomImage 自动按缩放级别只加载可视区域的 tiles）。
-     */
-    private fun loadWithSubsampling(photo: Photo) {
-        Glide.with(requireContext())
-            .asBitmap()
-            .load(photo.uri)
-            .placeholder(android.R.color.black)
-            .override(1200)
-            .fitCenter()
-            .diskCacheStrategy(DiskCacheStrategy.RESOURCE)
-            .into(object : CustomTarget<android.graphics.Bitmap>() {
-                override fun onResourceReady(
-                    resource: android.graphics.Bitmap,
-                    transition: Transition<in android.graphics.Bitmap>?
-                ) {
-                    binding.ivPhoto.setImageBitmap(resource)
-                    enableSubsampling(photo)
-                }
-
-                override fun onLoadCleared(placeholder: android.graphics.drawable.Drawable?) {
-                    binding.ivPhoto.setImageDrawable(placeholder)
-                }
-
-                override fun onLoadFailed(errorDrawable: android.graphics.drawable.Drawable?) {
-                    binding.ivPhoto.setImageDrawable(errorDrawable)
-                }
-            })
-    }
-
-    /**
-     * 直接 Glide 加载完整图片（适用于小图 / JXL 回退）。
-     */
-    private fun loadFullImage(photo: Photo) {
         Glide.with(requireContext())
             .load(photo.uri)
             .placeholder(android.R.color.black)
             .error(android.R.color.darker_gray)
             .fitCenter()
-            .into(object : CustomTarget<android.graphics.drawable.Drawable>() {
-                override fun onResourceReady(
-                    resource: android.graphics.drawable.Drawable,
-                    transition: Transition<in android.graphics.drawable.Drawable>?
-                ) {
-                    binding.ivPhoto.setImageDrawable(resource)
-                }
-
-                override fun onLoadCleared(placeholder: android.graphics.drawable.Drawable?) {
-                    binding.ivPhoto.setImageDrawable(placeholder)
-                }
-
-                override fun onLoadFailed(errorDrawable: android.graphics.drawable.Drawable?) {
-                    binding.ivPhoto.setImageDrawable(errorDrawable)
-                }
-            })
-    }
-
-    /**
-     * 启用子采样功能：注册 AVIF 自定义区域解码器，并交给 ZoomImageView 接管大图。
-     */
-    private fun enableSubsampling(photo: Photo) {
-        try {
-            binding.ivPhoto.subsampling.setRegionDecoders(listOf(AvifRegionDecoder.Factory()))
-            val imageSource = ContentImageSource(requireContext(), photo.uri)
-            binding.ivPhoto.setSubsamplingImage(imageSource)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+            .into(binding.ivPhoto)
     }
 
     private fun restorePhoto() {
@@ -228,9 +160,7 @@ class TrashPhotoPreviewDialog : DialogFragment() {
     }
 
     override fun onDestroyView() {
-        // 清理子采样资源（释放大图解码器）
-        binding.ivPhoto.setSubsamplingImage(null as com.github.panpf.zoomimage.subsampling.ImageSource?)
-        // 清理 Glide 加载的图片
+        // 清理 Glide 加载的图片（GlideZoomImageView 作为 Target，clear 时自动清理子采样）
         Glide.with(requireContext()).clear(binding.ivPhoto)
         super.onDestroyView()
         _binding = null

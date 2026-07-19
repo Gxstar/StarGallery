@@ -10,6 +10,7 @@ import android.graphics.ImageDecoder
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
@@ -19,10 +20,16 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
+import com.bumptech.glide.load.engine.GlideException
+import com.bumptech.glide.request.RequestListener
+import com.bumptech.glide.request.target.Target
 import com.bumptech.glide.request.target.CustomTarget
 import com.bumptech.glide.request.transition.Transition
-import com.github.panpf.zoomimage.ZoomImageView
-import com.github.panpf.zoomimage.subsampling.ContentImageSource
+import com.awxkee.jxlcoder.JxlCoder
+import com.awxkee.jxlcoder.PreferredColorConfig
+import com.awxkee.jxlcoder.ScaleMode
+import com.awxkee.jxlcoder.JxlResizeFilter
+import com.github.panpf.zoomimage.GlideZoomImageView
 import com.github.panpf.zoomimage.view.zoom.ScrollBarSpec
 import com.gxstar.stargallery.R
 import com.gxstar.stargallery.data.model.Photo
@@ -76,14 +83,14 @@ class PhotoPageViewHolder(
             if (field != value) {
                 field = value
                 // 变为可见时，重新应用之前存储的窗口模式
-                if (value && lastAppliedHdrMode) {
-                    applyWindowColorMode(true)
+                if (value && lastAppliedColorMode == ColorMode.HDR) {
+                    applyWindowColorMode(ColorMode.HDR)
                 }
             }
         }
 
-    /** 最近一次生效的窗口模式 */
-    private var lastAppliedHdrMode: Boolean = false
+    /** 最近一次生效的窗口色彩模式 */
+    private var lastAppliedColorMode: ColorMode = ColorMode.DEFAULT
 
     /** 用于延迟执行 window.colorMode 变更的 Handler，避免打断 ViewPager2 触摸/滚动 */
     private val hdrHandler = Handler(Looper.getMainLooper())
@@ -261,10 +268,68 @@ class PhotoPageViewHolder(
 
         if (shouldProbeHdr) {
             checkHdrAndLoad(photo, maxDimension, needSubsampling, ctx)
+        } else if (photo.isJxl) {
+            // JXL 不走 Glide 的 content:// 解码路径（MediaStore 缩略图对 JXL 失败），
+            // 直接用 jxl-coder 核心库解码字节流，确保 8-bit / 16-bit 均能正确显示。
+            loadJxlDirect(photo, maxDimension, ctx)
         } else if (needSubsampling) {
             loadWithSubsampling(photo, ctx)
         } else {
             loadFullImage(photo, ctx)
+        }
+    }
+
+    /**
+     * 直接调用 jxl-coder 核心库解码 JXL 字节流，绕过 Glide 对 content:// Uri
+     * 的 MediaStore 缩略图路径（该路径对 JXL 会 setDataSource 失败）。
+     * 16-bit / 广色域 JXL 用 RGBA_F16 配置解码，并切换窗口为 WIDE_COLOR_GAMUT。
+     */
+    private fun loadJxlDirect(photo: Photo, maxDimension: Int, ctx: Context) {
+        configureSubsampling(photo) // JXL 禁用子采样
+        viewHolderScope?.launch(Dispatchers.IO) {
+            val bitmap = try {
+                ctx.contentResolver.openInputStream(photo.uri)?.use { stream ->
+                    val bytes = stream.readBytes()
+                    // 限制解码尺寸，超大图按长边缩放，避免 OOM；
+                    // DEFAULT 配置让 jxl-coder 自动按源位深选择（16-bit→RGBA_F16，8-bit→ARGB_8888）。
+                    val target = if (maxDimension > 4096) 4096 else maxDimension
+                    JxlCoder.decodeSampled(
+                        bytes,
+                        target,
+                        target,
+                        PreferredColorConfig.DEFAULT,
+                        ScaleMode.FIT,
+                        JxlResizeFilter.CATMULL_ROM
+                    )
+                }
+            } catch (e: Exception) {
+                Log.e("PhotoPage", "loadJxlDirect decode failed ${photo.uri}", e)
+                null
+            }
+
+            withContext(Dispatchers.Main) {
+                if (bitmap != null && isActive) {
+                    binding.ivPhoto.setImageBitmap(bitmap)
+                    applyWindowColorMode(colorModeForBitmap(bitmap))
+                    updateEdgeState()
+                } else if (isActive) {
+                    binding.ivPhoto.setImageResource(android.R.color.darker_gray)
+                }
+                binding.progressBar.visibility = View.GONE
+            }
+        }
+    }
+
+    /**
+     * 配置 GlideZoomImageView 的子采样能力：
+     * - JXL 不支持 BitmapRegionDecoder，禁用子采样（Glide 直接全图显示）
+     * - 非 JXL 大图：注册 AVIF 自定义区域解码器，交由 GlideZoomImageView 在加载后自动生成 SubsamplingImage
+     */
+    private fun configureSubsampling(photo: Photo) {
+        if (photo.isJxl) {
+            binding.ivPhoto.subsampling.setDisabled(true)
+        } else {
+            binding.ivPhoto.subsampling.setRegionDecoders(listOf(AvifRegionDecoder.Factory()))
         }
     }
 
@@ -289,10 +354,10 @@ class PhotoPageViewHolder(
                 if (hasGainmap) {
                     loadHdrBitmap(photo, maxDim, ctx)
                 } else if (needSubsample) {
-                    applyWindowColorMode(false)
+                    applyWindowColorMode(ColorMode.DEFAULT)
                     loadWithSubsampling(photo, ctx)
                 } else {
-                    applyWindowColorMode(false)
+                    applyWindowColorMode(ColorMode.DEFAULT)
                     loadFullImage(photo, ctx)
                 }
             }
@@ -325,8 +390,9 @@ class PhotoPageViewHolder(
             withContext(Dispatchers.Main) {
                 if (bitmap != null) {
                     val hasGainmap = Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && bitmap.hasGainmap()
+                    binding.ivPhoto.subsampling.setDisabled(true)
                     binding.ivPhoto.setImageBitmap(bitmap)
-                    applyWindowColorMode(hasGainmap)
+                    applyWindowColorMode(if (hasGainmap) ColorMode.HDR else ColorMode.DEFAULT)
                     updateEdgeState()
                 } else {
                     loadFullImage(photo, ctx)
@@ -337,38 +403,28 @@ class PhotoPageViewHolder(
     }
 
     /**
-     * 直接 Glide 加载完整图片（适用于小图 / 非 HDR 回退）
+     * 直接 Glide 加载完整图片（适用于小图 / JXL / 非 HDR 回退）
+     * GlideZoomImageView 会自行驱动显示，JXL 已在 configureSubsampling 中禁用子采样。
+     * 加载完成后按解码 Bitmap 的色域设置窗口色彩模式（16-bit / 广色域 JXL 需 WIDE_COLOR_GAMUT）。
      */
     private fun loadFullImage(photo: Photo, ctx: Context) {
+        configureSubsampling(photo)
         Glide.with(ctx)
             .load(photo.uri)
             .placeholder(android.R.color.black)
             .error(android.R.color.darker_gray)
             .fitCenter()
-            .into(binding.ivPhoto)
-        binding.progressBar.visibility = View.GONE
-    }
-
-    /**
-     * 子采样加载大图：先 Glide 预览，再启用 ZoomImageView 子采样
-     */
-    private fun loadWithSubsampling(photo: Photo, ctx: Context) {
-        Glide.with(ctx)
-            .asBitmap()
-            .load(photo.uri)
-            .placeholder(android.R.color.black)
-            .override(1200)
-            .fitCenter()
-            .diskCacheStrategy(DiskCacheStrategy.RESOURCE)
-            .into(object : CustomTarget<Bitmap>() {
+            .addListener(jxlListener("loadFullImage", photo))
+            .into(object : CustomTarget<android.graphics.drawable.Drawable>() {
                 override fun onResourceReady(
-                    resource: Bitmap,
-                    transition: Transition<in Bitmap>?
+                    resource: android.graphics.drawable.Drawable,
+                    transition: Transition<in android.graphics.drawable.Drawable>?
                 ) {
-                    binding.ivPhoto.setImageBitmap(resource)
+                    binding.ivPhoto.setImageDrawable(resource)
+                    val bitmap = (resource as? android.graphics.drawable.BitmapDrawable)?.bitmap
+                    applyWindowColorMode(colorModeForBitmap(bitmap))
                     binding.progressBar.visibility = View.GONE
                     updateEdgeState()
-                    enableSubsampling(photo)
                 }
 
                 override fun onLoadCleared(placeholder: android.graphics.drawable.Drawable?) {
@@ -383,29 +439,100 @@ class PhotoPageViewHolder(
     }
 
     /**
-     * 启用子采样功能
-     * ZoomImage 会自动根据缩放级别只加载可视区域的图片块(tiles)
+     * 子采样加载大图：注册 AVIF 区域解码器后由 Glide 加载，
+     * GlideZoomImageView 在加载成功后会自动生成 SubsamplingImage 驱动子采样。
+     * 加载完成后同样按解码 Bitmap 的色域设置窗口色彩模式。
      */
-    private fun enableSubsampling(photo: Photo) {
-        try {
-            // 注册 AVIF 自定义区域解码器（使用 ImageDecoder 替代不支持的 BitmapRegionDecoder）
-            binding.ivPhoto.subsampling.setRegionDecoders(listOf(AvifRegionDecoder.Factory()))
-            val imageSource = ContentImageSource(binding.root.context, photo.uri)
-            binding.ivPhoto.setSubsamplingImage(imageSource)
-        } catch (e: Exception) {
-            e.printStackTrace()
+    private fun loadWithSubsampling(photo: Photo, ctx: Context) {
+        configureSubsampling(photo)
+        Glide.with(ctx)
+            .load(photo.uri)
+            .placeholder(android.R.color.black)
+            .error(android.R.color.darker_gray)
+            .fitCenter()
+            .diskCacheStrategy(DiskCacheStrategy.RESOURCE)
+            .addListener(jxlListener("loadWithSubsampling", photo))
+            .into(object : CustomTarget<android.graphics.drawable.Drawable>() {
+                override fun onResourceReady(
+                    resource: android.graphics.drawable.Drawable,
+                    transition: Transition<in android.graphics.drawable.Drawable>?
+                ) {
+                    binding.ivPhoto.setImageDrawable(resource)
+                    val bitmap = (resource as? android.graphics.drawable.BitmapDrawable)?.bitmap
+                    applyWindowColorMode(colorModeForBitmap(bitmap))
+                    binding.progressBar.visibility = View.GONE
+                    updateEdgeState()
+                }
+
+                override fun onLoadCleared(placeholder: android.graphics.drawable.Drawable?) {
+                    binding.ivPhoto.setImageDrawable(placeholder)
+                }
+
+                override fun onLoadFailed(errorDrawable: android.graphics.drawable.Drawable?) {
+                    binding.ivPhoto.setImageDrawable(errorDrawable)
+                    binding.progressBar.visibility = View.GONE
+                }
+            })
+    }
+
+    private fun jxlListener(tag: String, photo: Photo) = object : RequestListener<android.graphics.drawable.Drawable> {
+        override fun onLoadFailed(
+            e: GlideException?,
+            model: Any?,
+            target: Target<android.graphics.drawable.Drawable>,
+            isFirstResource: Boolean
+        ): Boolean {
+            Log.e("PhotoPage", "$tag FAILED ${photo.uri} mime=${photo.mimeType} isJxl=${photo.isJxl}", e)
+            return false
+        }
+
+        override fun onResourceReady(
+            resource: android.graphics.drawable.Drawable,
+            model: Any?,
+            target: Target<android.graphics.drawable.Drawable>,
+            dataSource: com.bumptech.glide.load.DataSource,
+            isFirstResource: Boolean
+        ): Boolean {
+            val bmp = (resource as? android.graphics.drawable.BitmapDrawable)?.bitmap
+            Log.d("PhotoPage", "$tag OK ${photo.uri} mime=${photo.mimeType} cfg=${bmp?.config} cs=${bmp?.colorSpace} from=$dataSource")
+            return false
         }
     }
 
     /**
-     * 设置 Activity 窗口的 HDR/SDR 色彩模式
+     * 窗口色彩模式：默认(SDR) / 广色域(WIDE) / HDR。
+     * 16-bit / 广色域 JXL 需切到 WIDE_COLOR_GAMUT 才能正确呈现高位深。
+     */
+    private enum class ColorMode {
+        DEFAULT, WIDE, HDR
+    }
+
+    /**
+     * 根据解码出的 Bitmap 推断应设置的窗口色彩模式：
+     * - gainmap（Ultra HDR）→ HDR
+     * - 广色域 ColorSpace（如 16-bit JXL 的 RGBA_F16）→ WIDE
+     * - 其余 → DEFAULT
+     */
+    private fun colorModeForBitmap(bitmap: android.graphics.Bitmap?): ColorMode {
+        if (bitmap == null) return ColorMode.DEFAULT
+        val cs = bitmap.colorSpace
+        return when {
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
+                && bitmap.hasGainmap() -> ColorMode.HDR
+            cs != null && cs.isWideGamut -> ColorMode.WIDE
+            else -> ColorMode.DEFAULT
+        }
+    }
+
+    /**
+     * 设置 Activity 窗口的色彩模式（SDR / 广色域 / HDR）
      * window.colorMode 改动会触发 SurfaceFlinger surface 重配置，
      * 通过 Handler.post 推迟到当前消息批次后执行，避免打断 ViewPager2 状态转换。
      * 使用 Handler 而非 View.post 是为了在 recycle() 时能通过
      * removeCallbacksAndMessages 精确清理未执行的变更，防止旧页面影响新页面。
      */
-    private fun applyWindowColorMode(isHdr: Boolean) {
-        lastAppliedHdrMode = isHdr
+    private fun applyWindowColorMode(mode: ColorMode) {
+        lastAppliedColorMode = mode
         if (!isActive) {
             return
         }
@@ -414,7 +541,11 @@ class PhotoPageViewHolder(
             if (!isActive) return@post
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                 val window = activity?.window
-                window?.colorMode = if (isHdr) ActivityInfo.COLOR_MODE_HDR else ActivityInfo.COLOR_MODE_DEFAULT
+                window?.colorMode = when (mode) {
+                    ColorMode.HDR -> ActivityInfo.COLOR_MODE_HDR
+                    ColorMode.WIDE -> ActivityInfo.COLOR_MODE_WIDE_COLOR_GAMUT
+                    ColorMode.DEFAULT -> ActivityInfo.COLOR_MODE_DEFAULT
+                }
             }
         }
     }
@@ -424,7 +555,7 @@ class PhotoPageViewHolder(
      */
     private fun resetWindowColorMode() {
         if (!isActive) return
-        lastAppliedHdrMode = false
+        lastAppliedColorMode = ColorMode.DEFAULT
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             val window = activity?.window
             window?.colorMode = ActivityInfo.COLOR_MODE_DEFAULT
@@ -478,10 +609,7 @@ class PhotoPageViewHolder(
         // 重置图片缩放状态
         resetZoom()
 
-        // 清理子采样资源（释放大图解码器）
-        binding.ivPhoto.setSubsamplingImage(null as com.github.panpf.zoomimage.subsampling.ImageSource?)
-
-        // 清理 Glide 加载的图片
+        // 清理 Glide 加载的图片（GlideZoomImageView 作为 Target，clear 时自动清理子采样）
         Glide.with(binding.root.context).clear(binding.ivPhoto)
         Glide.with(binding.root.context).clear(binding.ivGif)
         Glide.with(binding.root.context).clear(binding.ivVideoCover)

@@ -58,7 +58,8 @@ class MediaRepository @Inject constructor(
             MediaStore.Files.FileColumns.ORIENTATION,
             MediaStore.Files.FileColumns.IS_FAVORITE,
             MediaStore.Files.FileColumns.MEDIA_TYPE,
-            MediaStore.MediaColumns.DATE_EXPIRES
+            MediaStore.MediaColumns.DATE_EXPIRES,
+            MediaStore.MediaColumns.DISPLAY_NAME
         )
 
         val sortOrder = when (sortType) {
@@ -105,7 +106,8 @@ class MediaRepository @Inject constructor(
             MediaStore.Images.Media.LATITUDE,
             MediaStore.Images.Media.LONGITUDE,
             MediaStore.Images.Media.ORIENTATION,
-            MediaStore.Images.Media.IS_FAVORITE
+            MediaStore.Images.Media.IS_FAVORITE,
+            MediaStore.Images.Media.DISPLAY_NAME
         )
 
         contentResolver.query(uri, projection, "${MediaStore.Images.Media._ID} = ?", arrayOf(id.toString()), null)?.use { cursor ->
@@ -173,7 +175,8 @@ class MediaRepository @Inject constructor(
             MediaStore.Files.FileColumns.BUCKET_DISPLAY_NAME,
             MediaStore.Files.FileColumns.ORIENTATION,
             MediaStore.Files.FileColumns.IS_FAVORITE,
-            MediaStore.Files.FileColumns.MEDIA_TYPE
+            MediaStore.Files.FileColumns.MEDIA_TYPE,
+            MediaStore.MediaColumns.DISPLAY_NAME
         )
 
         val selection = "${MediaStore.Files.FileColumns.BUCKET_ID} = ? " +
@@ -440,6 +443,10 @@ class MediaRepository @Inject constructor(
             (dateModified + 30 * 24 * 60 * 60) * 1000L
         }
 
+        val displayName = try {
+            getString(getColumnIndexOrThrow(MediaStore.MediaColumns.DISPLAY_NAME))
+        } catch (_: Exception) { null }
+
         return Photo(
             id = id,
             uri = uri,
@@ -456,7 +463,8 @@ class MediaRepository @Inject constructor(
             longitude = null,
             orientation = orientation,
             isFavorite = getInt(getColumnIndexOrThrow(MediaStore.Files.FileColumns.IS_FAVORITE)) == 1,
-            dateExpiration = dateExpiration
+            dateExpiration = dateExpiration,
+            displayName = displayName
         )
     }
 
@@ -466,6 +474,10 @@ class MediaRepository @Inject constructor(
 
         val orientationIndex = getColumnIndex(MediaStore.Images.Media.ORIENTATION)
         val orientation = if (orientationIndex >= 0) getInt(orientationIndex) else 0
+
+        val displayName = try {
+            getString(getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME))
+        } catch (_: Exception) { null }
 
         return Photo(
             id = id,
@@ -482,7 +494,8 @@ class MediaRepository @Inject constructor(
             latitude = getColumnIndex(MediaStore.Images.Media.LATITUDE).takeIf { it >= 0 }?.let { getDouble(it) }?.takeIf { it != 0.0 },
             longitude = getColumnIndex(MediaStore.Images.Media.LONGITUDE).takeIf { it >= 0 }?.let { getDouble(it) }?.takeIf { it != 0.0 },
             orientation = orientation,
-            isFavorite = getInt(getColumnIndexOrThrow(MediaStore.Images.Media.IS_FAVORITE)) == 1
+            isFavorite = getInt(getColumnIndexOrThrow(MediaStore.Images.Media.IS_FAVORITE)) == 1,
+            displayName = displayName
         )
     }
 

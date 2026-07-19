@@ -11,8 +11,8 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
-        <!-- Image Viewer - ZoomImageView 支持子采样，优化大图加载 -->
-        <com.github.panpf.zoomimage.ZoomImageView
+        <!-- Image Viewer - GlideZoomImageView 集成 Glide，自动驱动子采样 -->
+        <com.github.panpf.zoomimage.GlideZoomImageView
             android:id="@+id/ivPhoto"
             android:layout_width="match_parent"
             android:layout_height="match_parent"

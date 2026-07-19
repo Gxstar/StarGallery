@@ -24,8 +24,14 @@ data class Photo(
     val isHidden: Boolean = false,
     val isHdr: Boolean = false,
     val dateExpiration: Long = 0,
-    val thumbnailPath: String? = null
+    val thumbnailPath: String? = null,
+    val displayName: String? = null
 ) : Parcelable {
+    private val extension: String
+        get() = displayName?.substringAfterLast('.', "")?.lowercase()
+            ?: uri.lastPathSegment?.substringAfterLast('.', "")?.lowercase()
+            ?: ""
+
     val isVideo: Boolean
         get() = mimeType.startsWith("video/")
 
@@ -37,24 +43,24 @@ data class Photo(
 
     /**
      * 判断是否为 JPEG XL (JXL) 格式
-     * Android 14+ (API 34) 原生支持 JXL 解码
+     * 先检查 MIME（MediaStore 识别时），再检查扩展名（MediaStore 不识别 .jxl 时兜底）
      */
     val isJxl: Boolean
-        get() = mimeType == "image/jxl"
+        get() = mimeType == "image/jxl" || extension == "jxl"
 
     /**
      * 判断是否为 AVIF 格式
-     * Android 12+ (API 31) 原生支持 AVIF 解码
+     * 先检查 MIME（MediaStore 识别时），再检查扩展名（MediaStore 不识别 .avif 时兜底）
      */
     val isAvif: Boolean
-        get() = mimeType == "image/avif"
+        get() = mimeType == "image/avif" || extension == "avif"
 
     /**
      * 判断是否为 HEIC/HEIF 格式
-     * Android 8+ (API 26) 原生支持 HEIC 解码
+     * 先检查 MIME（MediaStore 识别时），再检查扩展名（MediaStore 不识别时兜底）
      */
     val isHeic: Boolean
-        get() = mimeType in setOf("image/heic", "image/heif")
+        get() = mimeType in setOf("image/heic", "image/heif") || extension in setOf("heic", "heif")
 
     /**
      * 判断是否为 RAW 格式图片

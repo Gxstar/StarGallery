@@ -481,7 +481,8 @@ class PhotosViewModel @Inject constructor(
             isFavorite = isFavorite,
             isHidden = isHidden,
             isHdr = isHdr,
-            thumbnailPath = thumbnailPath
+            thumbnailPath = thumbnailPath,
+            displayName = displayName
         )
     }
 }

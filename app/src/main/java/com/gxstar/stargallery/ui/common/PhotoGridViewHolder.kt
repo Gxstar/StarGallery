@@ -1,10 +1,13 @@
 package com.gxstar.stargallery.ui.common
 
+import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
+import com.bumptech.glide.request.RequestListener
+import com.bumptech.glide.request.target.Target
 import com.gxstar.stargallery.R
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.databinding.ItemPhotoBinding
@@ -95,7 +98,30 @@ class PhotoGridViewHolder(
             requestBuilder.override(itemSize, itemSize)
         }
 
-        requestBuilder.into(binding.ivPhoto)
+        requestBuilder
+            .addListener(object : RequestListener<android.graphics.drawable.Drawable> {
+                override fun onLoadFailed(
+                    e: com.bumptech.glide.load.engine.GlideException?,
+                    model: Any?,
+                    target: Target<android.graphics.drawable.Drawable>,
+                    isFirstResource: Boolean
+                ): Boolean {
+                    Log.e("PhotoGrid", "JXL/thumb load failed for ${photo.uri} mime=${photo.mimeType}", e)
+                    return false
+                }
+
+                override fun onResourceReady(
+                    resource: android.graphics.drawable.Drawable,
+                    model: Any?,
+                    target: Target<android.graphics.drawable.Drawable>,
+                    dataSource: com.bumptech.glide.load.DataSource,
+                    isFirstResource: Boolean
+                ): Boolean {
+                    Log.d("PhotoGrid", "JXL/thumb loaded OK ${photo.uri} mime=${photo.mimeType} from=$dataSource")
+                    return false
+                }
+            })
+            .into(binding.ivPhoto)
     }
 
     private fun updateSelectionUI(isSelectionMode: Boolean, isSelected: Boolean, photo: Photo) {

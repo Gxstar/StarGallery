@@ -147,6 +147,10 @@ dependencies {
     // JXL 图片解码 - jxl-coder (Glide 集成)
     implementation(libs.jxl.coder.glide)
 
+    // AVIF/HEIC 图片解码 - avif-coder (Glide 集成 + 核心库)
+    implementation(libs.avif.coder)
+    implementation(libs.avif.coder.glide)
+
     // 视频播放 - Media3 (ExoPlayer)
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.ui)

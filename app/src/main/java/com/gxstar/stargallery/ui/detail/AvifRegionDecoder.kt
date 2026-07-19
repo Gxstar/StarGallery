@@ -2,7 +2,6 @@ package com.gxstar.stargallery.ui.detail
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.ImageDecoder
 import android.os.Build
 import android.util.Log
 import com.github.panpf.zoomimage.subsampling.ContentImageSource
@@ -12,6 +11,7 @@ import com.github.panpf.zoomimage.subsampling.RegionDecoder
 import com.github.panpf.zoomimage.subsampling.SubsamplingImage
 import com.github.panpf.zoomimage.subsampling.TileBitmap
 import com.github.panpf.zoomimage.util.IntRectCompat
+import com.radzivon.bartoshyk.avif.coder.HeifCoder
 import java.io.BufferedInputStream
 import okio.buffer
 import okio.use
@@ -34,7 +34,29 @@ class AvifRegionDecoder(
         private const val MAX_DECODE_DIM = 4096
     }
 
+    private fun readBytes(): ByteArray? {
+        return try {
+            imageSource.context.contentResolver.openInputStream(imageSource.uri)?.use { stream ->
+                stream.readBytes()
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "readBytes failed: ${e.message}")
+            null
+        }
+    }
+
     private fun decodeImageInfo(): ImageInfo {
+        val bytes = readBytes()
+        if (bytes != null) {
+            val size = HeifCoder().getSize(bytes)
+            if (size != null && size.width > 0 && size.height > 0) {
+                return ImageInfo(
+                    width = size.width,
+                    height = size.height,
+                    mimeType = "image/avif"
+                )
+            }
+        }
         val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         imageSource.openSource().use { source ->
             BufferedInputStream(source.buffer().inputStream()).use { stream ->
@@ -67,19 +89,14 @@ class AvifRegionDecoder(
                     MAX_DECODE_DIM.toFloat() / maxDim
                 } else 1f
 
-                val source = ImageDecoder.createSource(
-                    imageSource.context.contentResolver,
-                    imageSource.uri
-                )
-                cachedBitmap = ImageDecoder.decodeBitmap(source) { decoder, _, _ ->
-                    decoder.setTargetSize(
-                        (targetWidth * scale).toInt().coerceAtLeast(1),
-                        (targetHeight * scale).toInt().coerceAtLeast(1)
-                    )
-                }
+                val finalWidth = (targetWidth * scale).toInt().coerceAtLeast(1)
+                val finalHeight = (targetHeight * scale).toInt().coerceAtLeast(1)
+
+                val bytes = readBytes() ?: return Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
+                cachedBitmap = HeifCoder().decodeSampled(bytes, finalWidth, finalHeight)
                 cachedSampleSize = currentSampleSize
             } catch (e: Exception) {
-                Log.w(TAG, "Decode failed at sampleSize=$currentSampleSize: ${e.message}")
+                Log.w(TAG, "Decode failed at sampleSize=$currentSampleSize: ${e.message}", e)
             }
         }
 

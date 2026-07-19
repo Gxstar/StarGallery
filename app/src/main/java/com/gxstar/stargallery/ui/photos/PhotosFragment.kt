@@ -51,6 +51,7 @@ import com.gxstar.stargallery.ui.detail.PhotoDetailListCache
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -59,6 +60,9 @@ import javax.inject.Inject
  * 职责：协调各管理器，处理 UI 事件
  * 数据源：直接使用 MediaStore，通过 Paging 3 实现实时刷新
  */
+/** 四元组，用于 combine 四个 StateFlow */
+private data class Quad<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
+
 @AndroidEntryPoint
 class PhotosFragment : Fragment() {
 
@@ -574,43 +578,20 @@ class PhotosFragment : Fragment() {
     private fun observeData() {
         var lastSortType: MediaRepository.SortType? = null
 
+        // 主列表渲染：只依赖 photoListFlow，不等待 isScanning/isExtractingExif
+        // Room 中已有数据会立即渲染，扫描/EXIF 提取在后台进行，不再阻塞首屏
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                combine(
-                    viewModel.isScanning,
-                    viewModel.isExtractingExif,
-                    viewModel.photoListFlow
-                ) { isScanning, isExtractingExif, photoModels ->
-                    Triple(isScanning, isExtractingExif, photoModels)
-                }.collect { (isScanning, isExtractingExif, photoModels) ->
-                    val isSyncing = viewModel.isSyncing.value
-                    val currentPos = gridLayoutManager?.findFirstVisibleItemPosition() ?: RecyclerView.NO_POSITION
-                    val currentOffset = if (currentPos != RecyclerView.NO_POSITION) {
-                        gridLayoutManager?.findViewByPosition(currentPos)?.top ?: 0
-                    } else 0
-                    val userIsAtTop = currentPos in 0..1 && currentOffset <= 50
-
+                viewModel.photoListFlow.collect { photoModels ->
                     val currentSortType = viewModel.currentSortType.value
                     val isSortChanged = lastSortType != null && lastSortType != currentSortType
                     lastSortType = currentSortType
 
-                    if (isScanning || isExtractingExif || userIsAtTop || isSortChanged) {
-                        if (binding.rvPhotos.itemAnimator != null) {
-                            binding.rvPhotos.itemAnimator = null
-                        }
-                    }
-
                     val anchorPhotoId = if (isSortChanged) findFirstVisiblePhotoId() else -1L
 
                     val submitCallback = Runnable {
-                        if (userIsAtTop) {
-                            gridLayoutManager?.scrollToPositionWithOffset(0, 0)
-                        } else if (isSortChanged && anchorPhotoId >= 0) {
+                        if (isSortChanged && anchorPhotoId >= 0) {
                             scrollToPhotoById(anchorPhotoId)
-                        }
-
-                        if (!isScanning && !isExtractingExif && binding.rvPhotos.itemAnimator == null && photoItemAnimator != null) {
-                            binding.rvPhotos.itemAnimator = photoItemAnimator
                         }
 
                         if (!fastScrollerReady && photoModels.isNotEmpty()) {
@@ -627,11 +608,35 @@ class PhotosFragment : Fragment() {
 
                     val isEmpty = photoModels.isEmpty()
 
-                    // 首屏列表首次渲染完成后，再触发后台静默同步（增量扫描）。
-                    // 这样 Room 已有数据先整体出现，扫描作为后台更新，不再阻塞首屏。
+                    // 首屏列表首次渲染完成后，再触发后台静默同步（增量扫描）
                     if (!hasRenderedFirstList && !isEmpty) {
                         hasRenderedFirstList = true
                         mediaChangeDetector.triggerInitialSync()
+                    }
+                }
+            }
+        }
+
+        // 扫描状态独立观察：控制进度 UI 和 itemAnimator，不影响列表渲染
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                combine(
+                    viewModel.isScanning,
+                    viewModel.isExtractingExif,
+                    viewModel.isSyncing,
+                    viewModel.photoListFlow.map { it.isEmpty() }
+                ) { isScanning, isExtractingExif, isSyncing, isEmpty ->
+                    Quad(isScanning, isExtractingExif, isSyncing, isEmpty)
+                }.collect { (isScanning, isExtractingExif, isSyncing, isEmpty) ->
+                    // 扫描/EXIF 提取期间禁用 itemAnimator，防止动画抖动
+                    if (isScanning || isExtractingExif) {
+                        if (binding.rvPhotos.itemAnimator != null) {
+                            binding.rvPhotos.itemAnimator = null
+                        }
+                    } else {
+                        if (binding.rvPhotos.itemAnimator == null && photoItemAnimator != null) {
+                            binding.rvPhotos.itemAnimator = photoItemAnimator
+                        }
                     }
 
                     binding.scanningView.visibility = if (isScanning && !isEmpty) View.VISIBLE else View.GONE

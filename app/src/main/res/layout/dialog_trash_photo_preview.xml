@@ -5,7 +5,7 @@
     android:layout_height="match_parent"
     android:background="@color/black">
 
-    <com.github.panpf.zoomimage.ZoomImageView
+    <com.github.panpf.zoomimage.GlideZoomImageView
         android:id="@+id/ivPhoto"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
