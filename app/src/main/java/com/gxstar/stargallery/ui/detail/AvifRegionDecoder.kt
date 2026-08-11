@@ -2,8 +2,6 @@ package com.gxstar.stargallery.ui.detail
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.ColorSpace
-import android.graphics.ImageDecoder
 import android.util.Log
 import com.github.panpf.zoomimage.subsampling.ContentImageSource
 import com.github.panpf.zoomimage.subsampling.ImageInfo
@@ -12,22 +10,24 @@ import com.github.panpf.zoomimage.subsampling.RegionDecoder
 import com.github.panpf.zoomimage.subsampling.SubsamplingImage
 import com.github.panpf.zoomimage.subsampling.TileBitmap
 import com.github.panpf.zoomimage.util.IntRectCompat
+import com.radzivon.bartoshyk.avif.coder.HeifCoder
 import java.io.BufferedInputStream
 import okio.buffer
 import okio.use
 
 /**
- * AVIF 大图区域解码器（minSdk 35 原生实现）
+ * AVIF 大图区域解码器（libavif 实现）
  *
- * 背景：BitmapRegionDecoder 的 AVIF 区域解码是 Android 16（API 36+）才具备的能力
- * （2025-09 合入 Skia，Bug 435430895），API 35 上 AVIF 只能"整帧解码 + 缩放 + 裁切"，
- * 因此 AVIF 子采样必须保留自定义 RegionDecoder（平台边界，非实现问题）。
+ * 保留原因：Android 原生 ImageDecoder 仅保证 AVIF baseline profile
+ * （4:2:0 色度采样，8/10-bit）。4:2:2 / 4:4:4 色度采样与 12-bit 的 AVIF
+ * （如专业工具/部分相机导出）原生解码器会直接失败，必须用 libavif 软件解码。
+ * 实测样本：profile 1 (High) / 10-bit / 4:4:4 的 AVIF 在原生解码器上灰图+无缩略图。
  *
- * 实现要点（v3 R1 修订）：
- * - 内部改用 ImageDecoder（原生 AVIF 解码，API 34+ 平台强制），替代 avif-coder（HeifCoder）
- * - decodeRegion 强制 setTargetColorSpace(SRGB)：10-bit AVIF 源若输出 RGBA_F16（8B/px）
- *   会使 tile 内存翻倍，转换到 sRGB 输出 8-bit tile（4B/px），性能回到基线
- * - tile 不做 HDR 是正确设计：HDR 由详情页整图路径（ImageDecoder 保留 F16/gainmap）负责
+ * 说明：
+ * - libavif 支持 10/12-bit 与 4:4:4/4:2:2 解码（HeifCoder），覆盖原生能力缺口
+ * - tile 解码默认输出 8-bit（libavif RGBA），子采样预览用；
+ *   详情页 HDR 由 colorModeForBitmap 按位图实际属性处理
+ * - 大图仍是"整帧解码 + 缩放 + 裁切"（AVIF 无原生 tile 解码，平台边界）
  */
 class AvifRegionDecoder(
     private val subsamplingImage: SubsamplingImage,
@@ -47,7 +47,30 @@ class AvifRegionDecoder(
         private const val MAX_DECODE_DIM = 4096
     }
 
+    private fun readBytes(): ByteArray? {
+        return try {
+            imageSource.context.contentResolver.openInputStream(imageSource.uri)?.use { stream ->
+                stream.readBytes()
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "readBytes failed: ${e.message}")
+            null
+        }
+    }
+
     private fun decodeImageInfo(): ImageInfo {
+        val bytes = readBytes()
+        if (bytes != null) {
+            // libavif 尺寸探测（不抛异常），覆盖 4:2:2/4:4:4 与 12-bit 样本
+            val size = HeifCoder().getSize(bytes)
+            if (size != null && size.width > 0 && size.height > 0) {
+                return ImageInfo(
+                    width = size.width,
+                    height = size.height,
+                    mimeType = "image/avif"
+                )
+            }
+        }
         val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         imageSource.openSource().use { source ->
             BufferedInputStream(source.buffer().inputStream()).use { stream ->
@@ -83,7 +106,10 @@ class AvifRegionDecoder(
                 val finalWidth = (targetWidth * scale).toInt().coerceAtLeast(1)
                 val finalHeight = (targetHeight * scale).toInt().coerceAtLeast(1)
 
-                cachedBitmap = decodeSampledBitmap(finalWidth, finalHeight)
+                val bytes = readBytes()
+                    ?: return Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
+                // libavif 采样解码：支持 4:2:2/4:4:4 与 12-bit（原生不支持的部分）
+                cachedBitmap = HeifCoder().decodeSampled(bytes, finalWidth, finalHeight)
                 cachedSampleSize = currentSampleSize
             } catch (e: Exception) {
                 Log.w(TAG, "Decode failed at sampleSize=$currentSampleSize: ${e.message}", e)
@@ -105,23 +131,6 @@ class AvifRegionDecoder(
             cropLeft, cropTop, cropWidth.coerceAtLeast(1), cropHeight.coerceAtLeast(1)
         )
         return cropped.copy(cropped.config ?: Bitmap.Config.ARGB_8888, false) ?: cropped
-    }
-
-    /**
-     * R1：ImageDecoder 原生解码 AVIF，强制 sRGB 输出
-     * 避免 10-bit AVIF 源输出 RGBA_F16（8B/px）导致 tile 内存翻倍
-     */
-    private fun decodeSampledBitmap(targetWidth: Int, targetHeight: Int): Bitmap? {
-        return try {
-            val source = ImageDecoder.createSource(imageSource.context.contentResolver, imageSource.uri)
-            ImageDecoder.decodeBitmap(source) { decoder, _, _ ->
-                decoder.setTargetSize(targetWidth, targetHeight)
-                decoder.setTargetColorSpace(ColorSpace.get(ColorSpace.Named.SRGB))
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "decodeSampled failed: ${e.message}", e)
-            null
-        }
     }
 
     override fun close() {
@@ -149,8 +158,7 @@ class AvifRegionDecoder(
         }
 
         override fun checkSupport(mimeType: String): Boolean? {
-            // minSdk 35：AVIF 原生解码为平台强制（API 34+），无需版本判断
-            // HEIF 走 ZoomImage 内置 BitmapRegionDecoder（原生），不在此注册
+            // AVIF 单独走 libavif：原生解码器不支持 4:2:2/4:4:4 与 12-bit 样本
             return if (mimeType == "image/avif") {
                 true
             } else {

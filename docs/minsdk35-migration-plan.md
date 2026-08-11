@@ -442,5 +442,45 @@ loadImage(photo)
 
 ---
 
-*编制：Mobile App Builder / 日期：2026-08-11（v6：高位深评估——10-bit 全原生支持 + R5 PQ/HLG→HDR 修正；12-bit 因平台无解码/无格式/无面板链路而不支持）*
+## 十三、AVIF 回归 avif-coder（v7：实测驱动的决策修正）
+
+### 13.1 背景（实测发现）
+
+真机测试 10-bit HDR AVIF 出现**灰图 + 无缩略图**。解析样本 `01045811.avif` 的 `av1C` box：
+
+- **profile 1 (High) / 10-bit / 4:4:4 色度采样**（3.5MB）
+
+Android 原生解码器只保证 AVIF **baseline profile（4:2:0，8/10-bit）**，4:2:2/4:4:4 与 12-bit 样本会直接解码失败 → `ImageDecoder` 探测异常被 catch 吞掉 → 回退 Glide（BitmapFactory 同样失败）→ 灰图；`ThumbnailManager` 走 Glide 同样失败 → 无缩略图。**改造前 avif-coder（libavif）能解 4:4:4，改造后原生不能解——这是"原生化"支持面收窄的代价。**
+
+### 13.2 决策（用户拍板）
+
+**AVIF 单独走 avif-coder（libavif），HEIF / JPEG / JXL 保持现状**（HEIF 原生、JXL jxl-coder）。兼容性优先于"全原生"纯净度。
+
+### 13.3 改动
+
+1. 恢复依赖：`avif-coder` + `avif-coder-glide`（toml + build.gradle），保留"原生失败兜底"注释
+2. `AvifRegionDecoder` 内部换回 `HeifCoder`（libavif）：
+   - `getSize()` 尺寸探测（覆盖 4:2:2/4:4:4 与 12-bit）
+   - `decodeSampled()` 采样解码（libavif 支持 10/12-bit 与 4:4:4）
+3. 详情页 `isHdrCandidate` 移除 `isAvif`：AVIF 走 Glide + AvifRegionDecoder 路径（不再走 ImageDecoder HDR 探测）
+4. 缩略图：Glide 经 `avif-coder-glide` 解码，恢复生成
+
+### 13.4 HDR 保留度（需真机确认）
+
+avif-coder README 声明：**"Fully supports HDR images, 10, 12 bit"，支持 RGBA_F16 / RGBA_1010102 输出**。详情页 `colorModeForBitmap` 仍按位图实际属性（hasGainmap / PQ/HLG / isWideGamut）设置窗口色彩模式——若 HeifCoder 输出宽色域/F16 bitmap，HDR/WIDE 仍会生效；若输出 8-bit，则显示 SDR 正确映射。具体效果取决于 HeifCoder 的输出位深，需用该 4:4:4 样本真机验证。
+
+### 13.5 最终技术栈（v7 定稿）
+
+| 层 | 组件 |
+|---|---|
+| 图片加载（列表/缓存） | Glide 5.0.9 |
+| 大图缩放（View） | ZoomImage 1.6.0 |
+| **AVIF 解码 + 子采样** | **avif-coder（libavif）+ avif-coder-glide + AvifRegionDecoder（HeifCoder）** |
+| HEIF 解码 + HDR | 系统原生（ImageDecoder / BitmapFactory） |
+| JXL 解码 | jxl-coder + jxl-coder-glide（独立路径） |
+| JPEG / Ultra HDR | 系统原生（ImageDecoder + colorMode） |
+
+---
+
+*编制：Mobile App Builder / 日期：2026-08-11（v7：实测 10-bit 4:4:4 AVIF 原生解码失败，AVIF 回归 avif-coder/libavif，HEIF/JPEG/JXL 保持现状）*
 *依据：Android 官方媒体格式文档、Android 15 功能与 API 概览、apilevels.com 覆盖率（2026-08）、项目源码走查*

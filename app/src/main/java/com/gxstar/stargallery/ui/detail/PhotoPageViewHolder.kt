@@ -29,6 +29,10 @@ import com.awxkee.jxlcoder.JxlCoder
 import com.awxkee.jxlcoder.PreferredColorConfig
 import com.awxkee.jxlcoder.ScaleMode
 import com.awxkee.jxlcoder.JxlResizeFilter
+import com.radzivon.bartoshyk.avif.coder.HeifCoder
+import com.radzivon.bartoshyk.avif.coder.PreferredColorConfig as AvifColorConfig
+import com.radzivon.bartoshyk.avif.coder.ScaleMode as AvifScaleMode
+import com.radzivon.bartoshyk.avif.coder.ScalingQuality as AvifScalingQuality
 import com.github.panpf.zoomimage.GlideZoomImageView
 import com.github.panpf.zoomimage.view.zoom.ScrollBarSpec
 import com.gxstar.stargallery.R
@@ -262,12 +266,18 @@ class PhotoPageViewHolder(
         // JXL 不支援 BitmapRegionDecoder，無法使用子採樣
         val needSubsampling = !photo.isJxl && (maxDimension >= 2000 || photo.isRaw)
 
-        // HDR 候选：JPEG（Ultra HDR gainmap）/ AVIF / HEIF（10-bit 高位深、PQ/HLG、gain map）
-        // minSdk 35：hasGainmap() / window.colorMode 等 API 全部原生可用，无需版本判断
-        val isHdrCandidate = photo.isUltraHdr || photo.isAvif || photo.isHeic
+        // HDR 候选：JPEG（Ultra HDR gainmap）/ HEIF（10-bit 高位深、PQ/HLG、gain map）
+        // AVIF 单独走 avif-coder（libavif）路径：原生解码器不支持 4:2:2/4:4:4 与
+        // 12-bit 样本（实测 10-bit 4:4:4 原生失败），详情页经 Glide + AvifRegionDecoder
+        // 解码，色彩模式仍按位图实际属性（colorModeForBitmap）设置
+        val isHdrCandidate = photo.isUltraHdr || photo.isHeic
         val shouldProbeHdr = (photo.isHdr || isHdrCandidate) && hdrDisplayEnabled()
 
-        if (shouldProbeHdr) {
+        if (photo.isAvif) {
+            // AVIF 自适应：优先原生 ImageDecoder（4:2:0 的 HDR AVIF → 真 HDR/WIDE），
+            // 原生不支持（4:2:2/4:4:4 与 12-bit 抛异常）→ 回退 libavif 直连（WIDE 保底）
+            loadAvifAdaptive(photo, maxDimension, ctx)
+        } else if (shouldProbeHdr) {
             checkHdrAndLoad(photo, maxDimension, needSubsampling, ctx)
         } else if (photo.isJxl) {
             // JXL 不走 Glide 的 content:// 解码路径（MediaStore 缩略图对 JXL 失败），
@@ -322,9 +332,105 @@ class PhotoPageViewHolder(
     }
 
     /**
+     * AVIF 自适应解码（双路径）：
+     * - 原生 ImageDecoder 可解（4:2:0）：
+     *   * HDR/宽色域候选（gainmap / PQ / wide gamut）→ 原生整图解码，真 HDR/WIDE 显示
+     *   * 普通 SDR → Glide + AvifRegionDecoder 子采样
+     * - 原生不支持（4:2:2/4:4:4 与 12-bit，解码抛异常）→ 回退 libavif 直连（WIDE 保底）
+     */
+    private fun loadAvifAdaptive(photo: Photo, maxDim: Int, ctx: Context) {
+        viewHolderScope?.launch(Dispatchers.IO) {
+            val nativeProbe = try {
+                val source = ImageDecoder.createSource(ctx.contentResolver, photo.uri)
+                val probe = ImageDecoder.decodeBitmap(source) { decoder, _, _ ->
+                    decoder.setTargetSize(200, 200)
+                }
+                val result = probe.hasGainmap() || probe.colorSpace?.isWideGamut == true
+                probe.recycle()
+                result
+            } catch (_: Exception) {
+                null // 原生不支持该样本（4:4:4/12-bit 等）→ 回退 libavif
+            }
+
+            withContext(Dispatchers.Main) {
+                when (nativeProbe) {
+                    true -> {
+                        Log.d("PhotoPage", "loadAvifAdaptive: native HDR/WIDE path ${photo.uri}")
+                        loadHdrBitmap(photo, maxDim, ctx)
+                    }
+                    false -> {
+                        Log.d("PhotoPage", "loadAvifAdaptive: native SDR path ${photo.uri}")
+                        applyWindowColorMode(ColorMode.DEFAULT)
+                        if (maxDim >= 2000 || photo.isRaw) {
+                            loadWithSubsampling(photo, ctx)
+                        } else {
+                            loadFullImage(photo, ctx)
+                        }
+                    }
+                    null -> {
+                        Log.d("PhotoPage", "loadAvifAdaptive: libavif fallback ${photo.uri}")
+                        loadAvifDirect(photo, maxDim, ctx)
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * 直接调用 avif-coder（libavif）核心库解码 AVIF 字节流，绕过 Glide 的 content:// 路径。
+     *
+     * 背景：
+     * - Android 原生解码器仅保证 AVIF baseline（4:2:0 8/10-bit），4:2:2/4:4:4 与 12-bit
+     *   样本（实测 01045811.avif：profile 1 / 10-bit / 4:4:4）原生解码失败；
+     * - Glide 对 content:// Uri 的 avif-coder-glide 集成存在 FD/Stream 路径不确定性，
+     *   直连 HeifCoder 字节流解码最可控（与 loadJxlDirect 同一模式）。
+     *
+     * DEFAULT 色彩配置由库自动选择（10-bit 源 → RGBA_F16 保留位深，输出 scRGB-nl 广色域，
+     * 窗口切 WIDE；注意：libavif 会把 PQ/BT.2020 转换到 scRGB，无法保留 HDR 动态范围，
+     * 这是库的 native 行为，Kotlin API 未暴露色彩空间选项）。
+     * 解码上限 2560：RGBA_F16 为 8B/px，4096 长边约 134MB，防 OOM。
+     */
+    private fun loadAvifDirect(photo: Photo, maxDimension: Int, ctx: Context) {
+        binding.ivPhoto.subsampling.setDisabled(true) // 直连全图显示，不子采样
+        viewHolderScope?.launch(Dispatchers.IO) {
+            val bitmap = try {
+                ctx.contentResolver.openInputStream(photo.uri)?.use { stream ->
+                    val bytes = stream.readBytes()
+                    val target = if (maxDimension > AVIF_MAX_DECODE_PX) AVIF_MAX_DECODE_PX else maxDimension
+                    HeifCoder().decodeSampled(
+                        bytes,
+                        target,
+                        target,
+                        AvifColorConfig.DEFAULT,
+                        AvifScaleMode.FIT,
+                        AvifScalingQuality.DEFAULT
+                    )
+                }
+            } catch (e: Exception) {
+                Log.e("PhotoPage", "loadAvifDirect decode failed ${photo.uri}", e)
+                null
+            }
+
+            withContext(Dispatchers.Main) {
+                if (bitmap != null && isActive) {
+                    // 确认 HDR 保留：cfg=RGBA_F16 + cs=BT2020_PQ/BT2020_HLG 表示高位深 HDR 输出
+                    Log.d("PhotoPage", "loadAvifDirect OK ${photo.uri} cfg=${bitmap.config} cs=${bitmap.colorSpace} w=${bitmap.width} h=${bitmap.height}")
+                    binding.ivPhoto.setImageBitmap(bitmap)
+                    applyWindowColorMode(colorModeForBitmap(bitmap))
+                    updateEdgeState()
+                } else if (isActive) {
+                    binding.ivPhoto.setImageResource(android.R.color.darker_gray)
+                }
+                binding.progressBar.visibility = View.GONE
+            }
+        }
+    }
+
+    /**
      * 配置 GlideZoomImageView 的子采样能力：
-     * - JXL 不支持 BitmapRegionDecoder，禁用子采样（Glide 直接全图显示）
-     * - 非 JXL 大图：注册 AVIF 自定义区域解码器，交由 GlideZoomImageView 在加载后自动生成 SubsamplingImage
+     * - JXL 不支持 BitmapRegionDecoder，禁用子采样（直连解码后全图显示）
+     * - 其余（含 AVIF）：注册 AVIF 自定义区域解码器，交由 GlideZoomImageView 在
+     *   加载后自动生成 SubsamplingImage（AVIF 原生 SDR 路径的子采样由此承担）
      */
     private fun configureSubsampling(photo: Photo) {
         if (photo.isJxl) {
@@ -630,6 +736,8 @@ class PhotoPageViewHolder(
 
     companion object {
         private const val MAX_HDR_DECODE_PX = 4096
+        // AVIF 直连解码上限（DEFAULT 配置下 10-bit 源输出 RGBA_F16 = 8B/px，防 OOM）
+        private const val AVIF_MAX_DECODE_PX = 2560
 
         fun create(
             parent: ViewGroup,

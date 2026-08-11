@@ -147,8 +147,11 @@ dependencies {
     // JXL 图片解码 - jxl-coder (Glide 集成)
     implementation(libs.jxl.coder.glide)
 
-    // AVIF/HEIC：系统原生解码（ImageDecoder/BitmapFactory），无需第三方库
-    // AVIF 大图子采样由 ui/detail/AvifRegionDecoder（ImageDecoder 实现）承担
+    // AVIF/HEIC 图片解码 - avif-coder (Glide 集成 + 核心库)
+    // Android 原生仅保证 AVIF baseline（4:2:0 8/10-bit），4:2:2/4:4:4 与 12-bit
+    // 样本需 libavif 兜底；详情页子采样由 ui/detail/AvifRegionDecoder 承担
+    implementation(libs.avif.coder)
+    implementation(libs.avif.coder.glide)
 
     // 视频播放 - Media3 (ExoPlayer)
     implementation(libs.androidx.media3.exoplayer)

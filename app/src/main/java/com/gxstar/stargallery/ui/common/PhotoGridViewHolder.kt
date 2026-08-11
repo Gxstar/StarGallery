@@ -1,9 +1,14 @@
 package com.gxstar.stargallery.ui.common
 
+import android.graphics.Bitmap
 import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
+import com.awxkee.jxlcoder.JxlCoder
+import com.awxkee.jxlcoder.JxlResizeFilter
+import com.awxkee.jxlcoder.PreferredColorConfig
+import com.awxkee.jxlcoder.ScaleMode
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.bumptech.glide.request.RequestListener
@@ -11,7 +16,17 @@ import com.bumptech.glide.request.target.Target
 import com.gxstar.stargallery.R
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.databinding.ItemPhotoBinding
+import com.radzivon.bartoshyk.avif.coder.HeifCoder
+import com.radzivon.bartoshyk.avif.coder.PreferredColorConfig as AvifColorConfig
+import com.radzivon.bartoshyk.avif.coder.ScaleMode as AvifScaleMode
+import com.radzivon.bartoshyk.avif.coder.ScalingQuality as AvifScalingQuality
 import java.io.File
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Unified ViewHolder for displaying photos in a grid.
@@ -34,8 +49,10 @@ class PhotoGridViewHolder(
 
     private var currentPhoto: Photo? = null
     private var isClickProcessing = false
+    private var directThumbJob: Job? = null
 
     fun bind(photo: Photo, position: Int) {
+        directThumbJob?.cancel()
         currentPhoto = photo
         isClickProcessing = false
 
@@ -83,6 +100,15 @@ class PhotoGridViewHolder(
         val ctx = binding.ivPhoto.context
 
         val thumbFile = photo.thumbnailPath?.let { File(it) }
+
+        // JXL/AVIF 且无缩略图缓存：Glide 的 content:// 路径对这两种格式不可靠
+        // （BitmapFactory 不认领 4:4:4/16-bit；avif-coder-glide 集成在 Glide 5 不生效，
+        // 会被 BitmapFactory 先认领且失败不回退）→ 核心库直连解码小图兜底
+        if (thumbFile?.exists() != true && (photo.isJxl || photo.isAvif)) {
+            loadDirectThumbnail(photo, itemSize)
+            return
+        }
+
         val loadUri = if (thumbFile?.exists() == true) thumbFile else photo.uri
 
         val requestBuilder = Glide.with(ctx)
@@ -122,6 +148,56 @@ class PhotoGridViewHolder(
                 }
             })
             .into(binding.ivPhoto)
+    }
+
+    /**
+     * JXL/AVIF 无缩略图缓存时的直连解码兜底（同详情页模式）：
+     * 核心库读字节流解码小图，绕开 Glide 对 content:// Uri 的不可靠路径。
+     * DEFAULT 配置自动选位深（16-bit JXL / 10-bit AVIF → RGBA_F16），统一转 8-bit 显示。
+     */
+    private fun loadDirectThumbnail(photo: Photo, targetSize: Int) {
+        directThumbJob?.cancel()
+        directThumbJob = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob()).launch {
+            val size = if (targetSize > 0) targetSize.coerceAtMost(1024) else 256
+            val bitmap = withContext(Dispatchers.IO) {
+                try {
+                    binding.ivPhoto.context.contentResolver.openInputStream(photo.uri)?.use { stream ->
+                        val bytes = stream.readBytes()
+                        val bmp = if (photo.isJxl) {
+                            JxlCoder.decodeSampled(
+                                bytes, size, size,
+                                PreferredColorConfig.DEFAULT,
+                                ScaleMode.FIT,
+                                JxlResizeFilter.CATMULL_ROM
+                            )
+                        } else {
+                            HeifCoder().decodeSampled(
+                                bytes, size, size,
+                                AvifColorConfig.DEFAULT,
+                                AvifScaleMode.FIT,
+                                AvifScalingQuality.DEFAULT
+                            )
+                        }
+                        if (bmp.config != Bitmap.Config.ARGB_8888) {
+                            val converted = bmp.copy(Bitmap.Config.ARGB_8888, false)
+                            bmp.recycle()
+                            converted
+                        } else {
+                            bmp
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e("PhotoGrid", "Direct thumb decode failed ${photo.uri} mime=${photo.mimeType}", e)
+                    null
+                }
+            }
+            // 防错位：仅当仍是当前 photo 且 ViewHolder 还在网格中才设置
+            if (bitmap != null && currentPhoto?.id == photo.id && bindingAdapterPosition != RecyclerView.NO_POSITION) {
+                binding.ivPhoto.setImageBitmap(bitmap)
+            } else {
+                bitmap?.recycle()
+            }
+        }
     }
 
     private fun updateSelectionUI(isSelectionMode: Boolean, isSelected: Boolean, photo: Photo) {
