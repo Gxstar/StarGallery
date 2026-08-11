@@ -47,7 +47,7 @@
                     android:layout_width="24dp"
                     android:layout_height="24dp"
                     android:src="@drawable/ic_check_circle"
-                    android:tint="@color/primary"
+                    app:tint="@color/primary"
                     android:visibility="gone" />
 
                 <!-- 标题 -->
@@ -70,7 +70,7 @@
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:src="@drawable/ic_close"
                     android:contentDescription="@string/cancel"
-                    android:tint="@color/text_tertiary" />
+                    app:tint="@color/text_tertiary" />
 
             </LinearLayout>
 

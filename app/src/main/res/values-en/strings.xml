@@ -176,10 +176,6 @@
     <string name="permission_media_images_desc">Used to access photos on your device, which is the core function of the app. This permission only allows reading photos and will not modify or delete any files.</string>
     <string name="permission_media_video_title">Read media video (READ_MEDIA_VIDEO)</string>
     <string name="permission_media_video_desc">Used to access video files on your device for displaying and playing video content in the gallery.</string>
-    <string name="permission_storage_title">Read storage (READ_EXTERNAL_STORAGE)</string>
-    <string name="permission_storage_desc">Used for compatibility with devices running Android 11 (API 30) and below. On Android 11+, the app uses scoped storage to protect your privacy.</string>
-    <string name="permission_user_selected_title">User-selected media (READ_MEDIA_VISUAL_USER_SELECTED)</string>
-    <string name="permission_user_selected_desc">Used on Android 14+ devices to access photos specifically selected by the user, even if the app has not been granted full media library permission.</string>
     <string name="permission_media_location_title">Media location (ACCESS_MEDIA_LOCATION)</string>
     <string name="permission_media_location_desc">Used to read GPS coordinates embedded in photos to display the shooting location on a map in the detail page. This is an optional permission — denying it does not affect other features.</string>
     <string name="permissions_note">You can revoke these permissions at any time in the app permission management in system settings. After revoking, the app will no longer be able to access the corresponding media files.</string>
@@ -274,4 +270,18 @@
 
     <string name="settings_hdr_display">Super Dynamic Display</string>
     <string name="settings_hdr_display_summary">Render HDR photos with high dynamic range when enabled</string>
+
+    <!-- Image editing -->
+    <string name="save">Save</string>
+    <string name="saved">Saved</string>
+    <string name="save_failed">Save failed</string>
+    <string name="save_crop_confirm">Save the cropped photo?</string>
+    <string name="edit_raw_unsupported">Editing RAW photos is not supported</string>
+    <string name="edit_video_unsupported">Editing videos is not supported</string>
+    <string name="crop">Crop</string>
+    <string name="adjust">Adjust</string>
+    <string name="flip">Flip</string>
+    <string name="filter">Filter</string>
+    <string name="rotate">Rotate</string>
+    <string name="redo">Redo</string>
 </resources>
