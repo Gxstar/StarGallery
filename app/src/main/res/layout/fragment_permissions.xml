@@ -78,8 +78,8 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:layout_marginBottom="16dp">
+                    android:orientation="vertical">
+
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -91,51 +91,6 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/permission_media_video_desc"
-                        android:textSize="13sp"
-                        android:textColor="@color/text_secondary"
-                        android:lineSpacingMultiplier="1.4"
-                        android:layout_marginTop="4dp"/>
-                </LinearLayout>
-
-                <!-- READ_EXTERNAL_STORAGE -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:layout_marginBottom="16dp">
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/permission_storage_title"
-                        android:textSize="15sp"
-                        android:textColor="@color/text_primary"
-                        android:fontFamily="sans-serif-medium"/>
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/permission_storage_desc"
-                        android:textSize="13sp"
-                        android:textColor="@color/text_secondary"
-                        android:lineSpacingMultiplier="1.4"
-                        android:layout_marginTop="4dp"/>
-                </LinearLayout>
-
-                <!-- READ_MEDIA_VISUAL_USER_SELECTED -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical">
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/permission_user_selected_title"
-                        android:textSize="15sp"
-                        android:textColor="@color/text_primary"
-                        android:fontFamily="sans-serif-medium"/>
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/permission_user_selected_desc"
                         android:textSize="13sp"
                         android:textColor="@color/text_secondary"
                         android:lineSpacingMultiplier="1.4"

@@ -175,10 +175,6 @@
     <string name="permission_media_images_desc">用于访问设备上的照片，是应用的核心功能。此权限仅允许读取照片，不会修改或删除任何文件。</string>
     <string name="permission_media_video_title">读取媒体视频 (READ_MEDIA_VIDEO)</string>
     <string name="permission_media_video_desc">用于访问设备上的视频文件，以便在相册中展示和播放视频内容。</string>
-    <string name="permission_storage_title">读取存储 (READ_EXTERNAL_STORAGE)</string>
-    <string name="permission_storage_desc">用于兼容 Android 11 (API 30) 以下版本的设备。在 Android 11 及以上版本中，应用使用 scoped storage 保护您的隐私。</string>
-    <string name="permission_user_selected_title">用户选择的媒体 (READ_MEDIA_VISUAL_USER_SELECTED)</string>
-    <string name="permission_user_selected_desc">用于在 Android 14+ 设备上访问用户特别选择的照片，即使应用尚未获得完整媒体库权限。</string>
     <string name="permission_media_location_title">媒体位置信息 (ACCESS_MEDIA_LOCATION)</string>
     <string name="permission_media_location_desc">用于读取照片中嵌入的 GPS 坐标，在详情页地图中显示拍摄位置。此权限为可选权限，拒绝后不影响其他功能使用。</string>
     <string name="permissions_note">您可以在系统设置中的应用权限管理中随时撤销这些权限。撤销权限后，应用将无法访问相应的媒体文件。</string>

@@ -55,13 +55,12 @@ class AlbumsFragment : Fragment() {
     }
 
     private fun checkPermissions() {
-        val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO, Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED)
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO)
-        } else {
-            arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
-        }
+        // minSdk 35：仅需 READ_MEDIA_*（Android 13+ 模型，不请求 VISUAL_USER_SELECTED，
+        // 避免"仅部分照片"授权降级，详见 PhotosFragment.checkPermissions 注释）
+        val permissions = arrayOf(
+            Manifest.permission.READ_MEDIA_IMAGES,
+            Manifest.permission.READ_MEDIA_VIDEO
+        )
         val allGranted = permissions.all {
             android.content.pm.PackageManager.PERMISSION_GRANTED ==
                 androidx.core.content.ContextCompat.checkSelfPermission(requireContext(), it)

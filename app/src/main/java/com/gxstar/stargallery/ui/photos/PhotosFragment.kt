@@ -764,27 +764,15 @@ class PhotosFragment : Fragment() {
     }
 
     private fun checkPermissions() {
-        val permissions = when {
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE -> {
-                arrayOf(
-                    Manifest.permission.READ_MEDIA_IMAGES,
-                    Manifest.permission.READ_MEDIA_VIDEO,
-                    Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED,
-                    Manifest.permission.ACCESS_MEDIA_LOCATION
-                )
-            }
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> {
-                arrayOf(
-                    Manifest.permission.READ_MEDIA_IMAGES,
-                    Manifest.permission.READ_MEDIA_VIDEO,
-                    Manifest.permission.ACCESS_MEDIA_LOCATION
-                )
-            }
-            else -> arrayOf(
-                Manifest.permission.READ_EXTERNAL_STORAGE,
-                Manifest.permission.ACCESS_MEDIA_LOCATION
-            )
-        }
+        // minSdk 35：仅需 READ_MEDIA_*（Android 13+ 权限模型）。
+        // 注意：不请求 READ_MEDIA_VISUAL_USER_SELECTED —— 声明后用户可选择"仅部分照片"，
+        // 会使 READ_MEDIA_IMAGES 降级为受限子集，相册出现"照片变少"的困惑体验；
+        // 移除后用户只能在"全部允许 / 拒绝"间选择，全量读取行为可控。
+        val permissions = arrayOf(
+            Manifest.permission.READ_MEDIA_IMAGES,
+            Manifest.permission.READ_MEDIA_VIDEO,
+            Manifest.permission.ACCESS_MEDIA_LOCATION
+        )
 
         val allGranted = permissions.all {
             ContextCompat.checkSelfPermission(requireContext(), it) == PackageManager.PERMISSION_GRANTED
