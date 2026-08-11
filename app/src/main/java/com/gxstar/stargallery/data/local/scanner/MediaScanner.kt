@@ -596,7 +596,6 @@ class MediaScanner @Inject constructor(
      * 仅对 JPEG 格式做检测，HEIC/AVIF/其他格式直接返回 false
      */
     private fun detectUltraHdr(uriString: String): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return false
         return try {
             val uri = Uri.parse(uriString)
             context.contentResolver.openInputStream(uri)?.use { stream ->
@@ -615,7 +614,6 @@ class MediaScanner @Inject constructor(
      * 仅在全量扫描末尾执行，不在增量扫描或启动时执行
      */
     private suspend fun fixLegacyHdrLabels() = withContext(Dispatchers.IO) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return@withContext
         try {
             val ids = photoDao.getNonHdrJpegIds()
             if (ids.isEmpty()) return@withContext

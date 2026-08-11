@@ -6,8 +6,8 @@ import android.content.pm.ActivityInfo
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.ColorSpace
 import android.graphics.ImageDecoder
-import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -262,9 +262,10 @@ class PhotoPageViewHolder(
         // JXL 不支援 BitmapRegionDecoder，無法使用子採樣
         val needSubsampling = !photo.isJxl && (maxDimension >= 2000 || photo.isRaw)
 
-        val shouldProbeHdr = Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
-            && photo.isUltraHdr
-            && hdrDisplayEnabled()
+        // HDR 候选：JPEG（Ultra HDR gainmap）/ AVIF / HEIF（10-bit 高位深、PQ/HLG、gain map）
+        // minSdk 35：hasGainmap() / window.colorMode 等 API 全部原生可用，无需版本判断
+        val isHdrCandidate = photo.isUltraHdr || photo.isAvif || photo.isHeic
+        val shouldProbeHdr = (photo.isHdr || isHdrCandidate) && hdrDisplayEnabled()
 
         if (shouldProbeHdr) {
             checkHdrAndLoad(photo, maxDimension, needSubsampling, ctx)
@@ -334,24 +335,30 @@ class PhotoPageViewHolder(
     }
 
     /**
-     * 快速探测 gainmap 并走对应路径
+     * 快速探测高位深/HDR 候选并走对应路径
+     * - photo.isHdr（扫描期已字节探测 gainmap）→ 跳过重复探测，直接走原生整图解码
+     * - 否则小图探测 gainmap / 宽色域（覆盖 10-bit AVIF/HEIF 的 PQ/HLG，R5）
      */
     private fun checkHdrAndLoad(photo: Photo, maxDim: Int, needSubsample: Boolean, ctx: Context) {
         viewHolderScope?.launch(Dispatchers.IO) {
-            val hasGainmap = try {
-                val source = ImageDecoder.createSource(ctx.contentResolver, photo.uri)
-                val probe = ImageDecoder.decodeBitmap(source) { decoder, _, _ ->
-                    decoder.setTargetSize(200, 200)
+            val isHdrCandidate = try {
+                if (photo.isHdr) {
+                    true
+                } else {
+                    val source = ImageDecoder.createSource(ctx.contentResolver, photo.uri)
+                    val probe = ImageDecoder.decodeBitmap(source) { decoder, _, _ ->
+                        decoder.setTargetSize(200, 200)
+                    }
+                    val result = probe.hasGainmap() || probe.colorSpace?.isWideGamut == true
+                    probe.recycle()
+                    result
                 }
-                val result = probe.hasGainmap()
-                probe.recycle()
-                result
             } catch (_: Exception) {
                 false
             }
 
             withContext(Dispatchers.Main) {
-                if (hasGainmap) {
+                if (isHdrCandidate) {
                     loadHdrBitmap(photo, maxDim, ctx)
                 } else if (needSubsample) {
                     applyWindowColorMode(ColorMode.DEFAULT)
@@ -389,10 +396,10 @@ class PhotoPageViewHolder(
 
             withContext(Dispatchers.Main) {
                 if (bitmap != null) {
-                    val hasGainmap = Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && bitmap.hasGainmap()
                     binding.ivPhoto.subsampling.setDisabled(true)
                     binding.ivPhoto.setImageBitmap(bitmap)
-                    applyWindowColorMode(if (hasGainmap) ColorMode.HDR else ColorMode.DEFAULT)
+                    // R4：按位图实际属性（gainmap / PQ/HLG / 宽色域）统一决定色彩模式
+                    applyWindowColorMode(colorModeForBitmap(bitmap))
                     updateEdgeState()
                 } else {
                     loadFullImage(photo, ctx)
@@ -509,16 +516,20 @@ class PhotoPageViewHolder(
 
     /**
      * 根据解码出的 Bitmap 推断应设置的窗口色彩模式：
-     * - gainmap（Ultra HDR）→ HDR
-     * - 广色域 ColorSpace（如 16-bit JXL 的 RGBA_F16）→ WIDE
+     * - gainmap（Ultra HDR / HEIF gain map）→ HDR
+     * - PQ / HLG transfer（10-bit AVIF/HEIF 高位深 HDR 内容）→ HDR（R5）
+     * - 广色域 ColorSpace（如 16-bit JXL 的 RGBA_F16、P3）→ WIDE
      * - 其余 → DEFAULT
      */
     private fun colorModeForBitmap(bitmap: android.graphics.Bitmap?): ColorMode {
         if (bitmap == null) return ColorMode.DEFAULT
         val cs = bitmap.colorSpace
         return when {
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
-                && bitmap.hasGainmap() -> ColorMode.HDR
+            // R5：gainmap 直判，minSdk 35 无需版本保护
+            bitmap.hasGainmap() -> ColorMode.HDR
+            // R5：仅凭 isWideGamut 会把 PQ/HLG 误判为广色域 SDR，导致亮度/动态范围错误
+            cs != null && (cs.name == ColorSpace.Named.BT2020_PQ.name || cs.name == ColorSpace.Named.BT2020_HLG.name) ->
+                ColorMode.HDR
             cs != null && cs.isWideGamut -> ColorMode.WIDE
             else -> ColorMode.DEFAULT
         }
@@ -539,13 +550,11 @@ class PhotoPageViewHolder(
         hdrHandler.removeCallbacksAndMessages(null)
         hdrHandler.post {
             if (!isActive) return@post
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                val window = activity?.window
-                window?.colorMode = when (mode) {
-                    ColorMode.HDR -> ActivityInfo.COLOR_MODE_HDR
-                    ColorMode.WIDE -> ActivityInfo.COLOR_MODE_WIDE_COLOR_GAMUT
-                    ColorMode.DEFAULT -> ActivityInfo.COLOR_MODE_DEFAULT
-                }
+            val window = activity?.window
+            window?.colorMode = when (mode) {
+                ColorMode.HDR -> ActivityInfo.COLOR_MODE_HDR
+                ColorMode.WIDE -> ActivityInfo.COLOR_MODE_WIDE_COLOR_GAMUT
+                ColorMode.DEFAULT -> ActivityInfo.COLOR_MODE_DEFAULT
             }
         }
     }
@@ -556,10 +565,8 @@ class PhotoPageViewHolder(
     private fun resetWindowColorMode() {
         if (!isActive) return
         lastAppliedColorMode = ColorMode.DEFAULT
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            val window = activity?.window
-            window?.colorMode = ActivityInfo.COLOR_MODE_DEFAULT
-        }
+        val window = activity?.window
+        window?.colorMode = ActivityInfo.COLOR_MODE_DEFAULT
     }
 
     private fun setMediaVisibility(
