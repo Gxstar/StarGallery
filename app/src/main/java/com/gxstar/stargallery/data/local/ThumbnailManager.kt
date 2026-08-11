@@ -66,7 +66,7 @@ class ThumbnailManager @Inject constructor(
                     decodeJxlThumbnail(uri)
                 } else {
                     // 统一走 Glide 解码，使缩略图生成与图片加载共用同一解码链
-                    // （AVIF/HEIC 等由第三方解码器正确处理）。
+                    // （AVIF/HEIC 由系统原生解码，minSdk 35 全量支持）。
                     Glide.with(context)
                         .asBitmap()
                         .load(uri)

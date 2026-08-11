@@ -16,8 +16,8 @@ android {
 
     defaultConfig {
         applicationId = "com.gxstar.stargallery"
-        minSdk = 30
-        targetSdk = 35
+        minSdk = 35
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 
@@ -147,9 +147,8 @@ dependencies {
     // JXL 图片解码 - jxl-coder (Glide 集成)
     implementation(libs.jxl.coder.glide)
 
-    // AVIF/HEIC 图片解码 - avif-coder (Glide 集成 + 核心库)
-    implementation(libs.avif.coder)
-    implementation(libs.avif.coder.glide)
+    // AVIF/HEIC：系统原生解码（ImageDecoder/BitmapFactory），无需第三方库
+    // AVIF 大图子采样由 ui/detail/AvifRegionDecoder（ImageDecoder 实现）承担
 
     // 视频播放 - Media3 (ExoPlayer)
     implementation(libs.androidx.media3.exoplayer)
