@@ -154,7 +154,16 @@ class AvifRegionDecoder(
     class Factory : RegionDecoder.Factory {
 
         override suspend fun accept(subsamplingImage: SubsamplingImage): Boolean {
-            return checkSupport(subsamplingImage.imageInfo?.mimeType.orEmpty()) == true
+            // 双保险探测：
+            // 1. 优先用 imageInfo.mimeType（手动 setSubsamplingImage / 带 ImageInfo 的场景）
+            // 2. 回退文件头探测（GlideZoomImageView 经 EngineGlideSubsamplingImageGenerator
+            //    生成的 SubsamplingImage 其 imageInfo 为 null，mimeType 必然为空，必须靠
+            //    headerBytes 判断，与 AndroidRegionDecoder.Factory.accept 的机制一致）
+            val mimeType = subsamplingImage.imageInfo?.mimeType
+            if (mimeType != null && mimeType.isNotEmpty()) {
+                return checkSupport(mimeType) == true
+            }
+            return isAvifHeader(subsamplingImage.headerBytes())
         }
 
         override fun checkSupport(mimeType: String): Boolean? {
@@ -185,4 +194,38 @@ class AvifRegionDecoder(
 
         override fun toString(): String = "AvifRegionDecoder"
     }
+}
+
+/**
+ * 通过 ISO BMFF 文件头判断是否为 AVIF（ftyp box + avif/avis 品牌）。
+ * 与 zoomimage 内部 isAvifFile() 的判定规则一致（含 mif1/msf1 兼容品牌查找）。
+ */
+private fun isAvifHeader(headerBytes: ByteArray): Boolean {
+    if (headerBytes.size < 12) return false
+    // offset 4..7 必须为 "ftyp"
+    if (headerBytes[4] != 'f'.code.toByte() || headerBytes[5] != 't'.code.toByte() ||
+        headerBytes[6] != 'y'.code.toByte() || headerBytes[7] != 'p'.code.toByte()
+    ) {
+        return false
+    }
+    // offset 8..11 主品牌：avif（静态）/ avis（动态）
+    val majorBrand = String(headerBytes, 8, 4, Charsets.US_ASCII)
+    if (majorBrand == "avif" || majorBrand == "avis") return true
+
+    // mif1/msf1 兼容品牌：从 offset 12（minor_version）之后、box 结尾之前，每 4 字节查找 avif/avis
+    if (majorBrand == "mif1" || majorBrand == "msf1") {
+        val boxSize = ((headerBytes[0].toInt() and 0xFF) shl 24) or
+            ((headerBytes[1].toInt() and 0xFF) shl 16) or
+            ((headerBytes[2].toInt() and 0xFF) shl 8) or
+            (headerBytes[3].toInt() and 0xFF)
+        if (boxSize < 16) return false
+        val end = minOf(headerBytes.size, boxSize)
+        var offset = 16
+        while (offset + 4 <= end) {
+            val brand = String(headerBytes, offset, 4, Charsets.US_ASCII)
+            if (brand == "avif" || brand == "avis") return true
+            offset += 4
+        }
+    }
+    return false
 }

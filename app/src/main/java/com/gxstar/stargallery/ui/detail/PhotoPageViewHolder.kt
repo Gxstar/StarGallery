@@ -23,8 +23,6 @@ import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.bumptech.glide.load.engine.GlideException
 import com.bumptech.glide.request.RequestListener
 import com.bumptech.glide.request.target.Target
-import com.bumptech.glide.request.target.CustomTarget
-import com.bumptech.glide.request.transition.Transition
 import com.awxkee.jxlcoder.JxlCoder
 import com.awxkee.jxlcoder.PreferredColorConfig
 import com.awxkee.jxlcoder.ScaleMode
@@ -356,16 +354,15 @@ class PhotoPageViewHolder(
                 when (nativeProbe) {
                     true -> {
                         Log.d("PhotoPage", "loadAvifAdaptive: native HDR/WIDE path ${photo.uri}")
-                        loadHdrBitmap(photo, maxDim, ctx)
+                        loadNativeFullImage(photo, maxDim, ctx)
                     }
                     false -> {
                         Log.d("PhotoPage", "loadAvifAdaptive: native SDR path ${photo.uri}")
-                        applyWindowColorMode(ColorMode.DEFAULT)
-                        if (maxDim >= 2000 || photo.isRaw) {
-                            loadWithSubsampling(photo, ctx)
-                        } else {
-                            loadFullImage(photo, ctx)
-                        }
+                        // SDR AVIF 也走原生整图解码（禁用子采样）：
+                        // AVIF 无原生 region 解码，模拟瓦片（整帧软解）在放大时瓦片加载极慢
+                        // 且解码器池并发会重复整帧解码，导致显示停留在低分辨率预览图（糊）。
+                        // 与 JXL 一致采用整图 + 位图变换，放大清晰度由解码分辨率保证。
+                        loadNativeFullImage(photo, maxDim, ctx)
                     }
                     null -> {
                         Log.d("PhotoPage", "loadAvifAdaptive: libavif fallback ${photo.uri}")
@@ -429,11 +426,13 @@ class PhotoPageViewHolder(
     /**
      * 配置 GlideZoomImageView 的子采样能力：
      * - JXL 不支持 BitmapRegionDecoder，禁用子采样（直连解码后全图显示）
-     * - 其余（含 AVIF）：注册 AVIF 自定义区域解码器，交由 GlideZoomImageView 在
-     *   加载后自动生成 SubsamplingImage（AVIF 原生 SDR 路径的子采样由此承担）
+     * - AVIF 无原生 region 解码，模拟瓦片（整帧软解）放大时瓦片加载极慢且并发重复解码，
+     *   禁用子采样，由 ImageDecoder/libavif 整图解码后位图变换（loadAvifAdaptive 已处理）
+     * - 其余（JPEG/PNG/HEIC 等）：注册 AVIF 自定义区域解码器（对非 AVIF 无影响），
+     *   交由 GlideZoomImageView 在加载后自动生成 SubsamplingImage 驱动子采样
      */
     private fun configureSubsampling(photo: Photo) {
-        if (photo.isJxl) {
+        if (photo.isJxl || photo.isAvif) {
             binding.ivPhoto.subsampling.setDisabled(true)
         } else {
             binding.ivPhoto.subsampling.setRegionDecoders(listOf(AvifRegionDecoder.Factory()))
@@ -465,7 +464,7 @@ class PhotoPageViewHolder(
 
             withContext(Dispatchers.Main) {
                 if (isHdrCandidate) {
-                    loadHdrBitmap(photo, maxDim, ctx)
+                    loadNativeFullImage(photo, maxDim, ctx)
                 } else if (needSubsample) {
                     applyWindowColorMode(ColorMode.DEFAULT)
                     loadWithSubsampling(photo, ctx)
@@ -478,10 +477,12 @@ class PhotoPageViewHolder(
     }
 
     /**
-     * 用 ImageDecoder 解码完整图像，保留 gainmap
+     * 用 ImageDecoder 解码完整图像，禁用子采样（整图 + 位图变换）。
+     * - HDR 候选（HEIF/UltraHDR gainmap、AVIF PQ/HLG）：保留 gainmap 与高位深，真 HDR/WIDE 显示
+     * - AVIF 原生可解（4:2:0 SDR/HDR）：整图显示，避免模拟瓦片（整帧软解）的放大卡顿/模糊
      * 超出 MAX_HDR_DECODE_PX 时长边等比缩放
      */
-    private fun loadHdrBitmap(photo: Photo, maxDim: Int, ctx: Context) {
+    private fun loadNativeFullImage(photo: Photo, maxDim: Int, ctx: Context) {
         viewHolderScope?.launch(Dispatchers.IO) {
             val bitmap = try {
                 val source = ImageDecoder.createSource(ctx.contentResolver, photo.uri)
@@ -519,6 +520,11 @@ class PhotoPageViewHolder(
      * 直接 Glide 加载完整图片（适用于小图 / JXL / 非 HDR 回退）
      * GlideZoomImageView 会自行驱动显示，JXL 已在 configureSubsampling 中禁用子采样。
      * 加载完成后按解码 Bitmap 的色域设置窗口色彩模式（16-bit / 广色域 JXL 需 WIDE_COLOR_GAMUT）。
+     *
+     * 注意：必须 `.into(binding.ivPhoto)` 直接把 Glide Request 挂到 GlideZoomImageView 上，
+     * 库才会在 onDrawableChanged → resetImageSource() 时通过 getRequestFromView() 拿到
+     * Request + model，进而自动生成 SubsamplingImage 驱动子采样。
+     * 不能使用 CustomTarget + 手动 setImageDrawable（view 上无 Request，子采样会被显式清除）。
      */
     private fun loadFullImage(photo: Photo, ctx: Context) {
         configureSubsampling(photo)
@@ -527,28 +533,8 @@ class PhotoPageViewHolder(
             .placeholder(android.R.color.black)
             .error(android.R.color.darker_gray)
             .fitCenter()
-            .addListener(jxlListener("loadFullImage", photo))
-            .into(object : CustomTarget<android.graphics.drawable.Drawable>() {
-                override fun onResourceReady(
-                    resource: android.graphics.drawable.Drawable,
-                    transition: Transition<in android.graphics.drawable.Drawable>?
-                ) {
-                    binding.ivPhoto.setImageDrawable(resource)
-                    val bitmap = (resource as? android.graphics.drawable.BitmapDrawable)?.bitmap
-                    applyWindowColorMode(colorModeForBitmap(bitmap))
-                    binding.progressBar.visibility = View.GONE
-                    updateEdgeState()
-                }
-
-                override fun onLoadCleared(placeholder: android.graphics.drawable.Drawable?) {
-                    binding.ivPhoto.setImageDrawable(placeholder)
-                }
-
-                override fun onLoadFailed(errorDrawable: android.graphics.drawable.Drawable?) {
-                    binding.ivPhoto.setImageDrawable(errorDrawable)
-                    binding.progressBar.visibility = View.GONE
-                }
-            })
+            .addListener(imageLoadListener("loadFullImage", photo))
+            .into(binding.ivPhoto)
     }
 
     /**
@@ -564,53 +550,43 @@ class PhotoPageViewHolder(
             .error(android.R.color.darker_gray)
             .fitCenter()
             .diskCacheStrategy(DiskCacheStrategy.RESOURCE)
-            .addListener(jxlListener("loadWithSubsampling", photo))
-            .into(object : CustomTarget<android.graphics.drawable.Drawable>() {
-                override fun onResourceReady(
-                    resource: android.graphics.drawable.Drawable,
-                    transition: Transition<in android.graphics.drawable.Drawable>?
-                ) {
-                    binding.ivPhoto.setImageDrawable(resource)
-                    val bitmap = (resource as? android.graphics.drawable.BitmapDrawable)?.bitmap
-                    applyWindowColorMode(colorModeForBitmap(bitmap))
-                    binding.progressBar.visibility = View.GONE
-                    updateEdgeState()
-                }
-
-                override fun onLoadCleared(placeholder: android.graphics.drawable.Drawable?) {
-                    binding.ivPhoto.setImageDrawable(placeholder)
-                }
-
-                override fun onLoadFailed(errorDrawable: android.graphics.drawable.Drawable?) {
-                    binding.ivPhoto.setImageDrawable(errorDrawable)
-                    binding.progressBar.visibility = View.GONE
-                }
-            })
+            .addListener(imageLoadListener("loadWithSubsampling", photo))
+            .into(binding.ivPhoto)
     }
 
-    private fun jxlListener(tag: String, photo: Photo) = object : RequestListener<android.graphics.drawable.Drawable> {
-        override fun onLoadFailed(
-            e: GlideException?,
-            model: Any?,
-            target: Target<android.graphics.drawable.Drawable>,
-            isFirstResource: Boolean
-        ): Boolean {
-            Log.e("PhotoPage", "$tag FAILED ${photo.uri} mime=${photo.mimeType} isJxl=${photo.isJxl}", e)
-            return false
-        }
+    /**
+     * Glide 加载监听：资源就绪后按解码 Bitmap 的色域设置窗口色彩模式、隐藏进度条、更新边缘状态。
+     * onResourceReady 返回 false，让 Glide 继续把 Drawable 交给 GlideZoomImageView 显示
+     * （此时 view 上的 Request 已存在，库会自动生成 SubsamplingImage 驱动子采样）。
+     */
+    private fun imageLoadListener(tag: String, photo: Photo) =
+        object : RequestListener<android.graphics.drawable.Drawable> {
+            override fun onLoadFailed(
+                e: GlideException?,
+                model: Any?,
+                target: Target<android.graphics.drawable.Drawable>,
+                isFirstResource: Boolean
+            ): Boolean {
+                Log.e("PhotoPage", "$tag FAILED ${photo.uri} mime=${photo.mimeType} isJxl=${photo.isJxl}", e)
+                binding.progressBar.visibility = View.GONE
+                return false
+            }
 
-        override fun onResourceReady(
-            resource: android.graphics.drawable.Drawable,
-            model: Any?,
-            target: Target<android.graphics.drawable.Drawable>,
-            dataSource: com.bumptech.glide.load.DataSource,
-            isFirstResource: Boolean
-        ): Boolean {
-            val bmp = (resource as? android.graphics.drawable.BitmapDrawable)?.bitmap
-            Log.d("PhotoPage", "$tag OK ${photo.uri} mime=${photo.mimeType} cfg=${bmp?.config} cs=${bmp?.colorSpace} from=$dataSource")
-            return false
+            override fun onResourceReady(
+                resource: android.graphics.drawable.Drawable,
+                model: Any?,
+                target: Target<android.graphics.drawable.Drawable>,
+                dataSource: com.bumptech.glide.load.DataSource,
+                isFirstResource: Boolean
+            ): Boolean {
+                val bmp = (resource as? android.graphics.drawable.BitmapDrawable)?.bitmap
+                Log.d("PhotoPage", "$tag OK ${photo.uri} mime=${photo.mimeType} cfg=${bmp?.config} cs=${bmp?.colorSpace} from=$dataSource")
+                applyWindowColorMode(colorModeForBitmap(bmp))
+                binding.progressBar.visibility = View.GONE
+                updateEdgeState()
+                return false
+            }
         }
-    }
 
     /**
      * 窗口色彩模式：默认(SDR) / 广色域(WIDE) / HDR。

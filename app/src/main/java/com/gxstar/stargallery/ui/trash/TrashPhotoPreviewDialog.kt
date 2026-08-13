@@ -106,8 +106,10 @@ class TrashPhotoPreviewDialog : DialogFragment() {
     private fun loadImage(photo: Photo) {
         // 大图/Raw 使用 GlideZoomImageView 子采样加载，避免一次性全量解码占用过多内存；
         // JXL 不支持 BitmapRegionDecoder，禁用子采样，由 Glide 全量显示。
+        // AVIF 无原生 region 解码，模拟瓦片（整帧软解）放大时瓦片加载极慢，
+        // 与 JXL 一致禁用子采样（回收站预览的 AVIF 由 Glide 系统解码器整图显示）。
         val maxDimension = max(photo.width, photo.height)
-        val needSubsampling = !photo.isJxl && (maxDimension >= 2000 || photo.isRaw)
+        val needSubsampling = !photo.isJxl && !photo.isAvif && (maxDimension >= 2000 || photo.isRaw)
 
         if (needSubsampling) {
             binding.ivPhoto.subsampling.setRegionDecoders(listOf(AvifRegionDecoder.Factory()))
