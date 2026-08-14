@@ -32,15 +32,16 @@ Kotlin 2.3.20，AGP 9.2.1，minSdk 30，compileSdk 36，targetSdk 35，Java 21�
 - `PhotoListAdapter` 继承 `ListAdapter<PhotoModel, RecyclerView.ViewHolder>`，使用 `submitList()` 提交数据
 - 数据收集使用 `lifecycleScope.launch` + `repeatOnLifecycle(STARTED)` 组合
 
-## EXIF 筛选（多选模式）
+## EXIF 筛选（注册表驱动）
 
-- 三个维度：相机品牌、相机型号、镜头型号，均为 `Set<String>` 支持**多选**
-- **维度间 AND 关系**：三个维度的 `filter` 链式调用，照片须同时满足所有非空维度
-- **维度内 OR 关系**：使用 `Set.contains()` 检查，匹配任一选中项即可
-- **级联筛选**：`recomputeEffective()` 自动推导 —— 选镜头→自动勾选对应型号+品牌，选型号→自动勾选对应品牌
-- **显式/有效分离**：`_explicitCameraMake`（用户操作） vs `_filterCameraMake`（含级联推导结果），后者才是实际过滤条件
-- `FilterBottomSheet`：ChipGroup `isSingleSelection = false`，每项 chip 独立开关。主视图值显示：单选→值名，多选→"已选 N 项"，未选→"—"
-- 选项列表由 `buildFilterOptions()` 生成，含"未知设备"（key=""）选项，不含"全部"选项（由"清除筛选"按钮替代）
+- **注册表驱动**：`FilterDimensions.ALL`（`filter/FilterState.kt`）定义全部维度（当前：相机品牌/相机型号/镜头型号），每个维度含 `valueOf: (PhotoEntity) -> String?`。**新增维度唯一改动点是注册表**，面板行、选项列表、计数、chip 条、过滤管道自动生效；连续量（光圈/快门/ISO/焦段）在 `valueOf` 内直接分档成区间字符串，避免 chip 爆炸
+- **单一数据源**：`PhotosViewModel._filterState: MutableStateFlow<FilterState>`（favoritesOnly + searchQuery + selections），取代旧的 6 个逐维度 StateFlow + `recomputeEffective()` 级联写回。`FilterState` 不可变，变更返回新实例供 `distinctUntilChanged` 去重
+- **维度间 AND、维度内 OR**：`FilterState.matches(entity)` 统一判断
+- **faceted 选项统计**：`filterOptions` 在内存中对候选集统计，`matchesExcept(排除自身维度)` —— 选了品牌后型号列表只剩该品牌型号，计数 = "选了还剩几张"；统计只在该面板订阅时计算（`WhileSubscribed(0)`），关闭即停
+- **层级联动**：父维度变化后 `schedulePrune` 在后台线程 `pruneUnavailable` 裁剪子维度失效选择（异步收敛），**不再级联写回**，避免 chip 视觉与实际脱钩
+- **生效条件 chip 条**：`activeConditions`（收藏/搜索/维度/排除相册）驱动顶栏 chip 条，每条可单独移除；维度 chip 点主体直达该维度列表
+- **详情页同步（新增维度强制检查项）**：`PhotosFragment.navigateToDetail` 通过 SafeArgs 硬编码传 cameraMake/cameraModel/lensModel 三维，`PhotoDetailViewModel` 只解析这 3 个。**新增维度时必须同步改造详情页**，否则详情页翻页集合与网格不一致。当前未新增维度时不受影响
+- `FilterBottomSheet`：ChipGroup `singleSelection=false`，每项 chip 独立开关，选中态一律以 `filterState.selectionOf()` 为唯一依据（`syncChipChecks`）。主视图值显示：单选→值名，多选→"已选 N 项"，未选→"—"；`createChip` 的 ColorStateList 必须用 `state_checked`（不是 `state_selected`）
 
 ## 排序机制
 

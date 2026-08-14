@@ -300,6 +300,26 @@
 
         </FrameLayout>
 
+        <!-- 生效条件 chip 条：展示当前所有筛选条件，每条可单独移除 -->
+        <HorizontalScrollView
+            android:id="@+id/chipBar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:scrollbars="none"
+            android:visibility="gone"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:paddingTop="4dp"
+            android:paddingBottom="8dp">
+
+            <com.google.android.material.chip.ChipGroup
+                android:id="@+id/chipGroupConditions"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                app:chipSpacingHorizontal="8dp"
+                app:singleSelection="false" />
+        </HorizontalScrollView>
+
     </com.google.android.material.appbar.AppBarLayout>
 
     <!--

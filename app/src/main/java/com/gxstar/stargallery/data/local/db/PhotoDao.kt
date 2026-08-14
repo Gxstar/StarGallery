@@ -110,16 +110,7 @@ interface PhotoDao {
     @Query("UPDATE photos SET isFavorite = :isFavorite WHERE id IN (:photoIds)")
     suspend fun updateFavoriteBatch(photoIds: List<Long>, isFavorite: Boolean)
 
-    // ==================== EXIF 筛选选项计数 ====================
-
-    @Query("SELECT cameraMake AS value, COUNT(*) AS count FROM photos WHERE cameraMake IS NOT NULL AND cameraMake != '' AND isHidden = 0 GROUP BY cameraMake ORDER BY count DESC")
-    fun getCameraMakeCountsFlow(): Flow<List<ExifCount>>
-
-    @Query("SELECT cameraModel AS value, COUNT(*) AS count FROM photos WHERE cameraModel IS NOT NULL AND cameraModel != '' AND isHidden = 0 GROUP BY cameraModel ORDER BY count DESC")
-    fun getCameraModelCountsFlow(): Flow<List<ExifCount>>
-
-    @Query("SELECT lensModel AS value, COUNT(*) AS count FROM photos WHERE lensModel IS NOT NULL AND lensModel != '' AND isHidden = 0 GROUP BY lensModel ORDER BY count DESC")
-    fun getLensModelCountsFlow(): Flow<List<ExifCount>>
+    // ==================== 可见照片 / EXIF 完成度统计 ====================
 
     @Query("SELECT COUNT(*) FROM photos WHERE isHidden = 0")
     fun getVisiblePhotoCountFlow(): Flow<Int>
@@ -135,18 +126,7 @@ interface PhotoDao {
     @Query("SELECT id FROM photos WHERE isHdr = 0 AND mimeType IN ('image/jpeg', 'image/jpg')")
     suspend fun getNonHdrJpegIds(): List<Long>
 
-    // ==================== 级联筛选关联查询 ====================
-
-    @Query("SELECT DISTINCT cameraMake FROM photos WHERE lensModel IN (:lensModels) AND cameraMake IS NOT NULL AND cameraMake != ''")
-    suspend fun getMakesForLenses(lensModels: List<String>): List<String>
-
-    @Query("SELECT DISTINCT cameraModel FROM photos WHERE lensModel IN (:lensModels) AND cameraModel IS NOT NULL AND cameraModel != ''")
-    suspend fun getModelsForLenses(lensModels: List<String>): List<String>
-
-    @Query("SELECT DISTINCT cameraMake FROM photos WHERE cameraModel IN (:cameraModels) AND cameraMake IS NOT NULL AND cameraMake != ''")
-    suspend fun getMakesForModels(cameraModels: List<String>): List<String>
-
-    data class ExifCount(val value: String, val count: Int)
+    // ==================== EXIF 快照 ====================
 
     data class ExifSnapshot(
         val id: Long,

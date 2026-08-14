@@ -4,12 +4,14 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.LinearLayout
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.gxstar.stargallery.R
+import com.gxstar.stargallery.databinding.ItemFilterRowBinding
 import com.gxstar.stargallery.databinding.LayoutBottomSheetFilterBinding
 import com.gxstar.stargallery.ui.photos.PhotosViewModel
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
@@ -17,6 +19,12 @@ import com.google.android.material.chip.Chip
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 
+/**
+ * 统一筛选面板
+ *
+ * 维度行按 [FilterDimensions] 注册表动态生成，不再有写死的行布局与 when 分支，
+ * 新增筛选维度只需在注册表增加一项。
+ */
 @AndroidEntryPoint
 class FilterBottomSheet : BottomSheetDialogFragment() {
 
@@ -25,9 +33,20 @@ class FilterBottomSheet : BottomSheetDialogFragment() {
 
     private val viewModel: PhotosViewModel by viewModels({ requireParentFragment() })
 
-    private var currentDimension = FilterDimension.NONE
+    /** 当前展开的维度，null 表示停留在主视图 */
+    private var currentDimension: FilterDimension? = null
 
-    private enum class FilterDimension { NONE, CAMERA_MAKE, CAMERA_MODEL, LENS }
+    /** 打开时直达的维度（来自 chip 条点击），null 表示停留在主视图 */
+    private var startingDimensionId: FilterDimensionId? = null
+
+    /** 各维度行的 binding，按注册顺序动态创建 */
+    private val dimensionRows = linkedMapOf<FilterDimensionId, ItemFilterRowBinding>()
+
+    /** 当前列表视图中 key 到 chip 的映射，用于只同步选中态而不重建视图 */
+    private val chipByKey = linkedMapOf<String, Chip>()
+
+    /** 已渲染的选项快照，内容不变则跳过重建，避免 chip 闪烁 */
+    private var renderedOptions: List<FilterOption>? = null
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = LayoutBottomSheetFilterBinding.inflate(inflater, container, false)
@@ -36,150 +55,169 @@ class FilterBottomSheet : BottomSheetDialogFragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        startingDimensionId = arguments
+            ?.getString(ARG_DIMENSION_ID)
+            ?.let { runCatching { FilterDimensionId.valueOf(it) }.getOrNull() }
+        buildDimensionRows()
         setupListeners()
         observeViewModel()
+        startingDimensionId?.let { showListView(FilterDimensions.of(it)) }
+    }
+
+    /**
+     * 按注册表生成维度行
+     */
+    private fun buildDimensionRows() {
+        val container = binding.dimensionContainer
+        container.removeAllViews()
+        dimensionRows.clear()
+
+        val horizontalMargin = dpToPx(16)
+        val rowBottomMargin = dpToPx(2)
+
+        FilterDimensions.ALL.forEach { dimension ->
+            val row = ItemFilterRowBinding.inflate(layoutInflater, container, false)
+            row.ivIcon.setImageResource(dimension.iconRes)
+            row.tvTitle.text = getString(dimension.titleRes)
+            row.root.setOnClickListener { showListView(dimension) }
+
+            val params = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dpToPx(60)
+            ).apply {
+                marginStart = horizontalMargin
+                marginEnd = horizontalMargin
+                bottomMargin = rowBottomMargin
+            }
+            container.addView(row.root, params)
+            dimensionRows[dimension.id] = row
+        }
     }
 
     private fun setupListeners() {
         binding.btnClose.setOnClickListener { dismiss() }
-
-        binding.rowCameraMake.setOnClickListener {
-            showListView(FilterDimension.CAMERA_MAKE)
-        }
-        binding.rowCameraModel.setOnClickListener {
-            showListView(FilterDimension.CAMERA_MODEL)
-        }
-        binding.rowLens.setOnClickListener {
-            showListView(FilterDimension.LENS)
-        }
-
-        binding.btnBackFromList.setOnClickListener {
-            showMainView()
-        }
-
-        binding.btnClear.setOnClickListener {
-            viewModel.clearExifFilters()
+        binding.btnBackFromList.setOnClickListener { showMainView() }
+        binding.btnClear.setOnClickListener { viewModel.clearAllFilters() }
+        binding.rowFavorites.setOnClickListener { viewModel.toggleFavoritesOnly() }
+        binding.btnClearDimension.setOnClickListener {
+            currentDimension?.let { viewModel.clearDimension(it.id) }
         }
     }
 
-    private var cachedCameraMakes: List<PhotosViewModel.FilterOption> = emptyList()
-    private var cachedCameraModels: List<PhotosViewModel.FilterOption> = emptyList()
-    private var cachedLensModels: List<PhotosViewModel.FilterOption> = emptyList()
-
     private fun observeViewModel() {
+        // 筛选状态：更新主视图各行取值、收藏开关，并同步列表页 chip 选中态
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.filterCameraMake.collect { updateMainViewValues() }
-            }
-        }
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.filterCameraModel.collect { updateMainViewValues() }
-            }
-        }
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.filterLensModel.collect { updateMainViewValues() }
-            }
-        }
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.cameraMakeOptions.collect { options ->
-                    cachedCameraMakes = options
-                    if (currentDimension == FilterDimension.CAMERA_MAKE) rebuildCurrentList()
+                viewModel.filterState.collect { state ->
+                    binding.switchFavorites.isChecked = state.favoritesOnly
+                    updateRowValues(state)
+                    currentDimension?.let { dimension ->
+                        val selected = state.selectionOf(dimension.id)
+                        syncChipChecks(selected)
+                        binding.btnClearDimension.visibility =
+                            if (selected.isEmpty()) View.GONE else View.VISIBLE
+                    }
                 }
             }
         }
+
+        // 选项与计数：仅当当前维度的选项内容真的变化时才重建 chip
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.cameraModelOptions.collect { options ->
-                    cachedCameraModels = options
-                    if (currentDimension == FilterDimension.CAMERA_MODEL) rebuildCurrentList()
+                viewModel.filterOptions.collect { optionsMap ->
+                    val dimension = currentDimension ?: return@collect
+                    val options = optionsMap[dimension.id] ?: emptyList()
+                    if (options != renderedOptions) {
+                        renderOptions(dimension, options)
+                    }
+                    syncChipChecks(viewModel.filterState.value.selectionOf(dimension.id))
                 }
             }
         }
+
+        // 相册排除属于隐式过滤，这里给出可见提示
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.lensModelOptions.collect { options ->
-                    cachedLensModels = options
-                    if (currentDimension == FilterDimension.LENS) rebuildCurrentList()
+                viewModel.activeConditions.collect { conditions ->
+                    val hasExcluded = conditions.any { it is ActiveCondition.ExcludedAlbums }
+                    binding.tvExcludedHint.visibility =
+                        if (hasExcluded) View.VISIBLE else View.GONE
                 }
             }
         }
     }
 
     private fun showMainView() {
-        currentDimension = FilterDimension.NONE
-        binding.mainView.visibility = View.VISIBLE
+        currentDimension = null
+        renderedOptions = null
+        chipByKey.clear()
         binding.listView.visibility = View.GONE
+        binding.mainView.visibility = View.VISIBLE
         binding.mainView.alpha = 0f
         binding.mainView.animate().alpha(1f).setDuration(200).start()
-        updateMainViewValues()
+        updateRowValues(viewModel.filterState.value)
     }
 
     private fun showListView(dimension: FilterDimension) {
         currentDimension = dimension
+        renderedOptions = null
         binding.mainView.visibility = View.GONE
         binding.listView.visibility = View.VISIBLE
         binding.listView.alpha = 0f
         binding.listView.animate().alpha(1f).setDuration(200).start()
 
-        val title = when (dimension) {
-            FilterDimension.CAMERA_MAKE -> getString(R.string.filter_camera_make)
-            FilterDimension.CAMERA_MODEL -> getString(R.string.filter_camera_model)
-            FilterDimension.LENS -> getString(R.string.filter_lens)
-            else -> ""
-        }
-        binding.tvListTitle.text = title
+        binding.tvListTitle.text = getString(dimension.titleRes)
 
-        val options = when (dimension) {
-            FilterDimension.CAMERA_MAKE -> cachedCameraMakes
-            FilterDimension.CAMERA_MODEL -> cachedCameraModels
-            FilterDimension.LENS -> cachedLensModels
-            else -> emptyList()
-        }
-        val selectedKeys = when (dimension) {
-            FilterDimension.CAMERA_MAKE -> viewModel.filterCameraMake.value
-            FilterDimension.CAMERA_MODEL -> viewModel.filterCameraModel.value
-            FilterDimension.LENS -> viewModel.filterLensModel.value
-            else -> emptySet()
-        }
-        buildOptionsList(options, selectedKeys)
+        val options = viewModel.filterOptions.value[dimension.id] ?: emptyList()
+        renderOptions(dimension, options)
+
+        val selected = viewModel.filterState.value.selectionOf(dimension.id)
+        syncChipChecks(selected)
+        binding.btnClearDimension.visibility = if (selected.isEmpty()) View.GONE else View.VISIBLE
     }
 
-    private fun buildOptionsList(options: List<PhotosViewModel.FilterOption>, selectedKeys: Set<String>) {
+    private fun renderOptions(dimension: FilterDimension, options: List<FilterOption>) {
         val group = binding.cgOptions
         group.removeAllViews()
-        group.isSingleSelection = false
+        chipByKey.clear()
 
         options.forEach { option ->
-            val chip = createChip(option, option.key in selectedKeys)
-            chip.setOnClickListener {
-                val toggle = when (currentDimension) {
-                    FilterDimension.CAMERA_MAKE -> viewModel::toggleFilterCameraMake
-                    FilterDimension.CAMERA_MODEL -> viewModel::toggleFilterCameraModel
-                    FilterDimension.LENS -> viewModel::toggleFilterLensModel
-                    else -> return@setOnClickListener
-                }
-                toggle(option.key)
-            }
+            val chip = createChip(option)
+            chip.setOnClickListener { viewModel.toggleDimension(dimension.id, option.key) }
+            chipByKey[option.key] = chip
             group.addView(chip)
+        }
+        renderedOptions = options
+    }
+
+    /**
+     * 只同步选中态，不重建视图
+     *
+     * 选中态一律以 ViewModel 状态为唯一依据，
+     * 因此不会再出现 chip 视觉已取消、实际过滤条件却仍生效的情况。
+     */
+    private fun syncChipChecks(selected: Set<String>) {
+        chipByKey.forEach { (key, chip) ->
+            val shouldCheck = key in selected
+            if (chip.isChecked != shouldCheck) {
+                chip.isChecked = shouldCheck
+            }
         }
     }
 
-    private fun createChip(option: PhotosViewModel.FilterOption, checked: Boolean): Chip {
+    private fun createChip(option: FilterOption): Chip {
         val chip = Chip(requireContext(), null, com.google.android.material.R.style.Widget_Material3_Chip_Filter)
-        chip.text = "${option.display}  ${option.count}"
-        chip.tag = option.key
+        chip.text = getString(R.string.filter_option_count, option.display, option.count)
         chip.isCheckable = true
-        chip.isChecked = checked
 
         val accentColor = ContextCompat.getColor(requireContext(), R.color.accent)
         val textPrimary = ContextCompat.getColor(requireContext(), R.color.text_primary)
 
+        // 注意：Material Chip 勾选时设置的是 state_checked，不是 state_selected，
+        // 用 state_selected 会导致选中态永远走"未选中"分支、chip 无任何高亮。
         val states = arrayOf(
-            intArrayOf(android.R.attr.state_selected),
-            intArrayOf(-android.R.attr.state_selected)
+            intArrayOf(android.R.attr.state_checked),
+            intArrayOf(-android.R.attr.state_checked)
         )
 
         chip.setTextColor(
@@ -199,50 +237,47 @@ class FilterBottomSheet : BottomSheetDialogFragment() {
         return chip
     }
 
-    private fun updateMainViewValues() {
-        updateValueText(binding.tvCameraMakeValue, viewModel.filterCameraMake.value)
-        updateValueText(binding.tvCameraModelValue, viewModel.filterCameraModel.value)
-        updateValueText(binding.tvLensValue, viewModel.filterLensModel.value)
-    }
-
-    private fun updateValueText(textView: android.widget.TextView, value: Set<String>) {
-        val display = when {
-            value.isEmpty() -> "—"
-            value.size == 1 -> value.first()
-            else -> getString(R.string.filter_selected_count, value.size)
-        }
-        textView.text = display
-        textView.setTextColor(
-            if (value.isNotEmpty()) {
-                ContextCompat.getColor(requireContext(), R.color.accent)
-            } else {
-                ContextCompat.getColor(requireContext(), R.color.text_secondary)
+    private fun updateRowValues(state: FilterState) {
+        dimensionRows.forEach { (id, row) ->
+            val selected = state.selectionOf(id)
+            row.tvValue.text = when {
+                selected.isEmpty() -> "—"
+                selected.size == 1 -> selected.first().takeIf { it != UNKNOWN_KEY }
+                    ?: getString(R.string.filter_unknown)
+                else -> getString(R.string.filter_selected_count, selected.size)
             }
-        )
+            row.tvValue.setTextColor(
+                ContextCompat.getColor(
+                    requireContext(),
+                    if (selected.isNotEmpty()) R.color.accent else R.color.text_secondary
+                )
+            )
+        }
     }
 
-    private fun rebuildCurrentList() {
-        val options = when (currentDimension) {
-            FilterDimension.CAMERA_MAKE -> cachedCameraMakes
-            FilterDimension.CAMERA_MODEL -> cachedCameraModels
-            FilterDimension.LENS -> cachedLensModels
-            else -> emptyList()
-        }
-        val selectedKeys = when (currentDimension) {
-            FilterDimension.CAMERA_MAKE -> viewModel.filterCameraMake.value
-            FilterDimension.CAMERA_MODEL -> viewModel.filterCameraModel.value
-            FilterDimension.LENS -> viewModel.filterLensModel.value
-            else -> emptySet()
-        }
-        buildOptionsList(options, selectedKeys)
-    }
+    private fun dpToPx(dp: Int): Int =
+        (dp * resources.displayMetrics.density).toInt()
 
     override fun onDestroyView() {
+        dimensionRows.clear()
+        chipByKey.clear()
+        renderedOptions = null
         _binding = null
         super.onDestroyView()
     }
 
     companion object {
         const val TAG = "FilterBottomSheet"
+        private const val ARG_DIMENSION_ID = "dimension_id"
+
+        /**
+         * @param dimensionId 打开时直达的维度（如从 chip 条点击进入），null 表示主视图
+         */
+        fun newInstance(dimensionId: FilterDimensionId? = null): FilterBottomSheet =
+            FilterBottomSheet().apply {
+                arguments = Bundle().apply {
+                    putString(ARG_DIMENSION_ID, dimensionId?.name)
+                }
+            }
     }
 }

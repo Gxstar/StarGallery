@@ -37,7 +37,10 @@ import com.gxstar.stargallery.StarGalleryApp
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.data.repository.MediaRepository
 import com.gxstar.stargallery.databinding.FragmentPhotosBinding
+import com.gxstar.stargallery.ui.photos.filter.ActiveCondition
 import com.gxstar.stargallery.ui.photos.filter.FilterBottomSheet
+import com.gxstar.stargallery.ui.photos.filter.FilterDimensionId
+import com.google.android.material.chip.Chip
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
 import com.gxstar.stargallery.ui.common.GridSpanCalculator
 import com.gxstar.stargallery.ui.common.GridSpanPreferences
@@ -106,6 +109,9 @@ class PhotosFragment : Fragment() {
     // Adapter provider
     private var isSelectionModeProvider: () -> Boolean = { false }
     private var isSelectedProvider: (Int) -> Boolean = { false }
+
+    /** 生效条件 chip 条当前是否有条件（多选模式下会临时隐藏） */
+    private var hasActiveConditions = false
 
     private val backPressedCallback = object : OnBackPressedCallback(false) {
         override fun handleOnBackPressed() {
@@ -663,13 +669,21 @@ class PhotosFragment : Fragment() {
             }
         }
 
+        // 筛选按钮高亮：任意维度（品牌/型号/镜头）已选时点亮
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.isExifFilterActive.collect { isActive ->
+                viewModel.filterState.collect { state ->
                     binding.btnFilterExif.setImageResource(
-                        if (isActive) R.drawable.ic_filter_active else R.drawable.ic_filter
+                        if (state.hasDimensionSelection) R.drawable.ic_filter_active else R.drawable.ic_filter
                     )
                 }
+            }
+        }
+
+        // 生效条件 chip 条：展示当前所有筛选条件，支持逐条移除
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.activeConditions.collect { renderActiveConditionChips(it) }
             }
         }
 
@@ -749,6 +763,7 @@ class PhotosFragment : Fragment() {
                         binding.normalToolbar.visibility = View.VISIBLE
                         binding.selectionToolbar.visibility = View.GONE
                     }
+                    updateChipBarVisibility()
                     refreshVisibleItems()
                 }
             }
@@ -1074,9 +1089,15 @@ class PhotosFragment : Fragment() {
             photoId = photo.id,
             sortType = sortTypeValue,
             favoritesOnly = viewModel.showFavoritesOnly.value,
-            filterCameraMake = viewModel.filterCameraMake.value.joinToString("\n").takeIf { it.isNotEmpty() },
-            filterCameraModel = viewModel.filterCameraModel.value.joinToString("\n").takeIf { it.isNotEmpty() },
-            filterLensModel = viewModel.filterLensModel.value.joinToString("\n").takeIf { it.isNotEmpty() }
+            filterCameraMake = viewModel.filterState.value
+                .selectionOf(FilterDimensionId.CAMERA_MAKE)
+                .joinToString("\n").takeIf { it.isNotEmpty() },
+            filterCameraModel = viewModel.filterState.value
+                .selectionOf(FilterDimensionId.CAMERA_MODEL)
+                .joinToString("\n").takeIf { it.isNotEmpty() },
+            filterLensModel = viewModel.filterState.value
+                .selectionOf(FilterDimensionId.LENS_MODEL)
+                .joinToString("\n").takeIf { it.isNotEmpty() }
         )
         findNavController().navigate(action)
     }
@@ -1124,8 +1145,56 @@ class PhotosFragment : Fragment() {
         findNavController().navigate(action)
     }
 
-    private fun showFilterSheet() {
-        FilterBottomSheet().show(childFragmentManager, FilterBottomSheet.TAG)
+    private fun showFilterSheet(dimensionId: FilterDimensionId? = null) {
+        FilterBottomSheet.newInstance(dimensionId).show(childFragmentManager, FilterBottomSheet.TAG)
+    }
+
+    /**
+     * 渲染生效条件 chip 条
+     *
+     * 完全由 [PhotosViewModel.activeConditions] 驱动，新增筛选维度无需改动此处
+     * （维度类条件统一走 [ActiveCondition.Dimension]）。
+     * 收藏/搜索/排除相册的移除动作各不相同，由 [removeActiveCondition] 分派。
+     */
+    private fun renderActiveConditionChips(conditions: List<ActiveCondition>) {
+        hasActiveConditions = conditions.isNotEmpty()
+        val group = binding.chipGroupConditions
+        group.removeAllViews()
+        updateChipBarVisibility()
+        if (conditions.isEmpty()) return
+
+        conditions.forEach { condition ->
+            val chip = Chip(
+                requireContext(),
+                null,
+                com.google.android.material.R.style.Widget_Material3_Chip_Input
+            ).apply {
+                text = condition.label
+                isCloseIconVisible = true
+                setOnCloseIconClickListener { removeActiveCondition(condition) }
+                // 维度条件点击主体直接打开该维度列表，方便快速调整
+                if (condition is ActiveCondition.Dimension) {
+                    setOnClickListener { showFilterSheet(condition.id) }
+                }
+            }
+            group.addView(chip)
+        }
+    }
+
+    /** chip 条可见性 = 有条件 && 不在多选模式（多选模式下隐藏，避免与批量操作混淆） */
+    private fun updateChipBarVisibility() {
+        binding.chipBar.visibility =
+            if (hasActiveConditions && !selectionManager.isSelectionMode.value) View.VISIBLE else View.GONE
+    }
+
+    /** 逐条移除生效条件，按类型分派到不同 ViewModel 动作 */
+    private fun removeActiveCondition(condition: ActiveCondition) {
+        when (condition) {
+            is ActiveCondition.Favorites -> viewModel.setFavoritesOnly(false)
+            is ActiveCondition.Search -> exitSearchMode()
+            is ActiveCondition.Dimension -> viewModel.clearDimension(condition.id)
+            is ActiveCondition.ExcludedAlbums -> viewModel.clearExcludedAlbums()
+        }
     }
 
     private fun navigateToAbout() {

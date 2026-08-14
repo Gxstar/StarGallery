@@ -221,8 +221,18 @@
     <string name="filter_lens">镜头型号</string>
     <string name="filter_all">全部</string>
     <string name="filter_unknown_device">未知设备</string>
+    <string name="filter_unknown">未知</string>
     <string name="filter_clear">清除筛选</string>
+    <string name="filter_clear_all">清除全部条件</string>
     <string name="filter_selected_count">已选 %d 项</string>
+    <string name="filter_favorites_only">只看收藏</string>
+    <string name="filter_option_count">%1$s  %2$d</string>
+    <string name="filter_chip_favorites">只看收藏</string>
+    <string name="filter_chip_search">搜索：%1$s</string>
+    <string name="filter_chip_dimension">%1$s：%2$s</string>
+    <string name="filter_chip_excluded_albums">已排除 %1$d 个相册</string>
+    <string name="filter_chip_remove">移除该条件</string>
+    <string name="filter_excluded_albums_hint">相册排除在相册页管理</string>
     <string name="privacy_section_9_title">六、政策更新</string>
     <string name="privacy_section_9_content">我们可能会不时更新本隐私政策。更新时，我们会在应用内发布更新通知。建议您定期查看本政策以了解最新内容。重大变更将通过应用更新日志通知您。</string>
 

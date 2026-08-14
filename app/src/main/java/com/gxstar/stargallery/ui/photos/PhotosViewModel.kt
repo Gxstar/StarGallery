@@ -9,6 +9,12 @@ import com.gxstar.stargallery.data.local.preferences.ScanPreferences
 import com.gxstar.stargallery.data.local.scanner.MediaScanner
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.data.repository.MediaRepository
+import com.gxstar.stargallery.ui.photos.filter.ActiveCondition
+import com.gxstar.stargallery.ui.photos.filter.FilterDimensionId
+import com.gxstar.stargallery.ui.photos.filter.FilterDimensions
+import com.gxstar.stargallery.ui.photos.filter.FilterOption
+import com.gxstar.stargallery.ui.photos.filter.FilterState
+import com.gxstar.stargallery.ui.photos.filter.UNKNOWN_KEY
 import com.gxstar.stargallery.ui.photos.model.PhotoModel
 import com.gxstar.stargallery.ui.util.DateUtils
 import com.gxstar.stargallery.ui.util.SortUtils
@@ -22,7 +28,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.retryWhen
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -53,9 +61,6 @@ class PhotosViewModel @Inject constructor(
     private val _currentGroupType = MutableStateFlow(GroupType.DAY)
     val currentGroupType: StateFlow<GroupType> = _currentGroupType.asStateFlow()
 
-    private val _showFavoritesOnly = MutableStateFlow(false)
-    val showFavoritesOnly: StateFlow<Boolean> = _showFavoritesOnly.asStateFlow()
-
     val photoCount: StateFlow<Int> = photoDao.getPhotoCountFlow()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
@@ -65,9 +70,6 @@ class PhotosViewModel @Inject constructor(
     val hiddenCount: StateFlow<Int> = photoDao.getHiddenCountFlow()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
-    private val _searchQuery = MutableStateFlow<String?>(null)
-    val searchQuery: StateFlow<String?> = _searchQuery.asStateFlow()
-
     private val _isScanning = MutableStateFlow(false)
     val isScanning: StateFlow<Boolean> = _isScanning.asStateFlow()
 
@@ -75,74 +77,153 @@ class PhotosViewModel @Inject constructor(
     private val _isSyncing = MutableStateFlow(false)
     val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
 
-    val isSearching: StateFlow<Boolean> = _searchQuery.map { !it.isNullOrBlank() }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
-
     val isExtractingExif: StateFlow<Boolean> = mediaScanner.isExtractingExifFlow
 
     val exifProgress: StateFlow<Float> = mediaScanner.exifProgress
 
-    // 用户显式选择（仅由 toggle 修改，不含级联）
-    private val _explicitCameraMake = MutableStateFlow<Set<String>>(emptySet())
-    private val _explicitCameraModel = MutableStateFlow<Set<String>>(emptySet())
-    private val _explicitLensModel = MutableStateFlow<Set<String>>(emptySet())
+    // ==================== 筛选状态（单一数据源） ====================
 
-    // 有效筛选结果（显式选择 + 级联自动选择）
-    private val _filterCameraMake = MutableStateFlow<Set<String>>(emptySet())
-    val filterCameraMake: StateFlow<Set<String>> = _filterCameraMake.asStateFlow()
+    /**
+     * 全部筛选条件收敛到这一个 StateFlow
+     * 取代原先「每个维度两个 StateFlow（显式选择 + 级联写回结果）」的写法
+     */
+    private val _filterState = MutableStateFlow(FilterState())
+    val filterState: StateFlow<FilterState> = _filterState.asStateFlow()
 
-    private val _filterCameraModel = MutableStateFlow<Set<String>>(emptySet())
-    val filterCameraModel: StateFlow<Set<String>> = _filterCameraModel.asStateFlow()
+    val showFavoritesOnly: StateFlow<Boolean> = _filterState
+        .map { it.favoritesOnly }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
-    private val _filterLensModel = MutableStateFlow<Set<String>>(emptySet())
-    val filterLensModel: StateFlow<Set<String>> = _filterLensModel.asStateFlow()
+    val searchQuery: StateFlow<String?> = _filterState
+        .map { it.searchQuery }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
-    val isExifFilterActive: StateFlow<Boolean> = combine(
-        _filterCameraMake, _filterCameraModel, _filterLensModel
-    ) { make, model, lens ->
-        make.isNotEmpty() || model.isNotEmpty() || lens.isNotEmpty()
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+    val isSearching: StateFlow<Boolean> = searchQuery
+        .map { !it.isNullOrBlank() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
-    private val visiblePhotoCount = photoDao.getVisiblePhotoCountFlow()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
-
-    val cameraMakeOptions: StateFlow<List<FilterOption>> = combine(
-        photoDao.getCameraMakeCountsFlow(), visiblePhotoCount
-    ) { counts, total -> buildFilterOptions(counts, total) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-    val cameraModelOptions: StateFlow<List<FilterOption>> = combine(
-        photoDao.getCameraModelCountsFlow(), visiblePhotoCount
-    ) { counts, total -> buildFilterOptions(counts, total) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-    val lensModelOptions: StateFlow<List<FilterOption>> = combine(
-        photoDao.getLensModelCountsFlow(), visiblePhotoCount
-    ) { counts, total -> buildFilterOptions(counts, total) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-    private fun buildFilterOptions(
-        counts: List<PhotoDao.ExifCount>,
-        totalVisible: Int
-    ): List<FilterOption> {
-        val options = mutableListOf<FilterOption>()
-        val knownTotal = counts.sumOf { it.count }
-        val unknownCount = (totalVisible - knownTotal).coerceAtLeast(0)
-
-        counts.forEach { options.add(FilterOption(it.value, it.value, it.count)) }
-        if (unknownCount > 0) {
-            options.add(FilterOption("", context.getString(R.string.filter_unknown_device), unknownCount))
-        }
-        return options
-    }
-
-    data class FilterOption(
-        val key: String?,
-        val display: String,
-        val count: Int
-    )
+    /**
+     * 只投影「影响照片过滤的维度条件」，搜索词变化不会让它重新发射。
+     * 这样连续输入搜索词时不会反复重跑全量维度过滤与选项统计。
+     */
+    private val dimensionFilterState: StateFlow<FilterState> = _filterState
+        .map { it.copy(searchQuery = null) }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, FilterState())
 
     private val _rawPhotoEntities = MutableStateFlow<List<PhotoEntity>>(emptyList())
+
+    /** 参与筛选的候选集：排除隐藏与被排除相册，选项统计与过滤共用同一基准 */
+    private val filterCandidates: StateFlow<List<PhotoEntity>> = combine(
+        _rawPhotoEntities,
+        excludedAlbumManager.excludedBucketIds
+    ) { entities, excludedBucketIds ->
+        withContext(Dispatchers.Default) {
+            entities.filter { entity ->
+                !entity.isHidden &&
+                    (excludedBucketIds.isEmpty() || entity.bucketId !in excludedBucketIds)
+            }
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /**
+     * 各维度的可选项与命中张数（faceted 统计）
+     *
+     * 统计某维度选项时排除该维度自身条件，因此天然实现层级联动：
+     * 选了品牌后，型号列表只会剩下该品牌下的型号，且计数是「选了会剩几张」的真实值。
+     * 取代了原先 DAO 里 6 条静态 GROUP BY 查询 + 级联写回的做法。
+     *
+     * 仅在筛选面板订阅时计算，面板关闭后立即停止，避免常驻开销。
+     */
+    val filterOptions: StateFlow<Map<FilterDimensionId, List<FilterOption>>> = combine(
+        filterCandidates,
+        dimensionFilterState
+    ) { candidates, state ->
+        withContext(Dispatchers.Default) {
+            buildFilterOptions(candidates, state)
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(0), emptyMap())
+
+    private fun buildFilterOptions(
+        candidates: List<PhotoEntity>,
+        state: FilterState
+    ): Map<FilterDimensionId, List<FilterOption>> {
+        val unknownLabel = context.getString(R.string.filter_unknown)
+        return FilterDimensions.ALL.associate { dimension ->
+            val counts = HashMap<String, Int>()
+            for (entity in candidates) {
+                if (!state.matchesExcept(entity, dimension.id)) continue
+                val key = dimension.keyOf(entity)
+                counts[key] = (counts[key] ?: 0) + 1
+            }
+            val options = counts.entries
+                .sortedWith(
+                    compareByDescending<Map.Entry<String, Int>> { it.value }
+                        .thenBy { it.key }
+                )
+                .map { (key, count) ->
+                    FilterOption(
+                        key = key,
+                        display = if (key == UNKNOWN_KEY) unknownLabel else key,
+                        count = count
+                    )
+                }
+            // 未知项固定排在末尾，避免大量无 EXIF 照片时把它顶到第一个
+            dimension.id to options.sortedBy { it.isUnknown }
+        }
+    }
+
+    /**
+     * 当前全部生效条件，供顶栏 chip 条展示
+     * 维度类条件是通用的，新增维度不需要改这里
+     */
+    val activeConditions: StateFlow<List<ActiveCondition>> = combine(
+        _filterState,
+        excludedAlbumManager.excludedBucketIds
+    ) { state, excludedBucketIds ->
+        buildList {
+            if (state.favoritesOnly) {
+                add(ActiveCondition.Favorites(context.getString(R.string.filter_chip_favorites)))
+            }
+            state.searchQuery?.takeIf { it.isNotBlank() }?.let { query ->
+                add(
+                    ActiveCondition.Search(
+                        query = query,
+                        label = context.getString(R.string.filter_chip_search, query)
+                    )
+                )
+            }
+            FilterDimensions.ALL.forEach { dimension ->
+                val selected = state.selectionOf(dimension.id)
+                if (selected.isEmpty()) return@forEach
+                val title = context.getString(dimension.titleRes)
+                val value = if (selected.size == 1) {
+                    selected.first().takeIf { it != UNKNOWN_KEY }
+                        ?: context.getString(R.string.filter_unknown)
+                } else {
+                    context.getString(R.string.filter_selected_count, selected.size)
+                }
+                add(
+                    ActiveCondition.Dimension(
+                        id = dimension.id,
+                        label = context.getString(R.string.filter_chip_dimension, title, value)
+                    )
+                )
+            }
+            if (excludedBucketIds.isNotEmpty()) {
+                add(
+                    ActiveCondition.ExcludedAlbums(
+                        label = context.getString(
+                            R.string.filter_chip_excluded_albums,
+                            excludedBucketIds.size
+                        )
+                    )
+                )
+            }
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val TAG = "PhotosViewModel"
 
@@ -186,86 +267,71 @@ class PhotosViewModel @Inject constructor(
         }
     }
 
+    // ==================== 筛选操作 ====================
+
     fun toggleFavoritesOnly() {
-        _showFavoritesOnly.value = !_showFavoritesOnly.value
+        _filterState.value = _filterState.value
+            .withFavoritesOnly(!_filterState.value.favoritesOnly)
     }
 
-    fun toggleFilterCameraMake(key: String?) {
-        _explicitCameraMake.value = if (key == null) {
-            emptySet()
-        } else {
-            _explicitCameraMake.value.let { current ->
-                if (key in current) current - key else current + key
-            }
+    fun setFavoritesOnly(enabled: Boolean) {
+        if (_filterState.value.favoritesOnly != enabled) {
+            _filterState.value = _filterState.value.withFavoritesOnly(enabled)
         }
-        recomputeEffective()
-    }
-
-    fun toggleFilterCameraModel(key: String?) {
-        _explicitCameraModel.value = if (key == null) {
-            emptySet()
-        } else {
-            _explicitCameraModel.value.let { current ->
-                if (key in current) current - key else current + key
-            }
-        }
-        recomputeEffective()
-    }
-
-    fun toggleFilterLensModel(key: String?) {
-        _explicitLensModel.value = if (key == null) {
-            emptySet()
-        } else {
-            _explicitLensModel.value.let { current ->
-                if (key in current) current - key else current + key
-            }
-        }
-        recomputeEffective()
-    }
-
-    fun clearExifFilters() {
-        _explicitCameraMake.value = emptySet()
-        _explicitCameraModel.value = emptySet()
-        _explicitLensModel.value = emptySet()
-        _filterCameraMake.value = emptySet()
-        _filterCameraModel.value = emptySet()
-        _filterLensModel.value = emptySet()
     }
 
     /**
-     * 根据显式选择 + 级联关系，重新计算有效筛选 Sets
-     * 镜头→型号：选镜头时自动勾选对应型号
-     * 镜头/型号→品牌：选镜头或型号时自动勾选对应品牌
+     * 切换某个维度上的一个取值（维度内多选）
+     * 通用实现，新增维度无需新增 toggle 方法
      */
-    private var recomputeJob: kotlinx.coroutines.Job? = null
+    fun toggleDimension(id: FilterDimensionId, key: String) {
+        _filterState.value = _filterState.value.toggle(id, key)
+        schedulePrune(id)
+    }
 
-    private fun recomputeEffective() {
-        recomputeJob?.cancel()
-        recomputeJob = viewModelScope.launch {
-            val explicitMakes = _explicitCameraMake.value
-            val explicitModels = _explicitCameraModel.value
-            val explicitLenses = _explicitLensModel.value
+    fun clearDimension(id: FilterDimensionId) {
+        _filterState.value = _filterState.value.clearDimension(id)
+    }
 
-            val impliedMakesFromLens = if (explicitLenses.isNotEmpty()) {
-                photoDao.getMakesForLenses(explicitLenses.toList()).toSet()
-            } else emptySet()
+    fun clearDimensionFilters() {
+        _filterState.value = _filterState.value.clearDimensions()
+    }
 
-            val impliedModelsFromLens = if (explicitLenses.isNotEmpty()) {
-                photoDao.getModelsForLenses(explicitLenses.toList()).toSet()
-            } else emptySet()
+    /** 清除全部条件：收藏 + 各维度（搜索由搜索栏自身负责退出） */
+    fun clearAllFilters() {
+        _filterState.value = _filterState.value
+            .clearDimensions()
+            .withFavoritesOnly(false)
+    }
 
-            val impliedMakesFromModel = if (explicitModels.isNotEmpty()) {
-                photoDao.getMakesForModels(explicitModels.toList()).toSet()
-            } else emptySet()
-
-            _filterCameraMake.value = explicitMakes + impliedMakesFromLens + impliedMakesFromModel
-            _filterCameraModel.value = explicitModels + impliedModelsFromLens
-            _filterLensModel.value = explicitLenses
-        }
+    fun clearExcludedAlbums() {
+        excludedAlbumManager.setAllExcluded(emptySet())
     }
 
     fun setSearchQuery(query: String?) {
-        _searchQuery.value = query?.takeIf { it.isNotBlank() }
+        _filterState.value = _filterState.value.withSearchQuery(query)
+    }
+
+    /**
+     * 上游维度变化后，异步裁剪下游维度中已失效的选择
+     *
+     * 先同步更新状态保证 UI 立即响应，再在后台线程做裁剪，
+     * 只有确实产生变化时才二次发射。
+     */
+    private var pruneJob: Job? = null
+
+    private fun schedulePrune(changed: FilterDimensionId) {
+        if (FilterDimensions.descendantsOf(changed).isEmpty()) return
+        pruneJob?.cancel()
+        pruneJob = viewModelScope.launch(Dispatchers.Default) {
+            val candidates = filterCandidates.value
+            if (candidates.isEmpty()) return@launch
+            val current = _filterState.value
+            val pruned = current.pruneUnavailable(candidates)
+            if (pruned != current) {
+                _filterState.value = pruned
+            }
+        }
     }
 
     /**
@@ -359,47 +425,26 @@ class PhotosViewModel @Inject constructor(
      * 数据源：Room Flow（自动监听表变化推送更新）
      * 全量加载后在内存中排序、过滤、插入日期分隔符，适配 < 5w 张照片场景
      */
-    private val exifFilterState: StateFlow<Triple<Set<String>, Set<String>, Set<String>>> = combine(
-        _filterCameraMake,
-        _filterCameraModel,
-        _filterLensModel
-    ) { cameraMake, cameraModel, lensModel ->
-        Triple(cameraMake, cameraModel, lensModel)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Triple(emptySet(), emptySet(), emptySet()))
-
     private val baseFilteredList: StateFlow<List<PhotoEntity>> = combine(
-        _rawPhotoEntities,
-        _showFavoritesOnly,
-        exifFilterState,
-        excludedAlbumManager.excludedBucketIds
-    ) { entities, favoritesOnly, exifFilters, excludedBucketIds ->
+        filterCandidates,
+        dimensionFilterState
+    ) { candidates, state ->
         withContext(Dispatchers.Default) {
-            val (cameraMake, cameraModel, lensModel) = exifFilters
-            entities.filter { entity ->
-                (!favoritesOnly || entity.isFavorite) &&
-                    !entity.isHidden &&
-                    (excludedBucketIds.isEmpty() || entity.bucketId !in excludedBucketIds) &&
-                    (cameraMake.isEmpty() || entity.cameraMake in cameraMake ||
-                        ("" in cameraMake && entity.cameraMake.isNullOrBlank())) &&
-                    (cameraModel.isEmpty() || entity.cameraModel in cameraModel ||
-                        ("" in cameraModel && entity.cameraModel.isNullOrBlank())) &&
-                    (lensModel.isEmpty() || entity.lensModel in lensModel ||
-                        ("" in lensModel && entity.lensModel.isNullOrBlank()))
-            }
+            candidates.filter { state.matches(it) }
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val sortedPhotos: StateFlow<Pair<List<Photo>, MediaRepository.SortType>> = combine(
         baseFilteredList,
         _currentSortType,
-        _searchQuery
-    ) { filtered, sortType, searchQuery ->
+        searchQuery
+    ) { filtered, sortType, query ->
         withContext(Dispatchers.Default) {
-            val queryResult = if (!searchQuery.isNullOrBlank()) {
-                val q = searchQuery.lowercase()
+            val queryResult = if (!query.isNullOrBlank()) {
+                val lowered = query.lowercase()
                 filtered.filter { entity ->
-                    entity.displayName?.lowercase()?.contains(q) == true ||
-                        entity.bucketName?.lowercase()?.contains(q) == true
+                    entity.displayName?.lowercase()?.contains(lowered) == true ||
+                        entity.bucketName.lowercase().contains(lowered)
                 }
             } else {
                 filtered
