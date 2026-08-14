@@ -14,6 +14,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowInsetsCompat
+import androidx.navigation.NavController
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.setupWithNavController
 import com.gxstar.stargallery.databinding.ActivityMainBinding
@@ -26,6 +27,7 @@ import dagger.hilt.android.AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
+    private lateinit var navController: NavController
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // 安装 SplashScreen (必须在 super.onCreate 之前调用)
@@ -100,30 +102,40 @@ class MainActivity : AppCompatActivity() {
         // 屏幕旋转后重算宽度并重新应用底部导航栏的 insets
         applyBottomNavWidth()
         binding.bottomNav.requestApplyInsets()
+        // 屏幕旋转后重算导航形态（底部导航 / 侧边导航）
+        applyNavigationVisibility()
     }
 
     private fun setupNavigation() {
         val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as NavHostFragment
-        val navController = navHostFragment.navController
-        
+        navController = navHostFragment.navController
+
         binding.bottomNav.setupWithNavController(navController)
-        
-        // 监听导航目标变化，控制底部导航栏显示/隐藏
+        binding.navigationRail.setupWithNavController(navController)
+
+        // 监听导航目标变化，控制导航栏（底部/侧边）显示/隐藏
         // 仅在首页网格和相册列表两个主页面显示，其余页面一律隐藏
-        navController.addOnDestinationChangedListener { _, destination, _ ->
-            when (destination.id) {
-                R.id.photosFragment,
-                R.id.albumsFragment -> {
-                    if (binding.bottomNav.visibility != View.VISIBLE) {
-                        binding.bottomNav.visibility = View.VISIBLE
-                    }
-                }
-                else -> {
-                    if (binding.bottomNav.visibility != View.GONE) {
-                        binding.bottomNav.visibility = View.GONE
-                    }
-                }
-            }
+        navController.addOnDestinationChangedListener { _, _, _ ->
+            applyNavigationVisibility()
+        }
+        applyNavigationVisibility()
+    }
+
+    /**
+     * 平板（宽度 >= 600dp）使用左侧 NavigationRail，手机使用底部 BottomNavigationView。
+     * 仅在首页网格与相册列表两个主页面显示导航，其余页面（详情/设置等）一律隐藏。
+     * 同时处理屏幕旋转后的导航形态切换。
+     */
+    private fun applyNavigationVisibility() {
+        val isTablet = resources.configuration.screenWidthDp >= 600
+        val currentId = navController.currentDestination?.id
+        val isMain = currentId == R.id.photosFragment || currentId == R.id.albumsFragment
+        if (isMain) {
+            binding.navigationRail.visibility = if (isTablet) View.VISIBLE else View.GONE
+            binding.bottomNav.visibility = if (isTablet) View.GONE else View.VISIBLE
+        } else {
+            binding.navigationRail.visibility = View.GONE
+            binding.bottomNav.visibility = View.GONE
         }
     }
     

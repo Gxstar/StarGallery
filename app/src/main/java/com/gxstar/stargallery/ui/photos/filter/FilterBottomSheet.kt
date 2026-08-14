@@ -13,6 +13,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.gxstar.stargallery.R
 import com.gxstar.stargallery.databinding.ItemFilterRowBinding
 import com.gxstar.stargallery.databinding.LayoutBottomSheetFilterBinding
+import com.gxstar.stargallery.ui.common.constrainBottomSheetWidth
 import com.gxstar.stargallery.ui.photos.PhotosViewModel
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.google.android.material.chip.Chip
@@ -257,6 +258,12 @@ class FilterBottomSheet : BottomSheetDialogFragment() {
 
     private fun dpToPx(dp: Int): Int =
         (dp * resources.displayMetrics.density).toInt()
+
+    override fun onStart() {
+        super.onStart()
+        // 选项列表较多，平板上限宽 560dp 并居中，避免横向拉伸
+        constrainBottomSheetWidth(560)
+    }
 
     override fun onDestroyView() {
         dimensionRows.clear()

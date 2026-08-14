@@ -1,9 +1,11 @@
 package com.gxstar.stargallery.ui.settings
 
 import android.os.Bundle
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import com.gxstar.stargallery.R
@@ -49,10 +51,29 @@ class SettingsFragment : Fragment() {
         updateLanguageSummary()
         updateExcludedSummary()
         setupHdrSwitch()
+        applyContentMaxWidth()
 
         binding.itemLanguage.setOnClickListener { showLanguageDialog() }
         binding.itemExcludedAlbums.setOnClickListener {
             findNavController().navigate(R.id.action_settingsFragment_to_excludedAlbumsFragment)
+        }
+    }
+
+    /**
+     * 平板（宽度 >= 600dp）上将设置页内容（顶栏 + 列表）限制为 640dp 并水平居中，
+     * 避免选项行在平板上被拉伸到全宽。
+     */
+    private fun applyContentMaxWidth() {
+        if (resources.configuration.screenWidthDp < 600) return
+        val maxWidthPx = (640 * resources.displayMetrics.density).toInt()
+            .coerceAtMost(resources.displayMetrics.widthPixels)
+        val root = binding.root as? ViewGroup ?: return
+        for (i in 0 until root.childCount) {
+            val child = root.getChildAt(i)
+            val lp = child.layoutParams as? CoordinatorLayout.LayoutParams ?: continue
+            lp.width = maxWidthPx
+            lp.gravity = Gravity.CENTER_HORIZONTAL
+            child.layoutParams = lp
         }
     }
 

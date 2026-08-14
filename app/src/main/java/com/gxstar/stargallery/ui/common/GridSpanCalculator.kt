@@ -4,7 +4,7 @@ import android.util.DisplayMetrics
 
 object GridSpanCalculator {
     const val MIN_SPAN_COUNT = 3
-    const val MAX_SPAN_COUNT = 10
+    const val MAX_SPAN_COUNT = 12
     const val MIN_CELL_WIDTH_DP = 80
 
     fun calculateOptimalSpanCount(displayMetrics: DisplayMetrics): Int {

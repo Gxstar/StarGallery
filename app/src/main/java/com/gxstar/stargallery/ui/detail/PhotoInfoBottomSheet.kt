@@ -15,6 +15,7 @@ import com.gxstar.stargallery.data.local.db.PhotoDao
 import com.gxstar.stargallery.data.local.exif.ExifExtractor
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.databinding.LayoutPhotoInfoBottomSheetBinding
+import com.gxstar.stargallery.ui.common.constrainBottomSheetWidth
 import com.gxstar.stargallery.ui.util.CoordinateUtils
 import com.gxstar.stargallery.ui.util.DateUtils
 import dagger.hilt.android.AndroidEntryPoint
@@ -710,6 +711,12 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
         val units = arrayOf("B", "KB", "MB", "GB", "TB")
         val digitGroups = (Math.log10(size.toDouble()) / Math.log10(1024.0)).toInt()
         return DecimalFormat("#,##0.#").format(size / Math.pow(1024.0, digitGroups.toDouble())) + " " + units[digitGroups]
+    }
+
+    override fun onStart() {
+        super.onStart()
+        // 平板限宽居中，避免参数卡片被拉伸到全宽
+        constrainBottomSheetWidth()
     }
 
     override fun onDestroyView() {

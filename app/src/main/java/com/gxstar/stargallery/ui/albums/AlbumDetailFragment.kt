@@ -597,13 +597,15 @@ class AlbumDetailFragment : Fragment() {
     }
 
     private fun showColumnsDialog() {
-        val options = arrayOf("3", "4", "5", "6", "7", "8")
-        val checkedItem = (currentSpanCount - 3).coerceIn(0, options.size - 1)
+        val maxSpan = GridSpanCalculator.MAX_SPAN_COUNT
+        val minSpan = GridSpanCalculator.MIN_SPAN_COUNT
+        val options = (minSpan..maxSpan).map { it.toString() }.toTypedArray()
+        val checkedItem = (currentSpanCount - minSpan).coerceIn(0, maxSpan - minSpan)
 
         MaterialAlertDialogBuilder(requireContext())
             .setTitle(R.string.select_columns)
             .setSingleChoiceItems(options, checkedItem) { dialog, which ->
-                val newSpan = which + 3
+                val newSpan = which + minSpan
                 if (newSpan != currentSpanCount) {
                     updateSpanCount(newSpan)
                 }

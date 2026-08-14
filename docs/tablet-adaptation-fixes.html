@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>StarGallery 平板适配修复记录</title>
+<style>
+  :root { --bg:#f5f6f8; --card:#fff; --ink:#1c1c1e; --sub:#6b6b70; --line:#e5e7eb; --ok:#1f9d55; --accent:#007AFF; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; line-height:1.6; }
+  .wrap { max-width:920px; margin:0 auto; padding:28px 20px 48px; }
+  h1 { font-size:24px; margin:0 0 4px; }
+  .meta { color:var(--sub); font-size:13px; margin-bottom:20px; }
+  .banner { background:#eafaf0; border:1px solid #c7ecd4; color:#14612f; padding:10px 14px; border-radius:10px; font-size:14px; margin-bottom:22px; }
+  section { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 18px 8px; margin-bottom:18px; }
+  h2 { font-size:17px; margin:0 0 12px; display:flex; align-items:center; gap:8px; }
+  .tag { font-size:11px; font-weight:700; padding:2px 8px; border-radius:999px; color:#fff; }
+  .p0 { background:#ff3b30; } .p1 { background:#ff9500; } .p2 { background:#007AFF; }
+  table { width:100%; border-collapse:collapse; font-size:13.5px; }
+  th, td { text-align:left; padding:9px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--sub); font-weight:600; font-size:12.5px; }
+  code { background:#f1f2f4; padding:1px 6px; border-radius:6px; font-size:12.5px; }
+  ul { margin:6px 0 14px; padding-left:20px; font-size:13.5px; }
+  li { margin:3px 0; }
+  .ok { color:var(--ok); font-weight:600; }
+  .file { color:var(--accent); font-family:"SFMono-Regular",Consolas,monospace; font-size:12.5px; }
+  .note { font-size:12.5px; color:var(--sub); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>StarGallery 平板显示适配 — 修复记录</h1>
+  <div class="meta">2026-08-14 · 针对 P0–P2 全部落地 · 编译状态：<b>assembleDebug 通过</b></div>
+  <div class="banner">已修复此前评估发现的"平板=放大版手机"问题：信息弹窗全宽拉伸、网格列数上限偏低、无平板导航、详情/设置 overlay 全宽。</div>
+
+  <section>
+    <h2><span class="tag p0">P0</span> 底部弹窗（信息/筛选/删除）大屏限宽居中</h2>
+    <table>
+      <tr><th>问题</th><td>BottomSheetDialog 在平板上从屏幕左缘拉到右缘，参数卡片被横向拉伸、行间拉大，视觉稀疏。</td></tr>
+      <tr><th>改动</th><td>新增工具 <code>BottomSheetWidthHelper.constrainBottomSheetWidth(maxWidthDp)</code>：在 <code>onStart()</code> 内、当 <code>screenWidthDp ≥ 600</code> 时，将 <code>design_bottom_sheet</code> 容器限制宽度并以 <code>Gravity.CENTER_HORIZONTAL</code> 居中；手机保持全宽。</td></tr>
+      <tr><th>文件</th><td>
+        <span class="file">ui/common/BottomSheetWidthHelper.kt</span>（新增）<br/>
+        <span class="file">ui/detail/PhotoInfoBottomSheet.kt</span>（480dp）<br/>
+        <span class="file">ui/photos/filter/FilterBottomSheet.kt</span>（560dp，选项多）<br/>
+        <span class="file">ui/common/DeleteOptionsBottomSheet.kt</span>（480dp）
+      </td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2><span class="tag p1">P1</span> 网格列数上限 8 → 12</h2>
+    <table>
+      <tr><th>问题</th><td>用户可选列数上限仅 8，11–13 英寸平板上每格过大，浪费大屏空间（动态计算器本支持到 10）。</td></tr>
+      <tr><th>改动</th><td><code>GridSpanCalculator.MAX_SPAN_COUNT</code> 由 10 提到 <b>12</b>；首页与相册详情的列数选择弹窗改为按 <code>(MIN_SPAN_COUNT..MAX_SPAN_COUNT)</code> 动态生成，不再写死 3–8。竖横屏分别记忆逻辑不变。</td></tr>
+      <tr><th>文件</th><td>
+        <span class="file">ui/common/GridSpanCalculator.kt</span><br/>
+        <span class="file">ui/photos/PhotosFragment.kt</span>（showColumnsDialog）<br/>
+        <span class="file">ui/albums/AlbumDetailFragment.kt</span>（showColumnsDialog）
+      </td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2><span class="tag p1">P1</span> 平板主从导航（左侧 NavigationRail）</h2>
+    <table>
+      <tr><th>问题</th><td>首页底部 NavigationView 居中胶囊在平板上仍占底部空间，左侧大片区域未被利用作导航。</td></tr>
+      <tr><th>改动</th><td>
+        在 <code>activity_main.xml</code>（含 <code>layout-land</code> 变体）新增 <code>NavigationRailView</code>（id <code>navigation_rail</code>，复用 <code>bottom_nav_menu</code>）；<br/>
+        nav_host 改为 <code>constraintStart_toEndOf="@id/navigation_rail"</code>（rail 隐藏时自动贴左）；<br/>
+        <code>MainActivity.applyNavigationVisibility()</code> 按 <code>screenWidthDp ≥ 600</code> 切换"侧边 rail / 底部 nav"，仅首页与相册列表显示，其余页面隐藏，旋转时重算。
+      </td></tr>
+      <tr><th>文件</th><td>
+        <span class="file">res/layout/activity_main.xml</span><br/>
+        <span class="file">res/layout-land/activity_main.xml</span><br/>
+        <span class="file">MainActivity.kt</span>
+      </td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2><span class="tag p2">P2</span> 详情 overlay 与设置页大屏限宽居中</h2>
+    <table>
+      <tr><th>问题</th><td>详情页顶部/底部工具栏、设置页内容在平板上全宽拉伸，按钮点击热区过大、选项行过长。</td></tr>
+      <tr><th>改动</th><td>
+        <code>PhotoDetailFragment.applyDetailOverlayWidth()</code>：将 topBar / bottomBar 限制 640dp 居中（FrameLayout 子节点），旋转时重算；<br/>
+        <code>SettingsFragment.applyContentMaxWidth()</code>：将 CoordinatorLayout 子节点（顶栏 + 列表）限制 640dp 居中。
+      </td></tr>
+      <tr><th>文件</th><td>
+        <span class="file">ui/detail/PhotoDetailFragment.kt</span><br/>
+        <span class="file">ui/settings/SettingsFragment.kt</span>
+      </td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>验证方法</h2>
+    <ul>
+      <li><span class="ok">已通过</span> <code>./gradlew.bat assembleDebug</code>（仅预存在的弃用警告，无错误）。</li>
+      <li>用 <b>w600dp / w840dp</b> 的平板模拟器或开发者选项"最小宽度"切到 600+，验证：弹窗居中限宽、首页出现左侧导航 rail、列数可选到 12、详情与设置 toolbar 居中。</li>
+      <li>手机（&lt;600dp）行为不变：底部导航 + 全宽弹窗 + 列数 3–8。</li>
+    </ul>
+    <p class="note">判定阈值统一为 <code>screenWidthDp ≥ 600</code>；底部导航/弹窗限宽沿用既有 480dp 思路，overlay 用 640dp。其他二级页（关于/回收站/隐藏/相册列表/排除相册）仍为全宽，需要时复用同样的 <code>constrainWidthCentered</code> 模式即可。</p>
+  </section>
+</div>
+</body>
+</html>

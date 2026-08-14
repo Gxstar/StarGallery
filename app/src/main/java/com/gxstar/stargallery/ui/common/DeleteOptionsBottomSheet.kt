@@ -43,6 +43,12 @@ class DeleteOptionsBottomSheet : BottomSheetDialogFragment() {
         return R.style.CustomBottomSheetDialogTheme
     }
 
+    override fun onStart() {
+        super.onStart()
+        // 平板限宽居中
+        constrainBottomSheetWidth()
+    }
+
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null

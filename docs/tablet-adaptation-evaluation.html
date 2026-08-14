@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StarGallery 平板显示适配性评估</title>
+<style>
+  :root { --bg:#fff; --fg:#1c1c1e; --sub:#6b6b70; --line:#e6e6ea; --acc:#007AFF; --warn:#FF9500; --bad:#FF3B30; --ok:#34C759; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif; color:var(--fg); background:#f5f5f7; line-height:1.6; }
+  .wrap { max-width:920px; margin:32px auto; background:var(--bg); border-radius:16px; box-shadow:0 2px 12px rgba(0,0,0,.06); padding:36px 40px; }
+  h1 { font-size:26px; margin:0 0 4px; }
+  .meta { color:var(--sub); font-size:13px; margin-bottom:24px; }
+  h2 { font-size:19px; margin:30px 0 12px; padding-bottom:8px; border-bottom:1px solid var(--line); }
+  h3 { font-size:15px; margin:20px 0 8px; }
+  p { margin:8px 0; }
+  .verdict { background:#fff8ef; border:1px solid #ffe2b8; border-radius:12px; padding:16px 18px; margin:16px 0; }
+  .verdict b { color:var(--warn); }
+  .pill { display:inline-block; font-size:12px; font-weight:600; padding:2px 10px; border-radius:999px; margin-right:6px; }
+  .p0 { background:#ffe5e3; color:var(--bad); }
+  .p1 { background:#fff0d6; color:var(--warn); }
+  .p2 { background:#e6f6ec; color:var(--ok); }
+  code { background:#f0f0f3; padding:1px 6px; border-radius:5px; font-size:13px; }
+  ul { margin:8px 0; padding-left:22px; }
+  li { margin:6px 0; }
+  .card { border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin:12px 0; }
+  .card.bad { border-left:4px solid var(--bad); }
+  .card.warn { border-left:4px solid var(--warn); }
+  .card.ok { border-left:4px solid var(--ok); }
+  table { width:100%; border-collapse:collapse; margin:12px 0; font-size:14px; }
+  th,td { border:1px solid var(--line); padding:8px 10px; text-align:left; vertical-align:top; }
+  th { background:#f7f7f9; font-weight:600; }
+  .file { color:var(--acc); }
+  .tag { font-size:11px; color:var(--sub); }
+  footer { color:var(--sub); font-size:12px; margin-top:28px; text-align:center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>StarGallery 平板显示适配性评估</h1>
+  <div class="meta">评估对象：首页照片网格列表 + 图片详情页信息弹窗 · 评估日期：2026-08-14 · 关键文件：<span class="file">PhotosFragment.kt</span>、<span class="file">GridSpanCalculator.kt</span>、<span class="file">PhotoInfoBottomSheet.kt</span>、<span class="file">fragment_photos.xml</span>、<span class="file">themes.xml</span>、<span class="file">AndroidManifest.xml</span></div>
+
+  <div class="verdict">
+    <b>总体结论：能装、能跑，但完全是"放大版手机"，没有任何平板专属适配。</b><br>
+    项目里<b>不存在</b>任何 <code>sw600dp</code> / <code>sw720dp</code> / <code>w600dp</code> 限定符的布局或 <code>dimens</code> 资源，只有 <code>layout/</code> 与 <code>layout-land/</code>（横屏手机）。首页网格靠"按屏宽算列数"勉强撑住了大屏，但详情页信息弹窗在平板上会<b>全宽拉伸</b>，是体验硬伤。
+  </div>
+
+  <h2>一、首页网格列表</h2>
+
+  <div class="card ok">
+    <b>✅ 已具备一定的大屏友好性（动态列数）</b>
+    <ul>
+      <li><span class="file">GridSpanCalculator.calculateOptimalSpanCount()</span>：列数 = <code>屏幕宽度dp / 80dp</code>，并 <code>coerceIn(3, 10)</code>。</li>
+      <li><span class="file">PhotosFragment.showColumnsDialog()</span> 允许用户手动选 <b>3–8 列</b>；<span class="file">GridSpanPreferences</span> 支持竖/横屏分别记忆。</li>
+      <li>旋转、列数切换都正确联动：<code>onConfigurationChanged</code> 重算 item 尺寸，Glide 预加载数与 ItemDecoration 同步重建。</li>
+    </ul>
+  </div>
+
+  <div class="card warn">
+    <b>⚠️ 问题 1：列数上限偏低，平板上浪费空间</b>
+    <ul>
+      <li>计算器 <code>MAX_SPAN_COUNT = 10</code>，但 UI 选择上限只有 <b>8 列</b>。11–13 英寸平板竖屏约 800dp，8 列 → 每格约 100dp，缩略图过大、稀疏。</li>
+      <li>真正的大屏本可承载 10–12 列。建议把 UI 上限提到 12，并在 <code>values-sw720dp</code> 里把默认 fallback 调高（如默认 9–10 列）。</li>
+    </ul>
+  </div>
+
+  <div class="card warn">
+    <b>⚠️ 问题 2：没有主从（Master-Detail）布局</b>
+    <ul>
+      <li>平板首页仍是纯全宽网格，未利用大屏空间做"左侧相册/日期导航 + 右侧网格"，右侧大片空白被浪费——这是平板体验与手机最大的差距。</li>
+    </ul>
+  </div>
+
+  <div class="card warn">
+    <b>⚠️ 问题 3：间距/留白仍是手机尺寸</b>
+    <ul>
+      <li><span class="file">dimens.xml</span> 中 <code>grid_spacing=2dp</code>、padding <code>16dp</code> 等全部写死小值；<code>item_photo.xml</code> 用 <code>layout_constraintDimensionRatio="1:1"</code> 固定正方形，平板上会显得拥挤或留白不协调。</li>
+    </ul>
+  </div>
+
+  <h2>二、图片详情页信息弹窗（PhotoInfoBottomSheet）</h2>
+
+  <div class="card bad">
+    <b>🔴 严重问题：全宽底弹窗，无任何最大宽度限制</b>
+    <ul>
+      <li><span class="file">PhotoInfoBottomSheet.kt</span> 是 <code>BottomSheetDialogFragment</code>，<b>未重写 <code>getTheme()</code></b>（对比同项目的 <span class="file">DeleteOptionsBottomSheet</span> 重写了主题）。</li>
+      <li><span class="file">themes.xml</span> 里的 <code>CustomBottomSheetStyle</code> 只设了 <code>backgroundTint</code>，<b>没有 <code>android:maxWidth</code></b>。于是平板上信息弹窗从屏幕左缘拉到右缘，内容（相机/镜头/分辨率卡片、ISO·光圈·快门 三列参数、位置、风格）被横向拉伸，行间拉大、视觉稀疏难看。</li>
+      <li>根布局 <code>NestedScrollView</code> 宽度 <code>match_parent</code>，padding 仅 20dp，正文在平板上横向铺满、阅读动线过长。</li>
+      <li><b>讽刺的是</b>：<span class="file">MainActivity.applyBottomNavWidth()</span> 已经把底部导航栏做了 <code>maxWidth 480dp</code> 居中——说明开发者知道大屏要限宽，却没把同样的处理应用到信息弹窗。</li>
+    </ul>
+  </div>
+
+  <h2>三、其他平板相关点</h2>
+  <ul>
+    <li><b>详情页 overlay 栏</b>：<span class="file">fragment_photo_detail.xml</span> 顶/底 overlay 均为 <code>match_parent</code> 全宽。底部操作栏（发送/信息/收藏/删除/编辑 5 个）在平板上横向铺满一整行，可改为居中固定宽度胶囊（同底栏做法）。</li>
+    <li><b>二级页面</b>：设置/关于等 Fragment 全宽，无约束，平板上可读性一般。</li>
+    <li><b>横屏</b>：已有 <code>layout-land</code>（首页、MainActivity），但仅解决"横屏不错位"，并非平板优化。</li>
+    <li><b>Manifest</b>：未声明 <code>supports-screens</code>，默认放行所有尺寸（不会被 Play 过滤），但也意味着在平板上以兼容模式放大运行。</li>
+  </ul>
+
+  <h2>四、优先级修复建议</h2>
+  <table>
+    <tr><th>优先级</th><th>问题</th><th>建议方案</th><th>改动量</th></tr>
+    <tr>
+      <td><span class="pill p0">P0</span></td>
+      <td>信息弹窗平板全宽拉伸</td>
+      <td>在 <code>PhotoInfoBottomSheet</code> 重写 <code>getTheme()</code> 指向带 <code>android:maxWidth≈600dp</code> 的 BottomSheet 主题；或 <code>onStart()</code> 里给 <code>BottomSheetBehavior</code> 设 maxWidth 并居中；内容宽度约束 560–640dp，参数卡片改为 2 列网格。</td>
+      <td>~10 行</td>
+    </tr>
+    <tr>
+      <td><span class="pill p1">P1</span></td>
+      <td>网格列数上限低、无主从布局</td>
+      <td>UI 列数上限提到 12；新增 <code>values-sw720dp</code> 把默认 fallback 调高；评估是否上 <code>sw720dp</code> 主从布局（左导航 + 右网格）。</td>
+      <td>中等</td>
+    </tr>
+    <tr>
+      <td><span class="pill p2">P2</span></td>
+      <td>二级页面/详情 overlay 未限宽</td>
+      <td>详情 overlay 与设置等页面对大屏限宽居中；统一在 <code>values-sw600dp / sw720dp</code> 调整间距与字号。</td>
+      <td>中等</td>
+    </tr>
+  </table>
+
+  <div class="verdict" style="background:#eef6ff;border-color:#cfe3ff;">
+    <b>最低成本的一步</b>：先给信息弹窗加 <code>maxWidth</code> 居中（约 10 行改动），即可消除平板上最刺眼的"全宽拉伸"。需要我直接动手改吗？
+  </div>
+
+  <footer>本报告基于源码静态评估，未实际在平板设备上运行验证。</footer>
+</div>
+</body>
+</html>

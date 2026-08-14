@@ -10,8 +10,10 @@ import android.os.Bundle
 import android.util.TypedValue
 import android.view.LayoutInflater
 import android.view.MotionEvent
+import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.IntentSenderRequest
@@ -136,6 +138,7 @@ class PhotoDetailFragment : Fragment() {
         setupViewPager()
         setupViews()
         setupSwipeToDismiss()
+        applyDetailOverlayWidth()
         observeData()
 
         setFragmentResultListener("photo_edited") { _, _ ->
@@ -171,6 +174,26 @@ class PhotoDetailFragment : Fragment() {
             binding.bottomBar.setPadding(0, binding.bottomBar.paddingTop, 0, systemBars.bottom)
             
             windowInsets
+        }
+    }
+
+    /**
+     * 平板（宽度 >= 600dp）上将顶部/底部 overlay 工具栏限制为 640dp 并水平居中，
+     * 避免按钮被拉伸到全宽、点击热区过大。
+     */
+    private fun applyDetailOverlayWidth() {
+        if (resources.configuration.screenWidthDp < 600) return
+        val maxWidthPx = (640 * resources.displayMetrics.density).toInt()
+            .coerceAtMost(resources.displayMetrics.widthPixels)
+        (binding.topBar.layoutParams as? FrameLayout.LayoutParams)?.let { p ->
+            p.width = maxWidthPx
+            p.gravity = Gravity.CENTER_HORIZONTAL
+            binding.topBar.layoutParams = p
+        }
+        (binding.bottomBar.layoutParams as? FrameLayout.LayoutParams)?.let { p ->
+            p.width = maxWidthPx
+            p.gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+            binding.bottomBar.layoutParams = p
         }
     }
 
@@ -553,6 +576,8 @@ class PhotoDetailFragment : Fragment() {
         super.onConfigurationChanged(newConfig)
         // 屏幕旋转时重置缩放状态
         pagerAdapter.getCurrentViewHolder()?.resetZoom()
+        // 旋转后按新屏宽重算 overlay 工具栏限宽
+        applyDetailOverlayWidth()
     }
 
     override fun onDestroyView() {
