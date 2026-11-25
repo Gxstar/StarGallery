@@ -98,28 +98,33 @@
     <!-- Bottom Overlay Bar：iOS 26 式浮动液态玻璃胶囊 -->
     <com.example.liquidglass.LiquidGlassView
         android:id="@+id/glassBottomBar"
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="bottom"
-        android:layout_marginStart="16dp"
-        android:layout_marginEnd="16dp"
+        android:layout_gravity="bottom|center_horizontal"
         android:layout_marginBottom="16dp"
+        android:background="@drawable/bg_nav_outline"
+        app:adaptiveTint="false"
+        app:blurAmount="8"
         app:cornerRadius="32dp"
-        app:glassMaterial="regular">
+        app:glassMaterial="clear"
+        app:glassTint="@color/nav_glass_tint"
+        app:glassTintStrength="0.65">
 
     <LinearLayout
         android:id="@+id/bottomBar"
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:background="@null"
+        android:background="@drawable/bg_detail_bar_shell"
         android:orientation="horizontal"
-        android:paddingTop="4dp">
+        android:paddingStart="4dp"
+        android:paddingEnd="4dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="4dp">
 
         <LinearLayout
             android:id="@+id/btnSend"
-            android:layout_width="0dp"
+            android:layout_width="64dp"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:gravity="center"
             android:orientation="vertical"
@@ -128,22 +133,24 @@
             <ImageView
                 android:layout_width="24dp"
                 android:layout_height="24dp"
-                android:src="@drawable/ic_send" />
+                android:src="@drawable/ic_send"
+                android:tint="@color/nav_item_active" />
 
             <TextView
-                style="@style/TextAppearance.Caption"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
-                android:text="@string/send" />
+                android:maxLines="1"
+                android:text="@string/send"
+                android:textColor="@color/nav_item_active"
+                android:textSize="11sp" />
 
         </LinearLayout>
 
         <LinearLayout
             android:id="@+id/btnInfo"
-            android:layout_width="0dp"
+            android:layout_width="64dp"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:gravity="center"
             android:orientation="vertical"
@@ -152,22 +159,24 @@
             <ImageView
                 android:layout_width="24dp"
                 android:layout_height="24dp"
-                android:src="@drawable/ic_info" />
+                android:src="@drawable/ic_info"
+                android:tint="@color/nav_item_active" />
 
             <TextView
-                style="@style/TextAppearance.Caption"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
-                android:text="@string/info" />
+                android:maxLines="1"
+                android:text="@string/info"
+                android:textColor="@color/nav_item_active"
+                android:textSize="11sp" />
 
         </LinearLayout>
 
         <LinearLayout
             android:id="@+id/btnFavorite"
-            android:layout_width="0dp"
+            android:layout_width="64dp"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:gravity="center"
             android:orientation="vertical"
@@ -177,22 +186,24 @@
                 android:id="@+id/ivFavorite"
                 android:layout_width="24dp"
                 android:layout_height="24dp"
-                android:src="@drawable/ic_favorite" />
+                android:src="@drawable/ic_favorite"
+                android:tint="@color/nav_item_active" />
 
             <TextView
-                style="@style/TextAppearance.Caption"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
-                android:text="@string/favorite" />
+                android:maxLines="1"
+                android:text="@string/favorite"
+                android:textColor="@color/nav_item_active"
+                android:textSize="11sp" />
 
         </LinearLayout>
 
         <LinearLayout
             android:id="@+id/btnDelete"
-            android:layout_width="0dp"
+            android:layout_width="64dp"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:gravity="center"
             android:orientation="vertical"
@@ -201,22 +212,24 @@
             <ImageView
                 android:layout_width="24dp"
                 android:layout_height="24dp"
-                android:src="@drawable/ic_delete" />
+                android:src="@drawable/ic_delete"
+                android:tint="@color/nav_item_active" />
 
             <TextView
-                style="@style/TextAppearance.Caption"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
-                android:text="@string/delete" />
+                android:maxLines="1"
+                android:text="@string/delete"
+                android:textColor="@color/nav_item_active"
+                android:textSize="11sp" />
 
         </LinearLayout>
 
         <LinearLayout
             android:id="@+id/btnEdit"
-            android:layout_width="0dp"
+            android:layout_width="64dp"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:gravity="center"
             android:orientation="vertical"
@@ -225,14 +238,17 @@
             <ImageView
                 android:layout_width="24dp"
                 android:layout_height="24dp"
-                android:src="@drawable/ic_edit" />
+                android:src="@drawable/ic_edit"
+                android:tint="@color/nav_item_active" />
 
             <TextView
-                style="@style/TextAppearance.Caption"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
-                android:text="@string/edit" />
+                android:maxLines="1"
+                android:text="@string/edit"
+                android:textColor="@color/nav_item_active"
+                android:textSize="11sp" />
 
         </LinearLayout>
 

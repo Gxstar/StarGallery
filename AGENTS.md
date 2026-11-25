@@ -138,6 +138,9 @@ Kotlin 2.4.10，AGP 9.3.1，KSP 2.3.10，minSdk 35，compileSdk 37，targetSdk 3
 - **ViewPager2 + PhotoPagerAdapter** 滑动翻页，DiffUtil 处理列表变化
 - **顶部工具栏**（AutoHide）：btnBack / tvDate / tvInfo / **btnMore（PopupMenu → 隐藏）**
 - **底部工具栏**：btnSend（分享）/ btnFavorite（收藏）/ btnDelete（删除→DeleteOptionsBottomSheet）/ btnInfo（PhotoInfoBottomSheet）
+- **底部工具栏是紧凑玻璃胶囊**（与首页导航同一套材质，2026-11 改）：`glassBottomBar` = `wrap_content` + `layout_gravity="bottom|center_horizontal"`，内部 5 个 `64dp` 按钮（总宽约 328dp）；`glassMaterial=clear` + `glassTintStrength=0.65` + 白纱 `@drawable/bg_detail_bar_shell`（80% 白 + **0.5dp 描边**）；`enableShadow=false`、`edgeHighlightOpacity=0f`。**描边不能去掉**——详情页背景可能就是一整张白纸照片，没有边界时白胶囊会糊进背景（正是这轮要修的问题）
+- **底栏不再有左右 margin**：由 `layout_gravity` 居中，`setupWindowInsets` 只设 `bottomMargin = 12dp + systemBars.bottom`。若再设左右 margin 会把胶囊挤偏；`bottomBarContentSidePadding()` 已删除
+- **底栏图标 tint**：XML 里 5 个 ImageView 统一 `android:tint="@color/nav_item_active"`；收藏态的实心红心在 `updateFavoriteIcon()` 里单独回染 `@color/heart_red`，否则会被 XML 的 tint 染黑、丢掉"已收藏"的红色语义
 - **全屏切换**：单点切换，Alpha 动画 200ms，WindowInsetsController 隐藏系统栏
 - **下滑关闭**：垂直滑动 > 200px 触发 navigateUp()，透明度跟随滑动距离
 - **PhotoPageViewHolder**：ZoomImageView 子采样 + Glide 加载 + ExoPlayer 视频 + GIF + HDR 检测

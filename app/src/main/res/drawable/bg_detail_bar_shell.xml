@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 详情页底部工具栏的「白纱」层，与首页导航胶囊同一套材质。
+     必须只有一层：容器（LiquidGlassView）background 只能是全透明的 bg_nav_outline，
+     若两边都挂就会叠成死白。
+     额外带 0.5dp 极淡描边：详情页背景可能是一整张白纸照片，没有边界的话白胶囊会糊进背景。 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/nav_shell_fill" />
+    <stroke
+        android:width="0.5dp"
+        android:color="@color/nav_shell_stroke" />
+    <corners android:radius="32dp" />
+</shape>

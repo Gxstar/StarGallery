@@ -3,6 +3,7 @@ package com.gxstar.stargallery.ui.detail
 import android.content.res.Configuration
 import android.app.Activity
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.content.IntentSender
 import android.graphics.Bitmap
 import android.graphics.Color
@@ -18,6 +19,7 @@ import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 
 import android.app.WallpaperManager
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -175,6 +177,9 @@ class PhotoDetailFragment : Fragment() {
     private fun setupGlassOverlays() {
         binding.glassTopBar.enableDynamicBackground = true
         binding.glassBottomBar.enableDynamicBackground = true
+        // 与首页导航胶囊保持同一套材质规则：不要投影、不要边缘高光
+        binding.glassBottomBar.enableShadow = false
+        binding.glassBottomBar.edgeHighlightOpacity = 0f
     }
 
     private fun setupWindowInsets() {
@@ -186,11 +191,10 @@ class PhotoDetailFragment : Fragment() {
             // 胶囊圆角会与变高后的外框失配。
             binding.glassTopBar.setPadding(0, systemBars.top, 0, 0)
 
-            val side = bottomBarContentSidePadding()
-            val baseMargin = (16 * resources.displayMetrics.density).toInt()
+            // 底栏已改成 wrap_content 的紧凑胶囊（水平居中由 layout_gravity 负责），
+            // 这里只处理贴底间距；若再设左右 margin，会把居中的胶囊挤偏。
+            val baseMargin = (12 * resources.displayMetrics.density).toInt()
             val glassParams = binding.glassBottomBar.layoutParams as ViewGroup.MarginLayoutParams
-            glassParams.marginStart = baseMargin + side
-            glassParams.marginEnd = baseMargin + side
             glassParams.bottomMargin = baseMargin + systemBars.bottom
             binding.glassBottomBar.layoutParams = glassParams
 
@@ -207,23 +211,11 @@ class PhotoDetailFragment : Fragment() {
     }
 
     /**
-     * 平板（宽度 >= 600dp）上把底部按钮组限制为 640dp 并水平居中，避免按钮被拉伸到全宽、
-     * 点击热区过大。只收窄左右 padding，View 本身保持满宽，让工具栏背景仍覆盖整条屏幕
-     * （背景同时是导航栏手势区的对比面）。
+     * 底栏改成 wrap_content 的紧凑胶囊后不再需要按屏宽收窄（胶囊本身只有 ~328dp），
+     * 这里只负责在尺寸变化后重新分发 insets 以刷新贴底间距。
      */
     private fun applyDetailOverlayWidth() {
         binding.glassBottomBar.requestApplyInsets()
-    }
-
-    /**
-     * 底栏为了让按钮组居中在 640dp 内所需的左右 padding；手机返回 0（满宽）。
-     */
-    private fun bottomBarContentSidePadding(): Int {
-        if (resources.configuration.screenWidthDp < 600) return 0
-        val rootWidth = binding.root.width
-        if (rootWidth <= 0) return 0
-        val maxWidthPx = (640 * resources.displayMetrics.density).toInt()
-        return ((rootWidth - maxWidthPx) / 2).coerceAtLeast(0)
     }
 
     private fun setupViewPager() {
@@ -590,6 +582,13 @@ class PhotoDetailFragment : Fragment() {
     private fun updateFavoriteIcon(isFavorite: Boolean) {
         val iconRes = if (isFavorite) R.drawable.ic_favorite_filled else R.drawable.ic_favorite
         binding.ivFavorite.setImageResource(iconRes)
+        // 底栏图标在 XML 里统一 tint 成前景色，会覆盖 ic_favorite_filled 自带的红色，
+        // 所以收藏态在这一处单独把色调回红心
+        val tint = ContextCompat.getColor(
+            requireContext(),
+            if (isFavorite) R.color.heart_red else R.color.nav_item_active
+        )
+        binding.ivFavorite.imageTintList = ColorStateList.valueOf(tint)
     }
     
     override fun onResume() {
