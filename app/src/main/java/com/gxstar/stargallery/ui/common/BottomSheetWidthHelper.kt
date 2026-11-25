@@ -1,26 +1,37 @@
 package com.gxstar.stargallery.ui.common
 
-import android.view.Gravity
-import android.view.ViewGroup
-import android.widget.FrameLayout
+import android.graphics.Insets
+import android.os.Build
+import android.util.DisplayMetrics
+import android.view.WindowInsets
+import android.view.WindowManager
+import android.view.WindowMetrics
 import androidx.fragment.app.DialogFragment
-import com.google.android.material.R as MaterialR
+import kotlin.math.min
 
 /**
- * 平板（屏幕宽度 >= 600dp）上将 BottomSheetDialog 的内容限制为 [maxWidthDp] 并水平居中，
- * 避免参数卡片、选项列表在平板上被横向拉伸到全宽。手机保持全宽不变。
+ * BottomSheetDialogFragment 平板限宽居中。
  *
- * 在 BottomSheetDialogFragment 的 onStart() 中调用即可。
+ * 手机上保持全宽，平板/大屏上限制最大宽度并居中，避免弹窗被拉伸到整屏。
+ *
+ * @param maxWidthDp 最大宽度（dp），默认 640
  */
-fun DialogFragment.constrainBottomSheetWidth(maxWidthDp: Int = 480) {
+fun DialogFragment.constrainBottomSheetWidth(maxWidthDp: Int = 640) {
+    val activity = activity ?: return
     val dialog = dialog ?: return
-    if (resources.configuration.screenWidthDp < 600) return
-    val bottomSheet = dialog.findViewById<ViewGroup>(MaterialR.id.design_bottom_sheet) ?: return
-    val maxWidthPx = (maxWidthDp * resources.displayMetrics.density).toInt()
-        .coerceAtMost(resources.displayMetrics.widthPixels)
-    val params = (bottomSheet.layoutParams as? FrameLayout.LayoutParams)
-        ?: FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-    params.width = maxWidthPx
-    params.gravity = Gravity.CENTER_HORIZONTAL
-    bottomSheet.layoutParams = params
+    val window = dialog.window ?: return
+
+    val widthPx = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        val wm: WindowMetrics = activity.getSystemService(WindowManager::class.java).currentWindowMetrics
+        val insets: Insets = wm.windowInsets.getInsets(WindowInsets.Type.systemBars())
+        wm.bounds.width() - insets.left - insets.right
+    } else {
+        @Suppress("DEPRECATION")
+        val metrics = DisplayMetrics().also { activity.windowManager.defaultDisplay.getMetrics(it) }
+        metrics.widthPixels
+    }
+
+    val density = activity.resources.displayMetrics.density
+    val maxWidthPx = (maxWidthDp * density).toInt()
+    window.setLayout(min(widthPx, maxWidthPx), android.view.WindowManager.LayoutParams.WRAP_CONTENT)
 }

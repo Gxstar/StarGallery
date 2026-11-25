@@ -66,5 +66,10 @@
     <color name="glass_nav_bg">#D9F2F2F7</color>
     <color name="glass_nav_highlight">#73FFFFFF</color>
     <color name="glass_nav_border">#4DFFFFFF</color>
-    <color name="glass_indicator_bg">#26007AFF</color>
+    <!-- 底部导航镜片：对齐系统相册（近白不透明胶囊 + 浅灰实心选中块） -->
+    <color name="nav_glass_tint">#F2FFFFFF</color>
+    <color name="nav_shell_fill">#CCFFFFFF</color>
+    <color name="glass_indicator_bg">#29000000</color>
+    <color name="nav_item_idle">#3A3A40</color>
+    <color name="nav_item_active">#000000</color>
 </resources>

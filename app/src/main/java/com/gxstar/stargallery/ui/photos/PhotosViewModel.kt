@@ -1,5 +1,6 @@
 package com.gxstar.stargallery.ui.photos
 
+import com.gxstar.stargallery.data.model.SortType
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -19,6 +20,7 @@ import com.gxstar.stargallery.ui.photos.model.PhotoModel
 import com.gxstar.stargallery.ui.util.DateUtils
 import com.gxstar.stargallery.ui.util.SortUtils
 import com.gxstar.stargallery.util.ExcludedAlbumManager
+import com.gxstar.stargallery.util.MediaAccessHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import com.gxstar.stargallery.R
@@ -55,8 +57,8 @@ class PhotosViewModel @Inject constructor(
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
-    private val _currentSortType = MutableStateFlow(MediaRepository.SortType.DATE_TAKEN)
-    val currentSortType: StateFlow<MediaRepository.SortType> = _currentSortType.asStateFlow()
+    private val _currentSortType = MutableStateFlow(SortType.DATE_TAKEN)
+    val currentSortType: StateFlow<SortType> = _currentSortType.asStateFlow()
 
     private val _currentGroupType = MutableStateFlow(GroupType.DAY)
     val currentGroupType: StateFlow<GroupType> = _currentGroupType.asStateFlow()
@@ -242,20 +244,61 @@ class PhotosViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
+            // 无权限时不扫描：partial/none 状态下全量扫描只会写入空数据并误标记
+            // scan_completed=true，导致后续授权后永不重扫（H4 根因之一）
+            if (!MediaAccessHelper.hasAnyAccess(context)) return@launch
+
             if (!scanPreferences.isScanCompleted) {
-                _isScanning.value = true
-                try {
-                    mediaScanner.performFullScan()
-                } finally {
-                    _isScanning.value = false
-                }
+                runFullScan()
             } else if (!scanPreferences.isExifExtractionCompleted) {
                 mediaScanner.recoverExifExtraction()
             }
         }
     }
 
-    fun setSortType(sortType: MediaRepository.SortType) {
+    private suspend fun runFullScan() {
+        _isScanning.value = true
+        try {
+            mediaScanner.performFullScan()
+        } finally {
+            _isScanning.value = false
+        }
+    }
+
+    /**
+     * 完整访问可用时（首次授权 or 部分授权升级）：
+     * - 从未扫描过 → 全量扫描
+     * - 已扫描过 → 对账补扫，补回之前看不到的媒体（H4 核心）
+     */
+    fun onFullAccessAvailable() {
+        viewModelScope.launch {
+            if (!scanPreferences.isScanCompleted) {
+                runFullScan()
+            } else {
+                reconcileMediaCount()
+            }
+        }
+    }
+
+    /**
+     * 对账 MediaStore 与 Room 的媒体数量，补回缺失媒体。
+     * 部分授权状态也调用：补回当前可访问范围内的媒体。
+     */
+    fun reconcileMediaCount() {
+        viewModelScope.launch {
+            _isScanning.value = true
+            try {
+                val restored = mediaScanner.reconcileMediaStore()
+                if (restored > 0) {
+                    android.util.Log.i(TAG, "Reconciled $restored missing media")
+                }
+            } finally {
+                _isScanning.value = false
+            }
+        }
+    }
+
+    fun setSortType(sortType: SortType) {
         if (_currentSortType.value != sortType) {
             _currentSortType.value = sortType
         }
@@ -330,20 +373,6 @@ class PhotosViewModel @Inject constructor(
             val pruned = current.pruneUnavailable(candidates)
             if (pruned != current) {
                 _filterState.value = pruned
-            }
-        }
-    }
-
-    /**
-     * 权限授权后重新扫描
-     */
-    fun rescanAfterPermissionGranted() {
-        viewModelScope.launch {
-            _isScanning.value = true
-            try {
-                mediaScanner.performFullScan()
-            } finally {
-                _isScanning.value = false
             }
         }
     }
@@ -434,7 +463,7 @@ class PhotosViewModel @Inject constructor(
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    private val sortedPhotos: StateFlow<Pair<List<Photo>, MediaRepository.SortType>> = combine(
+    private val sortedPhotos: StateFlow<Pair<List<Photo>, SortType>> = combine(
         baseFilteredList,
         _currentSortType,
         searchQuery
@@ -453,7 +482,7 @@ class PhotosViewModel @Inject constructor(
             val sorted = SortUtils.sortPhotos(photos, sortType)
             sorted to sortType
         }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList<Photo>() to MediaRepository.SortType.DATE_TAKEN)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList<Photo>() to SortType.DATE_TAKEN)
 
     val photoListFlow: StateFlow<List<PhotoModel>> = sortedPhotos
         .combine(_currentGroupType) { (sorted, sortType), groupType ->
@@ -476,7 +505,7 @@ class PhotosViewModel @Inject constructor(
 
     private fun buildPhotoModelList(
         sortedPhotos: List<Photo>,
-        sortType: MediaRepository.SortType,
+        sortType: SortType,
         groupType: GroupType
     ): List<PhotoModel> {
         if (sortedPhotos.isEmpty()) return emptyList()

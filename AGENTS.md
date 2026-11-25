@@ -12,7 +12,7 @@
 ```
 
 单模块 `:app`，版本目录 `gradle/libs.versions.toml`。依赖通过腾讯镜像加速（`settings.gradle.kts`）。
-Kotlin 2.3.20，AGP 9.2.1，minSdk 30，compileSdk 36，targetSdk 35，Java 21。
+Kotlin 2.4.10，AGP 9.3.1，KSP 2.3.10，minSdk 35，compileSdk 37，targetSdk 36，Java 21。
 
 ## 架构要点
 
@@ -57,6 +57,16 @@ Kotlin 2.3.20，AGP 9.2.1，minSdk 30，compileSdk 36，targetSdk 35，Java 21�
 - `photoCount` / `favoriteCount` / `hiddenCount`：Room SQL 全局查询，用于 FilterBottomSheet 选项计数等
 - `tvSubtitle` 始终显示 `filteredPhotoCount`，无论默认、收藏、EXIF 筛选模式
 
+## 媒体权限链路（Android 14+ 部分访问）
+
+- **Manifest 声明** `READ_MEDIA_VISUAL_USER_SELECTED`：系统按标准模型授权，避免旧兼容路径的 `REVOKED_COMPAT`（名义 granted、实际受限）
+- **`util/MediaAccessHelper.kt`**：三态判定 NONE / PARTIAL / FULL
+  - FULL = `READ_MEDIA_IMAGES granted`；PARTIAL = IMAGES 未授予但 `VISUAL_USER_SELECTED granted`；其余 NONE
+  - `REQUIRED_PERMISSIONS` 统一申请数组（含 VISUAL_USER_SELECTED）
+- **PhotosFragment**：`checkPermissions` 用 `hasAnyAccess` 判断是否弹框（部分授权不重复弹）；权限回调/onResume 检测级别变化 → 触发补扫；PARTIAL 时显示顶部提示条引导去系统设置
+- **部分授权提示条**：`fragment_photos.xml`（竖/横屏）的 `partialAccessBanner` + strings（中英）
+- **权限升级补扫**：FULL 可用时 `PhotosViewModel.onFullAccessAvailable()` → `reconcileMediaStore()` 补回缺失媒体（修复"部分→完整后永久只显示选中几张"）
+
 ## 删除/收藏后的刷新机制
 
 - **Room 删除** → `invalidationTracker` 自动使 Flow 失效 → `getAllPhotosFlow()` 自动推送新列表 → 无需手动刷新
@@ -86,7 +96,7 @@ Kotlin 2.3.20，AGP 9.2.1，minSdk 30，compileSdk 36，targetSdk 35，Java 21�
 
 - **Glide** 缩略图/GIF + `RecyclerViewPreloader` 预加载
 - **动态预加载数量**：`currentSpanCount * 3`（`RecyclerViewPreloader` 预加载图片数）、`currentSpanCount * 4`（`GridLayoutManager.initialPrefetchItemCount` 布局预取数），切换列数时自动重建预加载器
-- **ZoomImageView**（ZoomImage 1.4.0）大图子采样（>=2000px 启用）
+- **ZoomImageView**（ZoomImage 1.6.0）大图子采样（>=2000px 启用）
 - **ExoPlayerManager**：全局单例，跨页面保持播放状态
 
 ## 缩略图缓存（ThumbnailManager）
@@ -194,15 +204,15 @@ data class ViewHolderConfig(
 
 ## 扫描机制
 
-- **MediaScanner**（737 行）：全量扫描 + 增量扫描 + 精确同步
+- **MediaScanner**：全量扫描 + 增量扫描 + 精确同步 + 数量对账（约 1100 行）
 - **全量扫描**：查询 MediaStore → 批量写入 Room → 删除孤立记录 → 后台 EXIF 提取
 - **增量扫描**：按 lastScanTime 查询变更 → 写入 Room → 双向同步（清理孤立 + 补充缺失记录）→ EXIF 提取
-- **双向同步**：增量扫描同时删除 MediaStore 中已消失的记录，恢复从回收站还原的记录
+  - 时间戳仅在全流程成功后推进到「最大 dateModified+1」，异常不推进（避免漏扫），边界秒不重扫
+- **双向同步**：差集用「含回收站」的 MediaStore ID 集合，移入回收站的照片不算永久删除（保留本地状态）
+- **数量对账**（`reconcileMediaStore`）：对比 MediaStore 与 Room 数量，缺则分批补回（每批 200）；权限升级为完整访问后自动触发，不再只靠「每 50 次增量」的删除检查
 - **EXIF 批量提取**：`EXIF_BATCH_SIZE = 20`，跳过已有 EXIF 数据，失败 5 秒后重试
 - **ScanState**（SharedFlow）：`Idle` / `Scanning(current, total, progress)` / `Completed` / `Error`
-- **ScanningProgressDialog**：DialogFragment，底部卡片进度条，含完成动画，1.5 秒自动关闭
-- **ScanViewModel**：ActivityViewModels，管理扫描生命周期
-- 初始化触发：`PhotosViewModel.init` 检查 `!scanPreferences.isScanCompleted` → 执行全量扫描；若 `isCompleted=true 但 isExifExtractionCompleted=false` → 恢复 EXIF 提取
+- 初始化触发：`PhotosViewModel.init` 先判权限（`MediaAccessHelper.hasAnyAccess`），无权限不扫描；再按 `!scanPreferences.isScanCompleted` → 全量扫描，或 `isCompleted=true 但 isExifExtractionCompleted=false` → 恢复 EXIF 提取
 
 ## ScanPreferences 键
 
@@ -304,14 +314,22 @@ settingsFragment
 
 EXIF 筛选参数以 `\n` 分隔 `Set<String>` 编码传递，详情页解码后复用一致过滤逻辑。
 
-## 底部导航（BottomNavigationView 自适应宽度）
+## 底部导航（浮动液态玻璃紧凑胶囊）
 
-- `MainActivity.applyBottomNavWidth()`：根据 `resources.displayMetrics.widthPixels` 计算目标宽度 `min(屏宽 - 2*32dp, 480dp)`，居中显示
-- 解决横屏/大屏设备上固定 `64dp * 2` margin 导致悬浮胶囊过宽的问题
-- 调用时机：`onCreate` 末尾 + `onConfigurationChanged`
-- 底部 systemBars insets：与目标宽度叠加使用，通过 `ViewCompat.setOnApplyWindowInsetsListener` 把 `systemBars.bottom` 加到 `bottomMargin`，避开系统导航栏
-- XML 中 `bottom_nav` 用 `wrap_content` + 居中约束 + 32dp marginStart/End（代码动态覆盖实际值）
-- **底部导航可见性**：`NavController.addOnDestinationChangedListener` 监听目标变化，`photoDetailFragment` / `albumDetailFragment` / `trashFragment` / `hiddenFragment` / `aboutFragment` / 6 个 about 子页面 / `settingsFragment` / `excludedAlbumsFragment` 时隐藏底部导航；photosFragment / albumsFragment 时显示
+视觉基准是系统相册（HyperOS）的底部胶囊，但**用户最终选了"更透"而不是"更白"**。下列都是硬规则（每条都踩过坑）：
+
+- **尺寸定死在 XML**：`bottom_nav_glass` = `176dp × 56dp`、`cornerRadius=28dp`、左右居中约束、`marginBottom=12dp`。宽度 = 4dp padding + 2 × 84dp 导航项 + 4dp padding。容器宽度**不再由代码按屏宽计算**（旧的 `applyBottomNavWidth()` 已删除，它会覆盖 XML 宽度导致胶囊永远满宽）
+- **透不透的总开关是 `glassMaterial`**：`regular` 是磨砂厚档（背后几乎看不见，tint/白纱怎么调都是白灰）；**`clear` 才是高透档**。要"看得到背后内容"就必须用 `clear`
+- **`glassTint` 只做染色、几乎不遮盖**：实测色值从半透白拉到纯白、strength 从 0 到 1，背后照片照样透出；它影响的是"白染程度"，不是不透明度。当前 `glassTint=@color/nav_glass_tint`（day `#F2FFFFFF` / night `#F21C1C1E`）+ `glassTintStrength=0.65` + `adaptiveTint=false`
+- **白纱（`bg_nav_shell`）决定白度**：80% 白（day `#CCFFFFFF` / night `#CC1C1C1E`），铺满整只胶囊、**不要 inset**（inset 会做出"内部白块 + 外圈亮边"的割裂感，用户明确否决）。实测同一背景：25% → 108~166（发灰，被否）、70% → 222、**80% → 233~240（当前，白净且边缘仍能透出背后照片）**、96% → 245+（基本不透）
+- **白纱必须只有一层**：容器 background 只能挂 `@drawable/bg_nav_outline`（全透明）。若容器也挂 `bg_nav_shell`，两层叠成 50%+ 直接变死白（踩过两次）
+- **不要阴影**：`android:elevation` 不要设、`glass.enableShadow = false`、`glass.edgeHighlightOpacity = 0f`。胶囊贴住内容，不浮起来
+- **模糊**：`app:blurAmount="8"`。clear 材质下再高就会糊成一片灰，看不出形状
+- **选中镜片**：`bg_nav_item_pill` 用**半透明黑**（`@color/glass_indicator_bg` day `#29000000` / night `#29FFFFFF`，约 16%），四边内缩 3dp、圆角 24dp。半透明黑随底色自适应，固定实心灰会和白纱同色而消失
+- **前景色**：`applyNavForegroundColors()` 取 `nav_item_active`（day `#000000`）/ `nav_item_idle`（day `#3A3A40`）day/night 资源，不按背景明暗动态切换；文字不要加 shadow
+- **底部 insets**：`ViewCompat.setOnApplyWindowInsetsListener` 把 `systemBars.bottom` 加到 `bottomMargin`，基础值 12dp
+- **列表留白**：`FloatingNavMetrics`（`NAV_HEIGHT_DP=56` / `NAV_BOTTOM_GAP_DP=12` / `CONTENT_BREATHING_DP=12`）是唯一换算口径
+- **底部导航可见性**：`NavController.addOnDestinationChangedListener` 监听目标变化，仅 photosFragment / albumsFragment 显示
 
 ## 横屏适配（layout-land/）
 
@@ -323,7 +341,7 @@ EXIF 筛选参数以 `\n` 分隔 `Set<String>` 编码传递，详情页解码后
 - 关键问题：FastScroller thumb 与悬浮 BottomNav 在底部重叠 → builder 加 `setPadding(0, 0, 0, 80dp)` 让 thumb 跳过 BottomNav 区
 - `layout-land/fragment_photos.xml` + `layout-land/activity_main.xml` 资源存在
 - 旋转重建（`onConfigurationChanged`）必须同步调用：
-  - `applyBottomNavWidth()`（MainActivity）
+  - `bottomNavGlass.requestApplyInsets()`（MainActivity，宽度已由 XML 定死）
   - `GridSpanPreferences.resolveForOrientation(...)` + `applySpanCount`（Photos/AlbumDetail）
 
 ## 关键目录
@@ -354,7 +372,7 @@ app/src/main/java/com/gxstar/stargallery/
 │   │   ├── launcher/       # IntentSenderManager (3个 Launcher)
 │   │   ├── model/          # PhotoModel (PhotoItem + SeparatorItem)
 │   │   ├── refresh/        # MediaChangeDetector (ContentObserver)
-│   │   ├── scanner/        # ScanningProgressDialog, ScanViewModel
+│   │   ├── scanner/        # （原 ScanViewModel/ScanningProgressDialog 死代码已删除）
 │   │   ├── selection/      # PhotoSelectionManager
 │   │   ├── GridSpacingItemDecoration.kt
 │   │   ├── PhotoListAdapter.kt
@@ -400,7 +418,7 @@ app/src/main/java/com/gxstar/stargallery/
 
 ## 特殊功能
 
-- **RAW 格式识别**：DNG/ARW/CR2/CR3/NEF/ORF/RAF/RW2/PEF 等，同名 JPG+RAW 自动配对
+- **RAW 格式识别**：DNG/ARW/CR2/CR3/NEF/ORF/RAF/RW2/PEF 等（仅识别与标记，同名 JPG+RAW 自动配对尚未实现）
 - **EXIF 多选筛选**：按相机品牌/型号/镜头型号多选过滤，级联自动推导，维度间 AND + 维度内 OR
 - **排序一致性**：`SortUtils.sortPhotos()` 三级排序，网格与详情页完全统一
 - **张数实时显示**：`filteredPhotoCount` 从 `photoListFlow` 派生，始终精确反映当前屏幕显示数量

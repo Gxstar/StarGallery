@@ -22,15 +22,18 @@ class PhotoPagerAdapter(
 ) : RecyclerView.Adapter<PhotoPagerAdapter.ViewHolder>() {
 
     private val photos = mutableListOf<Photo>()
-    private val viewHolders = mutableMapOf<Int, PhotoPageViewHolder>()
+
+    // M4 修复：以 photoId（而非 position）为 key。删除照片后列表位置会偏移，
+    // 用 position 做 key 会让删除点之后的 ViewHolder 错位；photoId 恒定不变。
+    private val viewHolders = mutableMapOf<Long, PhotoPageViewHolder>()
 
     /** 当前可见的页面位置 */
     var activePosition: Int = -1
         set(value) {
             if (field != value) {
-                viewHolders[field]?.isActive = false
+                photos.getOrNull(field)?.id?.let { viewHolders[it]?.isActive = false }
                 field = value
-                viewHolders[value]?.isActive = true
+                photos.getOrNull(value)?.id?.let { viewHolders[it]?.isActive = true }
             }
         }
 
@@ -68,6 +71,9 @@ class PhotoPagerAdapter(
                 photos.clear()
                 photos.addAll(newPhotos)
                 diffResult.dispatchUpdatesTo(this@PhotoPagerAdapter)
+                // 清理已不在新列表中的 ViewHolder 引用（DiffUtil 移除的页面可能未走 onViewRecycled）
+                val validIds = newPhotos.map { it.id }.toSet()
+                viewHolders.entries.removeAll { it.key !in validIds }
                 onCommit?.invoke()
             }
         }
@@ -79,7 +85,9 @@ class PhotoPagerAdapter(
      */
     fun removePhotoAt(position: Int) {
         if (position in photos.indices) {
-            photos.removeAt(position)
+            val removed = photos.removeAt(position)
+            // 同步移除被删照片的 ViewHolder 引用，避免残留
+            viewHolders.remove(removed.id)?.recycle()
             notifyItemRemoved(position)
             // 通知后续位置变化
             notifyItemRangeChanged(position, photos.size - position)
@@ -117,18 +125,19 @@ class PhotoPagerAdapter(
     }
     
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        viewHolders[position] = holder.viewHolder
+        val photo = photos[position]
+        viewHolders[photo.id] = holder.viewHolder
         holder.viewHolder.isActive = (position == activePosition)
-        holder.viewHolder.bind(photos[position], lifecycleOwner.lifecycleScope)
+        holder.viewHolder.bind(photo, lifecycleOwner.lifecycleScope)
     }
-    
+
     override fun onViewRecycled(holder: ViewHolder) {
         // 页面被回收时重置缩放
         holder.viewHolder.resetZoom()
         holder.viewHolder.recycle()
-        val position = holder.bindingAdapterPosition
-        if (position != RecyclerView.NO_POSITION) {
-            viewHolders.remove(position)
+        // 用对象引用反查 key，避免依赖可能因删除而失效的 position
+        viewHolders.entries.firstOrNull { it.value === holder.viewHolder }?.let { entry ->
+            viewHolders.remove(entry.key)
         }
     }
     
@@ -147,15 +156,16 @@ class PhotoPagerAdapter(
      * 获取当前可见的 ViewHolder
      */
     fun getCurrentViewHolder(): PhotoPageViewHolder? {
-        // 找到第一个未回收的 ViewHolder
+        photos.getOrNull(activePosition)?.id?.let { viewHolders[it]?.let { vh -> return vh } }
+        // 兜底：activePosition 非法时取第一个未回收的
         return viewHolders.values.firstOrNull()
     }
-    
+
     /**
      * 获取指定位置的 ViewHolder
      */
     fun getViewHolder(position: Int): PhotoPageViewHolder? {
-        return viewHolders[position]
+        return photos.getOrNull(position)?.id?.let { viewHolders[it] }
     }
 
     class ViewHolder(val viewHolder: PhotoPageViewHolder) : RecyclerView.ViewHolder(viewHolder.binding.root)

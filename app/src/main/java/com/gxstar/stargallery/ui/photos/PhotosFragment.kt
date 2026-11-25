@@ -1,5 +1,6 @@
 package com.gxstar.stargallery.ui.photos
 
+import com.gxstar.stargallery.data.model.SortType
 import android.Manifest
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
@@ -42,6 +43,8 @@ import com.gxstar.stargallery.ui.photos.filter.FilterBottomSheet
 import com.gxstar.stargallery.ui.photos.filter.FilterDimensionId
 import com.google.android.material.chip.Chip
 import me.zhanghai.android.fastscroll.FastScrollerBuilder
+import com.gxstar.stargallery.ui.common.FloatingNavMetrics
+import com.gxstar.stargallery.ui.common.FloatingNavMetrics.applyFloatingNavBottomInset
 import com.gxstar.stargallery.ui.common.GridSpanCalculator
 import com.gxstar.stargallery.ui.common.GridSpanPreferences
 import com.gxstar.stargallery.ui.photos.action.BatchActionHandler
@@ -51,6 +54,7 @@ import com.gxstar.stargallery.ui.photos.model.PhotoModel
 import com.gxstar.stargallery.ui.photos.refresh.MediaChangeDetector
 import com.gxstar.stargallery.ui.photos.selection.PhotoSelectionManager
 import com.gxstar.stargallery.ui.detail.PhotoDetailListCache
+import com.gxstar.stargallery.util.MediaAccessHelper
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
@@ -61,7 +65,7 @@ import javax.inject.Inject
 /**
  * 照片列表 Fragment
  * 职责：协调各管理器，处理 UI 事件
- * 数据源：直接使用 MediaStore，通过 Paging 3 实现实时刷新
+ * 数据源：Room Flow（PhotoDao.getAllPhotosFlow），ListAdapter 提交，实时刷新
  */
 /** 四元组，用于 combine 四个 StateFlow */
 private data class Quad<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
@@ -121,10 +125,56 @@ class PhotosFragment : Fragment() {
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { results ->
-        if (results.values.all { it }) {
-            viewModel.rescanAfterPermissionGranted()
+    ) {
+        // 权限状态以系统实际授予为准，不依赖回调结果（部分授权下结果具有误导性）
+        lastAccessLevel = MediaAccessHelper.getAccessLevel(requireContext())
+        refreshMediaAccessState(triggerScan = true)
+    }
+
+    /** 跳转到系统应用详情页，引导用户手动授予完整照片访问权 */
+    private fun openAppSettings() {
+        val intent = android.content.Intent(
+            android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+            Uri.parse("package:${requireContext().packageName}")
+        ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        try {
+            startActivity(intent)
+            Toast.makeText(requireContext(), R.string.partial_access_toast, Toast.LENGTH_LONG).show()
+        } catch (e: Exception) {
+            android.util.Log.e("PhotosFragment", "Cannot open app settings", e)
         }
+    }
+
+    /**
+     * 刷新媒体权限状态 UI，并按需要触发扫描。
+     * - FULL：隐藏提示条；授权升级时对账补扫
+     * - PARTIAL：显示提示条，引导去设置；触发对账补扫
+     * - NONE：隐藏提示条（权限被拒，保持空列表）
+     *
+     * @param triggerScan 是否触发扫描。首次进入为 false（ViewModel.init 已处理扫描），
+     *                    权限回调 / onResume 检测到变化时为 true。
+     */
+    private fun refreshMediaAccessState(triggerScan: Boolean) {
+        val level = MediaAccessHelper.getAccessLevel(requireContext())
+        val isPartial = level == MediaAccessHelper.AccessLevel.PARTIAL
+        _binding?.partialAccessBanner?.visibility = if (isPartial) View.VISIBLE else View.GONE
+
+        if (!triggerScan) return
+        when (level) {
+            MediaAccessHelper.AccessLevel.FULL -> viewModel.onFullAccessAvailable()
+            MediaAccessHelper.AccessLevel.PARTIAL -> viewModel.reconcileMediaCount()
+            MediaAccessHelper.AccessLevel.NONE -> Unit
+        }
+    }
+
+    /** 记录上次权限级别，仅在发生变化时做对应处理，避免每次 onResume 重复扫描 */
+    private var lastAccessLevel: MediaAccessHelper.AccessLevel? = null
+
+    private fun checkMediaAccessOnResume() {
+        val current = MediaAccessHelper.getAccessLevel(requireContext())
+        if (current == lastAccessLevel) return
+        lastAccessLevel = current
+        refreshMediaAccessState(triggerScan = true)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -185,7 +235,7 @@ class PhotosFragment : Fragment() {
 
     /**
      * 初始化媒体变化检测器
-     * ContentObserver 作为触发器，检测到变化时刷新 Paging 数据
+     * ContentObserver 作为触发器，检测到变化时刷新 Room 数据
      */
     private fun initMediaChangeDetector() {
         mediaChangeDetector = MediaChangeDetector(
@@ -268,6 +318,9 @@ class PhotosFragment : Fragment() {
             val decoration = GridSpacingItemDecoration(currentSpanCount, spacing, true)
             gridSpacingItemDecoration = decoration
             addItemDecoration(decoration)
+
+            // 悬浮玻璃导航条会盖住列表底部，按导航条 + 手势条实时预留内边距
+            applyFloatingNavBottomInset()
         }
 
         selectionManager = PhotoSelectionManager(binding.rvPhotos, photoListAdapter)
@@ -280,7 +333,9 @@ class PhotosFragment : Fragment() {
     private fun setupFastScroller() {
         val context = requireContext()
         val density = context.resources.displayMetrics.density
-        val bottomNavReserve = (80 * density).toInt()
+        val systemBarBottom = androidx.core.view.ViewCompat.getRootWindowInsets(binding.rvPhotos)
+            ?.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars())?.bottom ?: 0
+        val bottomNavReserve = FloatingNavMetrics.contentReservePx(density, systemBarBottom)
         FastScrollerBuilder(binding.rvPhotos)
             .setPadding(0, 0, 0, bottomNavReserve)
             .setPopupTextProvider { _, position ->
@@ -339,6 +394,7 @@ class PhotosFragment : Fragment() {
         binding.btnHide.setOnClickListener { handleHideAction() }
         binding.btnFavorite.setOnClickListener { handleFavoriteAction() }
         binding.btnDelete.setOnClickListener { handleDeleteAction() }
+        binding.btnGrantFullAccess.setOnClickListener { openAppSettings() }
     }
 
     /**
@@ -582,7 +638,7 @@ class PhotosFragment : Fragment() {
     }
 
     private fun observeData() {
-        var lastSortType: MediaRepository.SortType? = null
+        var lastSortType: SortType? = null
 
         // 主列表渲染：只依赖 photoListFlow，不等待 isScanning/isExtractingExif
         // Room 中已有数据会立即渲染，扫描/EXIF 提取在后台进行，不再阻塞首屏
@@ -779,22 +835,20 @@ class PhotosFragment : Fragment() {
     }
 
     private fun checkPermissions() {
-        // minSdk 35：仅需 READ_MEDIA_*（Android 13+ 权限模型）。
-        // 注意：不请求 READ_MEDIA_VISUAL_USER_SELECTED —— 声明后用户可选择"仅部分照片"，
-        // 会使 READ_MEDIA_IMAGES 降级为受限子集，相册出现"照片变少"的困惑体验；
-        // 移除后用户只能在"全部允许 / 拒绝"间选择，全量读取行为可控。
-        val permissions = arrayOf(
-            Manifest.permission.READ_MEDIA_IMAGES,
-            Manifest.permission.READ_MEDIA_VIDEO,
-            Manifest.permission.ACCESS_MEDIA_LOCATION
-        )
-
-        val allGranted = permissions.all {
-            ContextCompat.checkSelfPermission(requireContext(), it) == PackageManager.PERMISSION_GRANTED
-        }
-
-        if (!allGranted) {
+        // 一次性申请全部媒体权限（含 VISUAL_USER_SELECTED）。
+        // 用户选「选择部分」时系统只授予 VISUAL_USER_SELECTED，refreshMediaAccessState
+        // 会据此显示提示条并引导去设置，而不是静默只显示几张照片。
+        val permissions = MediaAccessHelper.REQUIRED_PERMISSIONS
+        // 只要已有任意媒体访问权限（完整或部分）就不再弹框：
+        // 部分授权时 VISUAL_USER_SELECTED 已授予但 IMAGES 未授予，若用 all{granted}
+        // 判断会重复弹框且无法进入提示流程。无权限时才发起请求。
+        val hasAnyAccess = MediaAccessHelper.hasAnyAccess(requireContext())
+        if (!hasAnyAccess) {
             permissionLauncher.launch(permissions)
+        } else {
+            // 首次进入：只同步 UI 与权限级别，扫描由 ViewModel.init 负责，避免重复
+            lastAccessLevel = MediaAccessHelper.getAccessLevel(requireContext())
+            refreshMediaAccessState(triggerScan = false)
         }
     }
 
@@ -830,14 +884,14 @@ class PhotosFragment : Fragment() {
             getString(R.string.sort_by_date_added)
         )
         val checkedItem = when (currentSortType) {
-            MediaRepository.SortType.DATE_TAKEN -> 0
-            MediaRepository.SortType.DATE_ADDED -> 1
+            SortType.DATE_TAKEN -> 0
+            SortType.DATE_ADDED -> 1
         }
 
         MaterialAlertDialogBuilder(requireContext())
             .setTitle(R.string.select_sort)
             .setSingleChoiceItems(options, checkedItem) { dialog, which ->
-                val newSortType = if (which == 0) MediaRepository.SortType.DATE_TAKEN else MediaRepository.SortType.DATE_ADDED
+                val newSortType = if (which == 0) SortType.DATE_TAKEN else SortType.DATE_ADDED
                 saveSortType(newSortType)
                 viewModel.setSortType(newSortType)
                 dialog.dismiss()
@@ -846,16 +900,16 @@ class PhotosFragment : Fragment() {
             .show()
     }
 
-    private fun loadSortType(): MediaRepository.SortType {
+    private fun loadSortType(): SortType {
         return when (sharedPreferences.getInt(KEY_SORT_TYPE, 0)) {
-            0 -> MediaRepository.SortType.DATE_TAKEN
-            else -> MediaRepository.SortType.DATE_ADDED
+            0 -> SortType.DATE_TAKEN
+            else -> SortType.DATE_ADDED
         }
     }
 
-    private fun saveSortType(sortType: MediaRepository.SortType) {
+    private fun saveSortType(sortType: SortType) {
         sharedPreferences.edit()
-            .putInt(KEY_SORT_TYPE, if (sortType == MediaRepository.SortType.DATE_TAKEN) 0 else 1)
+            .putInt(KEY_SORT_TYPE, if (sortType == SortType.DATE_TAKEN) 0 else 1)
             .apply()
     }
 
@@ -1085,7 +1139,7 @@ class PhotosFragment : Fragment() {
             .map { it.photo }
         photoDetailListCache.put(currentPhotos)
 
-        val sortTypeValue = if (viewModel.currentSortType.value == MediaRepository.SortType.DATE_TAKEN) 0 else 1
+        val sortTypeValue = if (viewModel.currentSortType.value == SortType.DATE_TAKEN) 0 else 1
         val action = PhotosFragmentDirections.actionPhotosFragmentToPhotoDetailFragment(
             initialPhoto = photo,
             photoId = photo.id,
@@ -1213,6 +1267,8 @@ class PhotosFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
+        // 从系统设置返回后检测权限是否升级（部分 → 完整）或降级，触发对应处理
+        checkMediaAccessOnResume()
         if (savedScrollPosition >= 0) {
             restoreScrollPosition()
         }

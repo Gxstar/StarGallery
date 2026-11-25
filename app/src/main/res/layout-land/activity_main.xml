@@ -23,7 +23,8 @@
         android:id="@+id/navigation_rail"
         android:layout_width="wrap_content"
         android:layout_height="0dp"
-        android:background="?attr/colorSurface"
+        android:layout_margin="8dp"
+        android:background="@drawable/bg_glass_bottom_nav"
         android:visibility="gone"
         app:menu="@menu/bottom_nav_menu"
         app:labelVisibilityMode="labeled"
@@ -37,25 +38,92 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <com.google.android.material.bottomnavigation.BottomNavigationView
-        android:id="@+id/bottom_nav"
-        android:layout_width="wrap_content"
-        android:layout_height="80dp"
-        android:layout_marginStart="32dp"
-        android:layout_marginEnd="32dp"
-        android:layout_marginBottom="18dp"
-        android:background="@drawable/bg_glass_bottom_nav"
-        android:elevation="2dp"
-        app:itemActiveIndicatorStyle="@style/GlassActiveIndicator"
-        app:itemIconSize="24dp"
-        app:itemIconTint="@color/bottom_nav_color"
-        app:itemTextColor="@color/bottom_nav_color"
-        app:labelVisibilityMode="labeled"
-        app:itemTextAppearanceActive="@style/BottomNavText"
-        app:itemTextAppearanceInactive="@style/BottomNavText"
+    <!-- iOS 26 式浮动液态玻璃导航条，尺寸与材质对齐系统相册（HyperOS）：
+         紧凑药丸（只包住两个 tab，不再横跨全屏）、近白不透明底色、浅灰实心选中镜片。 -->
+    <!-- 不用 Material BottomNavigationView：它需要 ≥96dp 才显示标签，条身过厚。
+         这里自绘 2 个导航项，高度压到 56dp（系统相册实测约 52dp），字号与配色完全可控。 -->
+    <com.example.liquidglass.LiquidGlassView
+        android:id="@+id/bottom_nav_glass"
+        android:layout_width="176dp"
+        android:layout_height="56dp"
+        android:background="@drawable/bg_nav_outline"
+        android:layout_marginBottom="12dp"
+        app:adaptiveTint="false"
+        app:blurAmount="8"
+        app:cornerRadius="28dp"
+        app:glassMaterial="clear"
+        app:glassTint="@color/nav_glass_tint"
+        app:glassTintStrength="0.65"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:menu="@menu/bottom_nav_menu" />
+        app:layout_constraintStart_toStartOf="parent">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:background="@drawable/bg_nav_shell"
+            android:orientation="horizontal"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp">
+
+            <LinearLayout
+                android:id="@+id/navItemPhotos"
+                android:layout_width="84dp"
+                android:layout_height="match_parent"
+                android:background="@drawable/bg_nav_item_pill"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <ImageView
+                    android:id="@+id/ivNavPhotos"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:contentDescription="@string/nav_photos"
+                    android:src="@drawable/ic_photos" />
+
+                <TextView
+                    android:id="@+id/tvNavPhotos"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:maxLines="1"
+                    android:text="@string/nav_photos"
+                    android:textSize="12sp"
+                    android:textFontWeight="500" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/navItemAlbums"
+                android:layout_width="84dp"
+                android:layout_height="match_parent"
+                android:background="@drawable/bg_nav_item_pill"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <ImageView
+                    android:id="@+id/ivNavAlbums"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:contentDescription="@string/nav_albums"
+                    android:src="@drawable/ic_albums" />
+
+                <TextView
+                    android:id="@+id/tvNavAlbums"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:maxLines="1"
+                    android:text="@string/nav_albums"
+                    android:textSize="12sp"
+                    android:textFontWeight="500" />
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </com.example.liquidglass.LiquidGlassView>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

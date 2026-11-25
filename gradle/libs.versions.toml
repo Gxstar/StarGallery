@@ -16,6 +16,11 @@ fragmentKtx = "1.8.9"
 lifecycleRuntimeKtx = "2.11.0"
 lifecycleViewmodelKtx = "2.11.0"
 
+# Liquid Glass（iOS 26 风格折射玻璃，仅面向 Android View 体系）
+# JitPack 坐标；AAR 内含 arm64-v8a / armeabi-v7a 预编译 .so（无 x86，模拟器不可用）。
+# AGSL 透镜管线需 API 33+，本项目 minSdk 35 恒走全效果分支。
+liquidGlass = "v2.0.11"
+
 # 图片加载
 # Glide 5.0.9：与 jxl-coder-glide 2.6.1 匹配（该库运行时依赖 glide 5.0.7+）。
 # 5.0.8/5.0.9 修复了 ImageDecoder 的 OOM/ANR、Android R+ 不再对 Uri 追加
@@ -39,9 +44,6 @@ navigation = "2.9.8"
 
 # 数据库
 room = "2.8.4"
-
-# 列表分组 (未使用)
-# groupie = "2.10.1"
 
 # 权限 (使用官方 ActivityResultContracts)
 # permissionx = { group = "com.guolindev.permissionx", name = "permissionx", version.ref = "permissionx" }
@@ -122,10 +124,6 @@ androidx-room-runtime = { group = "androidx.room", name = "room-runtime", versio
 androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
 
-# 列表分组 (未使用，已用 Paging 3 insertSeparators 替代)
-# groupie = { group = "com.github.lisawray.groupie", name = "groupie", version.ref = "groupie" }
-# groupie-viewbinding = { group = "com.github.lisawray.groupie", name = "groupie-viewbinding", version.ref = "groupie" }
-
 # 权限 (使用官方 ActivityResultContracts)
 # permissionx = { group = "com.guolindev.permissionx", name = "permissionx", version.ref = "permissionx" }
 
@@ -155,6 +153,9 @@ avif-coder-glide = { group = "io.github.awxkee", name = "avif-coder-glide", vers
 
 # 图片编辑
 ucrop = { group = "com.github.yalantis", name = "ucrop", version.ref = "ucrop" }
+
+# Liquid Glass（真实 SDF 折射 / 色散 / 重力高光；LiquidGlassView 为 FrameLayout 子类）
+liquidglass = { group = "com.github.QWEA0", name = "liquidglass", version.ref = "liquidGlass" }
 
 # 内存泄漏检测
 leakcanary = { group = "com.squareup.leakcanary", name = "leakcanary-android", version.ref = "leakcanary" }

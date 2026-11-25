@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/rootContainer"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -11,19 +12,29 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <!-- Top Overlay Bar -->
+    <!-- Top Overlay Bar：液态玻璃悬浮片，上缘贴合屏幕、下缘圆角 -->
+    <com.example.liquidglass.LiquidGlassView
+        android:id="@+id/glassTopBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:cornerRadiusBottomLeft="24dp"
+        app:cornerRadiusBottomRight="24dp"
+        app:cornerRadiusTopLeft="0dp"
+        app:cornerRadiusTopRight="0dp"
+        app:glassMaterial="regular">
+
     <LinearLayout
         android:id="@+id/topBar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/photo_detail_bar_bg"
+        android:background="@null"
         android:orientation="vertical">
 
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
             android:layout_height="56dp"
             android:paddingStart="4dp"
-            android:paddingEnd="12dp"
+            android:paddingEnd="4dp"
             xmlns:app="http://schemas.android.com/apk/res-auto">
 
             <ImageButton
@@ -39,13 +50,14 @@
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_marginStart="56dp"
+                android:layout_marginEnd="56dp"
                 android:gravity="center"
                 android:orientation="vertical"
                 app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toStartOf="@id/btnMore"
-                app:layout_constraintStart_toEndOf="@id/btnBack"
-                app:layout_constraintTop_toTopOf="parent"
-                android:layout_marginEnd="8dp">
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent">
 
                 <TextView
                     android:id="@+id/tvDate"
@@ -81,13 +93,25 @@
 
     </LinearLayout>
 
-    <!-- Bottom Overlay Bar -->
+    </com.example.liquidglass.LiquidGlassView>
+
+    <!-- Bottom Overlay Bar：iOS 26 式浮动液态玻璃胶囊 -->
+    <com.example.liquidglass.LiquidGlassView
+        android:id="@+id/glassBottomBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="16dp"
+        app:cornerRadius="32dp"
+        app:glassMaterial="regular">
+
     <LinearLayout
         android:id="@+id/bottomBar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="bottom"
-        android:background="@color/photo_detail_bar_bg"
+        android:background="@null"
         android:orientation="horizontal"
         android:paddingTop="4dp">
 
@@ -213,5 +237,7 @@
         </LinearLayout>
 
     </LinearLayout>
+
+    </com.example.liquidglass.LiquidGlassView>
 
 </FrameLayout>

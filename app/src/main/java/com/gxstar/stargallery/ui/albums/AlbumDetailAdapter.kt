@@ -1,5 +1,6 @@
 package com.gxstar.stargallery.ui.albums
 
+import com.gxstar.stargallery.data.model.SortType
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -22,7 +23,7 @@ class AlbumDetailAdapter(
     private val isSelectedProvider: (Int) -> Boolean = { false }
 ) : ListAdapter<PhotoModel, RecyclerView.ViewHolder>(PHOTO_DIFF_CALLBACK) {
 
-    private var currentSortType = MediaRepository.SortType.DATE_TAKEN
+    private var currentSortType = SortType.DATE_TAKEN
     private var currentGroupType = GroupType.DAY
 
     fun updateItemSize(newItemSize: Int) {
@@ -32,7 +33,7 @@ class AlbumDetailAdapter(
         }
     }
 
-    fun updateSortAndGroupType(sortType: MediaRepository.SortType, groupType: GroupType) {
+    fun updateSortAndGroupType(sortType: SortType, groupType: GroupType) {
         currentSortType = sortType
         currentGroupType = groupType
     }

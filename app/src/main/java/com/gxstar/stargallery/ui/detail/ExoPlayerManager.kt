@@ -19,7 +19,9 @@ object ExoPlayerManager {
     @OptIn(UnstableApi::class)
     fun getPlayer(context: Context): ExoPlayer {
         return exoPlayer ?: synchronized(this) {
-            exoPlayer ?: ExoPlayer.Builder(context).build().also {
+            // M3 修复：用 applicationContext 构建，避免进程级单例持有 Activity Context
+            // 导致异常销毁路径下泄漏 Activity
+            exoPlayer ?: ExoPlayer.Builder(context.applicationContext).build().also {
                 it.repeatMode = Player.REPEAT_MODE_ONE
                 exoPlayer = it
             }

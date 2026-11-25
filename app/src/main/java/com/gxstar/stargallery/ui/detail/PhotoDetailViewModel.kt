@@ -1,5 +1,6 @@
 package com.gxstar.stargallery.ui.detail
 
+import com.gxstar.stargallery.data.model.SortType
 import android.content.IntentSender
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -51,9 +52,9 @@ class PhotoDetailViewModel @Inject constructor(
     }
 
     private val sortType = when (sortTypeValue) {
-        0 -> MediaRepository.SortType.DATE_TAKEN
-        1 -> MediaRepository.SortType.DATE_ADDED
-        else -> MediaRepository.SortType.DATE_TAKEN
+        0 -> SortType.DATE_TAKEN
+        1 -> SortType.DATE_ADDED
+        else -> SortType.DATE_TAKEN
     }
 
     // 照片列表

@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="432" height="432">
+  <defs>
+    <!-- 每片花瓣独立的柔和渐变：内端深、外端浅；整体色相环平滑过渡 -->
+    <linearGradient id="p0" x1="0" y1="1" x2="0" y2="0" gradientUnits="objectBoundingBox">
+      <stop offset="0" stop-color="#4A90D9" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#6BAEE8"/>
+    </linearGradient>
+    <linearGradient id="p1" x1="0" y1="1" x2="0" y2="0" gradientUnits="objectBoundingBox">
+      <stop offset="0" stop-color="#5B8FD4" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#7FABE6"/>
+    </linearGradient>
+    <linearGradient id="p2" x1="0" y1="1" x2="0" y2="0" gradientUnits="objectBoundingBox">
+      <stop offset="0" stop-color="#7878C8" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#9A9ADE"/>
+    </linearGradient>
+    <linearGradient id="p3" x1="0" y1="1" x2="0" y2="0" gradientUnits="objectBoundingBox">
+      <stop offset="0" stop-color="#9A78C0" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#B996D6"/>
+    </linearGradient>
+    <linearGradient id="p4" x1="0" y1="1" x2="0" y2="0" gradientUnits="objectBoundingBox">
+      <stop offset="0" stop-color="#B97FB0" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#D5A0C6"/>
+    </linearGradient>
+    <linearGradient id="p5" x1="0" y1="1" x2="0" y2="0" gradientUnits="objectBoundingBox">
+      <stop offset="0" stop-color="#D98CA0" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#EDB0BC"/>
+    </linearGradient>
+    <linearGradient id="p6" x1="0" y1="1" x2="0" y2="0" gradientUnits="objectBoundingBox">
+      <stop offset="0" stop-color="#E6A07E" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#F3C09E"/>
+    </linearGradient>
+    <linearGradient id="p7" x1="0" y1="1" x2="0" y2="0" gradientUnits="objectBoundingBox">
+      <stop offset="0" stop-color="#D9BE7A" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#E8D6A0"/>
+    </linearGradient>
+
+    <!-- 一片圆润花瓣（尖端朝上，底端在中心附近），顶端用圆弧闭合，无锐角 -->
+    <path id="petal" d="M54 54
+      C 48 48, 45 38, 50 29
+      C 52 25.5, 56 25.5, 58 29
+      C 63 38, 60 48, 54 54 Z"/>
+  </defs>
+
+  <!-- 8 片花瓣，绕中心 54,54 旋转；起始偏移 22.5° 让花瓣交错 -->
+  <g transform="rotate(22.5 54 54)"><use href="#petal" fill="url(#p0)"/></g>
+  <g transform="rotate(67.5 54 54)"><use href="#petal" fill="url(#p1)"/></g>
+  <g transform="rotate(112.5 54 54)"><use href="#petal" fill="url(#p2)"/></g>
+  <g transform="rotate(157.5 54 54)"><use href="#petal" fill="url(#p3)"/></g>
+  <g transform="rotate(202.5 54 54)"><use href="#petal" fill="url(#p4)"/></g>
+  <g transform="rotate(247.5 54 54)"><use href="#petal" fill="url(#p5)"/></g>
+  <g transform="rotate(292.5 54 54)"><use href="#petal" fill="url(#p6)"/></g>
+  <g transform="rotate(337.5 54 54)"><use href="#petal" fill="url(#p7)"/></g>
+
+  <!-- 中心：柔和白色圆环 + 圆角四芒星 -->
+  <circle cx="54" cy="54" r="11.5" fill="#FFFFFF" fill-opacity="0.96"/>
+  <circle cx="54" cy="54" r="8.8" fill="none" stroke="#E8EAF0" stroke-width="1"/>
+  <path d="M54 47.6
+    C 54.7 50.8, 55.2 51.6, 58.4 52.3
+    C 61.6 53, 61.8 54, 58.6 54.7
+    C 55.4 55.4, 54.7 56.2, 54 59.4
+    C 53.3 56.2, 52.6 55.4, 49.4 54.7
+    C 46.2 54, 46.4 53, 49.6 52.3
+    C 52.8 51.6, 53.3 50.8, 54 47.6 Z"
+    fill="#F5B942"/>
+</svg>

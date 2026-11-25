@@ -1,5 +1,6 @@
 package com.gxstar.stargallery.ui.util
 
+import com.gxstar.stargallery.data.model.SortType
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.data.repository.MediaRepository
 import com.gxstar.stargallery.ui.photos.GroupType
@@ -10,19 +11,19 @@ import java.util.Locale
 
 object DateUtils {
 
-    fun getTimestampMillis(photo: Photo, sortType: MediaRepository.SortType): Long {
+    fun getTimestampMillis(photo: Photo, sortType: SortType): Long {
         return when (sortType) {
-            MediaRepository.SortType.DATE_TAKEN -> {
+            SortType.DATE_TAKEN -> {
                 if (photo.dateTaken > 0) photo.dateTaken
                 else photo.dateAdded * 1000L
             }
-            MediaRepository.SortType.DATE_ADDED -> photo.dateAdded * 1000L
+            SortType.DATE_ADDED -> photo.dateAdded * 1000L
         }
     }
 
     fun formatDateText(
         photo: Photo,
-        sortType: MediaRepository.SortType,
+        sortType: SortType,
         groupType: GroupType
     ): String {
         val timestampMillis = getTimestampMillis(photo, sortType)

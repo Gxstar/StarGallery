@@ -6,7 +6,6 @@ import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
-import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
@@ -146,15 +145,4 @@ class MediaChangeDetector(
             onMediaChanged()
         }
     }
-}
-
-/**
- * 扩展函数：从 Fragment 创建 MediaChangeDetector
- */
-fun Fragment.createMediaChangeDetector(onChangeDetected: () -> Unit): MediaChangeDetector {
-    return MediaChangeDetector(
-        lifecycleOwner = viewLifecycleOwner,
-        context = requireContext(),
-        onChangeDetected = onChangeDetected
-    )
 }

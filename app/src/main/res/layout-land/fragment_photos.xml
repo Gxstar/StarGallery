@@ -320,6 +320,45 @@
                 app:singleSelection="false" />
         </HorizontalScrollView>
 
+        <!-- 部分照片访问提示（Android 14+）：仅授权选中照片时显示，引导去系统设置授予全部 -->
+        <HorizontalScrollView
+            android:id="@+id/partialAccessBanner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:scrollbars="none"
+            android:visibility="gone"
+            android:background="?attr/colorSecondaryContainer"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/tvPartialAccessHint"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:maxWidth="640dp"
+                    android:text="@string/partial_access_banner"
+                    android:textAppearance="?attr/textAppearanceBodyMedium"
+                    android:textColor="?attr/colorOnSecondaryContainer" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnGrantFullAccess"
+                    style="@style/Widget.Material3.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:text="@string/partial_access_grant"
+                    android:textColor="?attr/colorOnSecondaryContainer" />
+            </LinearLayout>
+        </HorizontalScrollView>
+
     </com.google.android.material.appbar.AppBarLayout>
 
     <!--
@@ -328,15 +367,16 @@
            不被 DragSelectTouchListener 抢走（库官方推荐）。
         2) 不再依赖 appbar_scrolling_view_behavior，直接用 ConstraintLayout 把 RecyclerView
            锚定到 AppBar 下方。thumb 的 Y 起点与屏幕可见区域上沿对齐，避免 "thumb 出现在中间"。
-        3) paddingBottom 仍保留 80dp 以让最后一行图片不被 BottomNav 遮挡；FastScroller 自身
-           通过 builder.setPadding(0, 0, 0, 80) 接管 padding，让滚动条不进入 BottomNav 区域。
+        3) paddingBottom 保留 96dp 作为兜底；运行时由 FloatingNavMetrics 按
+           「导航条高度 + 间距 + 系统手势条」精确覆盖；FastScroller 用同一套数值接管 padding，
+           让滚动条不进入导航条区域。
     -->
     <me.zhanghai.android.fastscroll.FixOnItemTouchListenerRecyclerView
         android:id="@+id/rvPhotos"
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:clipToPadding="false"
-        android:paddingBottom="80dp"
+        android:paddingBottom="96dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"

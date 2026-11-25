@@ -323,6 +323,45 @@
                 app:singleSelection="false" />
         </HorizontalScrollView>
 
+        <!-- 部分照片访问提示（Android 14+）：仅授权选中照片时显示，引导去系统设置授予全部 -->
+        <HorizontalScrollView
+            android:id="@+id/partialAccessBanner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:scrollbars="none"
+            android:visibility="gone"
+            android:background="?attr/colorSecondaryContainer"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/tvPartialAccessHint"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:maxWidth="520dp"
+                    android:text="@string/partial_access_banner"
+                    android:textAppearance="?attr/textAppearanceBodyMedium"
+                    android:textColor="?attr/colorOnSecondaryContainer" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnGrantFullAccess"
+                    style="@style/Widget.Material3.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:text="@string/partial_access_grant"
+                    android:textColor="?attr/colorOnSecondaryContainer" />
+            </LinearLayout>
+        </HorizontalScrollView>
+
     </com.google.android.material.appbar.AppBarLayout>
 
     <me.zhanghai.android.fastscroll.FixOnItemTouchListenerRecyclerView
@@ -330,7 +369,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:clipToPadding="false"
-        android:paddingBottom="80dp"
+        android:paddingBottom="96dp"
         app:layout_behavior="@string/appbar_scrolling_view_behavior" />
 
     <!-- 加载进度指示器 -->

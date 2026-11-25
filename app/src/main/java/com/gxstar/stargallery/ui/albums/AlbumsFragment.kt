@@ -22,6 +22,7 @@ import com.gxstar.stargallery.R
 import com.gxstar.stargallery.data.model.Album
 import com.gxstar.stargallery.databinding.FragmentAlbumsBinding
 import com.gxstar.stargallery.databinding.ItemAlbumBinding
+import com.gxstar.stargallery.ui.common.FloatingNavMetrics.applyFloatingNavBottomInset
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 
@@ -79,6 +80,8 @@ class AlbumsFragment : Fragment() {
         }
         binding.rvAlbums.layoutManager = GridLayoutManager(requireContext(), 3)
         binding.rvAlbums.adapter = adapter
+        // 悬浮玻璃导航条会盖住列表底部，按导航条 + 手势条实时预留内边距
+        binding.rvAlbums.applyFloatingNavBottomInset()
     }
 
     private fun observeData() {

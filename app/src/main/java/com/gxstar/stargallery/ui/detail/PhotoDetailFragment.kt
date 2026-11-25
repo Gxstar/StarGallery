@@ -10,10 +10,8 @@ import android.os.Bundle
 import android.util.TypedValue
 import android.view.LayoutInflater
 import android.view.MotionEvent
-import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
-import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.IntentSenderRequest
@@ -134,6 +132,7 @@ class PhotoDetailFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         setupBackPressedCallback()
+        setupGlassOverlays()
         setupWindowInsets()
         setupViewPager()
         setupViews()
@@ -162,39 +161,69 @@ class PhotoDetailFragment : Fragment() {
 
     /**
      * 设置 Window Insets 监听
-     * 处理顶栏和底栏的 Padding，使其完美避开状态栏和导航栏
+     * 处理顶栏和底栏的 Padding，使其完美避开状态栏和导航栏。
+     *
+     * 顶栏：只加状态栏高度 padding，返回/更多按钮贴屏幕左右两侧（标题由 XML 约束居中）。
+     * 底栏：平板（>=600dp）上额外用左右 padding 把按钮组收进中间 640dp，背景仍满宽。
      */
+    /**
+     * 顶/底悬浮栏的玻璃采样配置。
+     *
+     * `enableDynamicBackground` 没有 XML 属性，只能代码开启；详情页背景是翻页大图，
+     * 不开的话玻璃只在首帧采样一次，翻页后仍停在上一张画面上。
+     */
+    private fun setupGlassOverlays() {
+        binding.glassTopBar.enableDynamicBackground = true
+        binding.glassBottomBar.enableDynamicBackground = true
+    }
+
     private fun setupWindowInsets() {
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, windowInsets ->
             val systemBars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
-            
-            // 顶栏增加状态栏高度的 padding
-            binding.topBar.setPadding(0, systemBars.top, 0, 0)
-            // 底栏增加导航栏高度的 padding
-            binding.bottomBar.setPadding(0, binding.bottomBar.paddingTop, 0, systemBars.bottom)
-            
+
+            // 玻璃层接管系统栏避让：顶栏玻璃延伸进状态栏（上缘贴屏幕边缘）；
+            // 底栏玻璃靠 margin 上浮到手势条之上——若把 inset 做成玻璃内部 padding，
+            // 胶囊圆角会与变高后的外框失配。
+            binding.glassTopBar.setPadding(0, systemBars.top, 0, 0)
+
+            val side = bottomBarContentSidePadding()
+            val baseMargin = (16 * resources.displayMetrics.density).toInt()
+            val glassParams = binding.glassBottomBar.layoutParams as ViewGroup.MarginLayoutParams
+            glassParams.marginStart = baseMargin + side
+            glassParams.marginEnd = baseMargin + side
+            glassParams.bottomMargin = baseMargin + systemBars.bottom
+            binding.glassBottomBar.layoutParams = glassParams
+
             windowInsets
+        }
+
+        // root 宽度变化（首次布局 / 旋转 / 分屏）后重新分发 insets，才能按新屏宽重算 side padding
+        binding.root.addOnLayoutChangeListener { _, left, _, right, _, oldLeft, _, oldRight, _ ->
+            val width = right - left
+            if (width > 0 && width != oldRight - oldLeft) {
+                binding.glassBottomBar.requestApplyInsets()
+            }
         }
     }
 
     /**
-     * 平板（宽度 >= 600dp）上将顶部/底部 overlay 工具栏限制为 640dp 并水平居中，
-     * 避免按钮被拉伸到全宽、点击热区过大。
+     * 平板（宽度 >= 600dp）上把底部按钮组限制为 640dp 并水平居中，避免按钮被拉伸到全宽、
+     * 点击热区过大。只收窄左右 padding，View 本身保持满宽，让工具栏背景仍覆盖整条屏幕
+     * （背景同时是导航栏手势区的对比面）。
      */
     private fun applyDetailOverlayWidth() {
-        if (resources.configuration.screenWidthDp < 600) return
+        binding.glassBottomBar.requestApplyInsets()
+    }
+
+    /**
+     * 底栏为了让按钮组居中在 640dp 内所需的左右 padding；手机返回 0（满宽）。
+     */
+    private fun bottomBarContentSidePadding(): Int {
+        if (resources.configuration.screenWidthDp < 600) return 0
+        val rootWidth = binding.root.width
+        if (rootWidth <= 0) return 0
         val maxWidthPx = (640 * resources.displayMetrics.density).toInt()
-            .coerceAtMost(resources.displayMetrics.widthPixels)
-        (binding.topBar.layoutParams as? FrameLayout.LayoutParams)?.let { p ->
-            p.width = maxWidthPx
-            p.gravity = Gravity.CENTER_HORIZONTAL
-            binding.topBar.layoutParams = p
-        }
-        (binding.bottomBar.layoutParams as? FrameLayout.LayoutParams)?.let { p ->
-            p.width = maxWidthPx
-            p.gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-            binding.bottomBar.layoutParams = p
-        }
+        return ((rootWidth - maxWidthPx) / 2).coerceAtLeast(0)
     }
 
     private fun setupViewPager() {

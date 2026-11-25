@@ -77,20 +77,20 @@ findNavController().navigate(action)
 
 ---
 
-## 5. Paging 3 (分页)
+## 5. Room Flow + ListAdapter（照片列表）
 
-**功能：** 照片列表分页加载、日期分组
+**功能：** 照片列表加载、排序、筛选、日期分组（已弃用 Paging 3）
 
 **关键文件：**
 - [PhotosViewModel.kt](app/src/main/java/com/gxstar/stargallery/ui/photos/PhotosViewModel.kt)
 - [PhotoListAdapter.kt](app/src/main/java/com/gxstar/stargallery/ui/photos/PhotoListAdapter.kt)
-- [RoomPagingSource.kt](app/src/main/java/com/gxstar/stargallery/data/paging/RoomPagingSource.kt)
 
 **使用方式：**
 ```kotlin
-Pager(config = PagingConfig(pageSize = 30, prefetchDistance = 10),
-    pagingSourceFactory = { RoomPagingSource(...) }
-).flow
+// PhotoDao.getAllPhotosFlow() 返回 Flow<List<PhotoEntity>>，Room 自动监听表变化
+// ViewModel 内 combine 排序/筛选/分组后 submitList 给 ListAdapter
+photoDao.getAllPhotosFlow()
+    .combine(filterState) { entities, state -> /* 过滤+排序+分组 */ }
 ```
 
 ---
@@ -191,7 +191,9 @@ debugImplementation("com.squareup.leakcanary:leakcanary-android:2.14")
 **使用方式：**
 ```kotlin
 viewLifecycleOwner.lifecycleScope.launch {
-    viewModel.photoPagingFlow.collectLatest { pagingData -> }
+    repeatOnLifecycle(Lifecycle.State.STARTED) {
+        viewModel.photoListFlow.collect { photoModels -> /* submitList */ }
+    }
 }
 
 suspend fun extractExif(uri: Uri) = withContext(Dispatchers.IO) { }
@@ -203,21 +205,24 @@ suspend fun extractExif(uri: Uri) = withContext(Dispatchers.IO) { }
 
 | 库 | 版本 | 用途 |
 |---|------|------|
-| Glide | 4.16.0 | 图片加载 |
-| ZoomImage | 1.4.0 | 大图缩放 |
-| Hilt | 2.59.2 | 依赖注入 |
-| Navigation | 2.9.7 | 导航 |
-| Paging 3 | 3.4.2 | 分页 |
+| Glide | 5.0.9 | 图片加载 |
+| ZoomImage | 1.6.0 | 大图缩放 |
+| Hilt | 2.60.1 | 依赖注入 |
+| Navigation | 2.9.8 | 导航 |
 | Room | 2.8.4 | 数据库 |
 | ActivityResultContracts | AndroidX | 权限 |
 | metadata-extractor | 2.20.0 | EXIF |
-| Media3 | 1.9.1 | 视频播放 |
-| recyclerview-selection | 1.2.0 | 选择 |
-| LeakCanary | 2.14 | 泄漏检测 |
-| Coroutines | 1.10.1 | 异步 |
+| Media3 | 1.10.1 | 视频播放 |
+| drag-select-recyclerview | 2.4.0 | 拖动多选 |
+| FastScroller | 1.3.0 | 快速滚动 |
+| uCrop | 2.2.11 | 图片裁剪 |
+| jxl-coder / avif-coder | 2.6.1 / 2.2.1 | JXL / AVIF 解码 |
+| LeakCanary | 2.14 | 泄漏检测（仅 debug） |
+| Coroutines | 1.11.0 | 异步 |
 
 ---
 
-## 未使用但已声明的库
+## 未使用的库
 
-- **Groupie** - 已注释不用，改用 Paging 3 insertSeparators 实现分组
+- **Groupie** - 已移除声明（原注释"改用 Paging 3 insertSeparators"，实际已改为 Room Flow + ListAdapter）
+- **Paging 3** - 未引入，已迁移到 Room Flow + ListAdapter

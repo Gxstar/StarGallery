@@ -1,5 +1,6 @@
 package com.gxstar.stargallery.ui.photos
 
+import com.gxstar.stargallery.data.model.SortType
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -38,7 +39,7 @@ class PhotoListAdapter(
         submitList(newList, onCommit)
     }
 
-    private var currentSortType = MediaRepository.SortType.DATE_TAKEN
+    private var currentSortType = SortType.DATE_TAKEN
     private var currentGroupType = GroupType.DAY
 
     fun updateItemSize(newItemSize: Int) {
@@ -48,7 +49,7 @@ class PhotoListAdapter(
         }
     }
 
-    fun updateSortAndGroupType(sortType: MediaRepository.SortType, groupType: GroupType) {
+    fun updateSortAndGroupType(sortType: SortType, groupType: GroupType) {
         currentSortType = sortType
         currentGroupType = groupType
     }

@@ -1,5 +1,6 @@
 package com.gxstar.stargallery.ui.albums
 
+import com.gxstar.stargallery.data.model.SortType
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.gxstar.stargallery.data.local.db.PhotoDao
@@ -26,8 +27,8 @@ class AlbumDetailViewModel @Inject constructor(
     private val _albumId = MutableStateFlow(-1L)
     val albumId: StateFlow<Long> = _albumId.asStateFlow()
 
-    private val _currentSortType = MutableStateFlow(MediaRepository.SortType.DATE_TAKEN)
-    val currentSortType: StateFlow<MediaRepository.SortType> = _currentSortType.asStateFlow()
+    private val _currentSortType = MutableStateFlow(SortType.DATE_TAKEN)
+    val currentSortType: StateFlow<SortType> = _currentSortType.asStateFlow()
 
     private val _currentGroupType = MutableStateFlow(GroupType.DAY)
     val currentGroupType: StateFlow<GroupType> = _currentGroupType.asStateFlow()
@@ -58,7 +59,7 @@ class AlbumDetailViewModel @Inject constructor(
 
     private fun buildPhotoModelList(
         photos: List<Photo>,
-        sortType: MediaRepository.SortType,
+        sortType: SortType,
         groupType: GroupType
     ): List<PhotoModel> {
         if (photos.isEmpty()) return emptyList()
@@ -86,7 +87,7 @@ class AlbumDetailViewModel @Inject constructor(
         }
     }
 
-    fun setSortType(sortType: MediaRepository.SortType) {
+    fun setSortType(sortType: SortType) {
         if (_currentSortType.value != sortType) {
             _currentSortType.value = sortType
         }

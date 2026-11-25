@@ -2,7 +2,6 @@ package com.gxstar.stargallery.di
 
 import android.content.Context
 import com.gxstar.stargallery.data.local.preferences.ScanPreferences
-import com.gxstar.stargallery.data.repository.MediaRepository
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -14,11 +13,8 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object AppModule {
 
-    @Provides
-    @Singleton
-    fun provideMediaRepository(@ApplicationContext context: Context): MediaRepository {
-        return MediaRepository(context)
-    }
+    // MediaRepository 用 @Inject constructor 注入（见 MediaRepository.kt），
+    // 原 @Provides 重复绑定同一类型，已移除。
 
     @Provides
     @Singleton

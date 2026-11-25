@@ -284,4 +284,9 @@
     <string name="filter">Filter</string>
     <string name="rotate">Rotate</string>
     <string name="redo">Redo</string>
+
+    <!-- Partial photo access notice (Android 14+) -->
+    <string name="partial_access_banner">Only the photos you selected are shown. Grant full access to browse your entire library.</string>
+    <string name="partial_access_grant">Settings</string>
+    <string name="partial_access_toast">Please select "Allow access to all photos and videos" in system settings</string>
 </resources>

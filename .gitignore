@@ -23,3 +23,7 @@ keystore.properties
 app/release/
 *.aab
 *.apk
+
+# 本地工具数据与临时截图（体积大，不入库）
+.workbuddy/
+docs/mobile-review/

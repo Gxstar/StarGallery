@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 导航条选中镜片：对齐系统相册的实心浅灰药丸（不再用半透明蓝）。
+     四边内缩 4dp，让镜片与外层玻璃胶囊之间留出一圈呼吸间隙。 -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_selected="true">
+        <inset
+            android:insetBottom="3dp"
+            android:insetLeft="4dp"
+            android:insetRight="4dp"
+            android:insetTop="3dp">
+            <shape android:shape="rectangle">
+                <solid android:color="@color/glass_indicator_bg" />
+                <corners android:radius="24dp" />
+            </shape>
+        </inset>
+    </item>
+    <item>
+        <color android:color="@android:color/transparent" />
+    </item>
+</selector>

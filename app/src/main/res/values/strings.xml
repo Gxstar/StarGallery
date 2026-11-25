@@ -292,4 +292,9 @@
     <string name="filter">滤镜</string>
     <string name="rotate">旋转</string>
     <string name="redo">重做</string>
+
+    <!-- 部分照片访问提示（Android 14+） -->
+    <string name="partial_access_banner">仅能显示你已选择的照片。授予完整访问权限以浏览全部照片。</string>
+    <string name="partial_access_grant">去设置</string>
+    <string name="partial_access_toast">请在系统设置中选择「允许访问全部照片和视频」</string>
 </resources>

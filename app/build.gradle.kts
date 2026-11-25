@@ -66,35 +66,19 @@ android {
     buildToolsVersion = "36.0.0"
 }
 
-// 重命名产物为专业命名：{AppName}-v{versionName}-{versionCode}-{variant}[-{abi}].{ext}
-val appName = "StarGallery"
-val ver = android.defaultConfig.versionName ?: "unknown"
-val code = android.defaultConfig.versionCode
-
-fun renameOutputs(taskName: String, outputDir: File, ext: String) {
-    tasks.matching { it.name == taskName }.configureEach {
-        doLast {
-            if (!outputDir.exists()) return@doLast
-            outputDir.walkTopDown()
-                .filter { it.isFile && it.extension == ext }
-                .forEach { f ->
-                    val captured = Regex("app-(.+)\\.${ext}").matchEntire(f.name)?.groupValues?.get(1)
-                        ?: return@forEach
-                    val newName = "${appName}-v${ver}-${code}-${captured}.${ext}"
-                    val target = f.parentFile.resolve(newName)
-                    if (f.name != newName) {
-                        if (target.exists()) target.delete()
-                        f.renameTo(target)
-                    }
-                }
+// 产物命名：StarGallery-v{versionName}-{versionCode}-{variant}.apk
+// 使用 AGP 原生 outputFileName，避免旧版 doLast+renameTo 在增量构建时
+// 把 Gradle 输出的 APK 改名移走、导致下次构建产出残缺文件（无 dex）的问题。
+val appLabel = "StarGallery"
+val appVerName = android.defaultConfig.versionName ?: "unknown"
+val appVerCode = android.defaultConfig.versionCode
+androidComponents {
+    onVariants { variant ->
+        variant.outputs.forEach { output ->
+            output.outputFileName.set("$appLabel-v$appVerName-$appVerCode-${variant.name}.apk")
         }
     }
 }
-
-renameOutputs("packageDebug", file("$buildDir/outputs/apk/debug"), "apk")
-renameOutputs("packageRelease", file("$buildDir/outputs/apk/release"), "apk")
-renameOutputs("bundleDebug", file("$buildDir/outputs/bundle/debug"), "aab")
-renameOutputs("bundleRelease", file("$buildDir/outputs/bundle/release"), "aab")
 
 dependencies {
     // AndroidX 核心
@@ -106,6 +90,9 @@ dependencies {
     implementation(libs.androidx.fragment.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
+
+    // Liquid Glass - iOS 26 风格折射玻璃（View 体系）
+    implementation(libs.liquidglass)
     
     // RecyclerView
     implementation(libs.androidx.recyclerview)
@@ -136,10 +123,6 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
-
-    // 列表分组 - Groupie (未使用，已用 Paging 3 insertSeparators 替代)
-    // implementation(libs.groupie)
-    // implementation(libs.groupie.viewbinding)
 
     // 元数据提取
     implementation(libs.metadata.extractor)

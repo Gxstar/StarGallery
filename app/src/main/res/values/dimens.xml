@@ -17,7 +17,7 @@
     <dimen name="toolbar_icon_size">24dp</dimen>
     
     <!-- 底部导航 -->
-    <dimen name="bottom_nav_height">64dp</dimen>
+    <dimen name="bottom_nav_height">56dp</dimen>
     
     <!-- 文字大小 -->
     <dimen name="text_size_headline">28sp</dimen>

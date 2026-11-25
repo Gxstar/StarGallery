@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 导航胶囊的「白纱」层：铺在液态玻璃之上、导航项之下，是透出量的唯一旋钮。
+     - 必须只有一层：容器的 background 只能是全透明的 bg_nav_outline（双层会叠成死白）
+     - 不做 inset：白纱铺满整只胶囊，避免出现"内部是白块、外面一圈玻璃边"的割裂感
+     - alpha 越低越能看见背后内容；72% 是"勉强看到、字仍清晰"的档位 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/nav_shell_fill" />
+    <corners android:radius="28dp" />
+</shape>

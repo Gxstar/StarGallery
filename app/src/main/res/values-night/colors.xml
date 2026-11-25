@@ -64,5 +64,10 @@
     <color name="glass_nav_bg">#D91C1C1E</color>
     <color name="glass_nav_highlight">#1AFFFFFF</color>
     <color name="glass_nav_border">#26FFFFFF</color>
-    <color name="glass_indicator_bg">#330A84FF</color>
+    <!-- 底部导航镜片：夜间用深灰不透明胶囊，避免照片透出后花掉 -->
+    <color name="nav_glass_tint">#F21C1C1E</color>
+    <color name="nav_shell_fill">#CC1C1C1E</color>
+    <color name="glass_indicator_bg">#29FFFFFF</color>
+    <color name="nav_item_idle">#A5A5AB</color>
+    <color name="nav_item_active">#FFFFFF</color>
 </resources>

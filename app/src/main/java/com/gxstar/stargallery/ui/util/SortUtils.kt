@@ -1,5 +1,6 @@
 package com.gxstar.stargallery.ui.util
 
+import com.gxstar.stargallery.data.model.SortType
 import com.gxstar.stargallery.data.model.Photo
 import com.gxstar.stargallery.data.repository.MediaRepository
 
@@ -13,16 +14,16 @@ object SortUtils {
      * 对照片列表进行稳健排序
      * 使用 Photo.normalizedDateTaken 统一处理 dateTaken fallback
      */
-    fun sortPhotos(photos: List<Photo>, sortType: MediaRepository.SortType): List<Photo> {
+    fun sortPhotos(photos: List<Photo>, sortType: SortType): List<Photo> {
         return when (sortType) {
-            MediaRepository.SortType.DATE_TAKEN -> {
+            SortType.DATE_TAKEN -> {
                 photos.sortedWith(
                     compareByDescending<Photo> { it.normalizedDateTaken }
                         .thenByDescending { it.dateAdded }
                         .thenByDescending { it.id }
                 )
             }
-            MediaRepository.SortType.DATE_ADDED -> {
+            SortType.DATE_ADDED -> {
                 photos.sortedWith(
                     compareByDescending<Photo> { it.dateAdded }
                         .thenByDescending { it.id }

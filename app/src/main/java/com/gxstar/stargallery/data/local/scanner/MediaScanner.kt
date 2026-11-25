@@ -57,6 +57,7 @@ class MediaScanner @Inject constructor(
     companion object {
         private const val TAG = "MediaScanner"
         private const val EXIF_BATCH_SIZE = 20
+        private const val SYNC_BATCH_SIZE = 200
     }
 
     private val mutex = Mutex()
@@ -181,9 +182,11 @@ class MediaScanner @Inject constructor(
                     _scanState.emit(ScanState.Scanning(processedCount, total, progress))
                 }
 
-                // 全量扫描完成后，删除已不存在于 MediaStore 的记录
-                // 先计算需要删除的 ID，再分批执行，避免 SQLite 参数上限（~999）
-                val validIds = allMedia.map { it.id }.toSet()
+                // 全量扫描完成后，删除已不存在于 MediaStore 的记录。
+                // H3 修复：validIds 用「包含回收站」的 ID 集合——移入回收站的照片虽不在
+                // allMedia（不显示），但仍算「存在」，不可清掉其 Room 记录（收藏/隐藏/EXIF 状态）。
+                // 注意 allMedia 保持 MATCH_EXCLUDE，回收站照片不会被重新写入/显示在相册。
+                val validIds = queryAllMediaIdsIncludingTrashed().toSet()
                 val roomIds = photoDao.getAllPhotoIds()
                 val idsToRemove = roomIds - validIds
                 if (idsToRemove.isNotEmpty()) {
@@ -362,8 +365,10 @@ class MediaScanner @Inject constructor(
             val lastScanTime = scanPreferences.lastScanTime
             val changedMedia = queryMediaModifiedAfter(lastScanTime)
 
-            scanPreferences.lastScanTime = System.currentTimeMillis() / 1000
-
+            // H2 修复：时间戳不再于查询后立即推进。
+            // 原逻辑在查询后立刻写入新时间戳，若后续 insertAll / EXIF / 缩略图任一环节
+            // 抛异常（catch 吞掉且不回滚），这批媒体的 DATE_MODIFIED 已小于新时间戳，
+            // 下次增量扫描永远查不到 → 永久漏扫。现改为仅在整个流程成功后推进（见下方）。
             if (changedMedia.isNotEmpty()) {
                 val hiddenIds = photoDao.getHiddenPhotoIds().toSet()
                 val existingExif = photoDao.getExifSnapshots().associateBy { it.id }
@@ -420,7 +425,10 @@ class MediaScanner @Inject constructor(
             // 仅在达到删除检查间隔时执行，平时依赖时间戳增量扫描覆盖变更。
             var removedIds: Set<Long> = emptySet()
             if (scanPreferences.needsDeletionCheck()) {
-                val mediaStoreIds = queryAllMediaIdsFromMediaStore()
+                // H3 修复：差集计算必须用「包含回收站」的 MediaStore ID 集合。
+                // 原用 MATCH_EXCLUDE 会把移入系统回收站、但本地 Room 仍有记录的照片
+                // 误判为永久删除，清掉收藏/隐藏/EXIF 等本地状态；从回收站恢复后只能重新扫描。
+                val mediaStoreIds = queryAllMediaIdsIncludingTrashed()
                 val roomIds = photoDao.getAllPhotoIds()
                 val mediaStoreIdSet = mediaStoreIds.toSet()
                 val roomIdSet = roomIds.toSet()
@@ -444,6 +452,18 @@ class MediaScanner @Inject constructor(
             val duration = System.currentTimeMillis() - startTime
             Log.i(TAG, "Incremental scan completed: ${changedMedia.size} media found, ${removedIds.size} cleaned in ${duration}ms")
 
+            // H2 + M1 修复：仅在全流程成功后推进时间戳。
+            // - H2：异常时不推进，下次扫描用旧时间点重查，避免失败媒体永久漏扫
+            // - M1：推进到「本次处理媒体的最大 DATE_MODIFIED + 1」而非当前时间，
+            //       避免查询条件 >= 在边界秒反复重扫同一批媒体；
+            //       无变更时推进到扫描开始秒，覆盖扫描期间的写入。
+            val nextScanTime = if (changedMedia.isNotEmpty()) {
+                maxOf(changedMedia.maxOf { it.dateModified } + 1, startTime / 1000)
+            } else {
+                startTime / 1000
+            }
+            scanPreferences.lastScanTime = maxOf(lastScanTime, nextScanTime)
+
             _scanState.emit(ScanState.Completed(changedMedia.size, duration))
             return@withContext true
         } catch (e: Exception) {
@@ -465,51 +485,134 @@ class MediaScanner @Inject constructor(
         val items = queryMediaByIds(photoIds)
         if (items.isEmpty()) return@withContext
 
+        syncItems(items)
+    }
+
+    /**
+     * 将 MediaStore 查询结果分批写入 Room（每批 200），逐批发射进度。
+     * 避免 5900 条一次性 insertAll 造成的长事务卡顿（实测 60s 无反馈）。
+     */
+    private suspend fun syncItems(items: List<MediaStoreItem>, withPostProcess: Boolean = true) {
+        if (items.isEmpty()) return
+
         val hiddenIds = photoDao.getHiddenPhotoIds().toSet()
         val existingExif = photoDao.getExifSnapshots().associateBy { it.id }
-        val entities = items.map { item ->
-            val exif = existingExif[item.id]
-            PhotoEntity(
-                id = item.id,
-                uri = item.uri,
-                displayName = item.displayName,
-                dateTaken = item.dateTaken,
-                dateModified = item.dateModified,
-                dateAdded = item.dateAdded,
-                mimeType = item.mimeType,
-                width = item.width,
-                height = item.height,
-                size = item.size,
-                bucketId = item.bucketId,
-                bucketName = item.bucketName,
-                latitude = exif?.latitude,
-                longitude = exif?.longitude,
-                orientation = item.orientation,
-                isFavorite = item.isFavorite,
-                isHidden = item.id in hiddenIds,
-                cameraMake = exif?.cameraMake,
-                cameraModel = exif?.cameraModel,
-                lensModel = exif?.lensModel,
-                isoEquivalent = exif?.isoEquivalent,
-                focalLength = exif?.focalLength,
-                focalLength35mmEquiv = exif?.focalLength35mmEquiv,
-                fNumber = exif?.fNumber,
-                shutterSpeed = exif?.shutterSpeed,
-                exifImageWidth = exif?.exifImageWidth,
-                exifImageHeight = exif?.exifImageHeight,
-                lut1 = exif?.lut1,
-                lut2 = exif?.lut2,
-                flash = exif?.flash,
-                exposureCompensation = exif?.exposureCompensation,
-                meteringMode = exif?.meteringMode,
-                photoStyle = exif?.photoStyle,
-                isHdr = detectUltraHdr(item.uri)
-            )
+        val total = items.size
+        var processed = 0
+
+        items.chunked(SYNC_BATCH_SIZE).forEach { batch ->
+            val entities = batch.map { item ->
+                val exif = existingExif[item.id]
+                PhotoEntity(
+                    id = item.id,
+                    uri = item.uri,
+                    displayName = item.displayName,
+                    dateTaken = item.dateTaken,
+                    dateModified = item.dateModified,
+                    dateAdded = item.dateAdded,
+                    mimeType = item.mimeType,
+                    width = item.width,
+                    height = item.height,
+                    size = item.size,
+                    bucketId = item.bucketId,
+                    bucketName = item.bucketName,
+                    latitude = exif?.latitude,
+                    longitude = exif?.longitude,
+                    orientation = item.orientation,
+                    isFavorite = item.isFavorite,
+                    isHidden = item.id in hiddenIds,
+                    cameraMake = exif?.cameraMake,
+                    cameraModel = exif?.cameraModel,
+                    lensModel = exif?.lensModel,
+                    isoEquivalent = exif?.isoEquivalent,
+                    focalLength = exif?.focalLength,
+                    focalLength35mmEquiv = exif?.focalLength35mmEquiv,
+                    fNumber = exif?.fNumber,
+                    shutterSpeed = exif?.shutterSpeed,
+                    exifImageWidth = exif?.exifImageWidth,
+                    exifImageHeight = exif?.exifImageHeight,
+                    lut1 = exif?.lut1,
+                    lut2 = exif?.lut2,
+                    flash = exif?.flash,
+                    exposureCompensation = exif?.exposureCompensation,
+                    meteringMode = exif?.meteringMode,
+                    photoStyle = exif?.photoStyle,
+                    isHdr = detectUltraHdr(item.uri)
+                )
+            }
+            photoDao.insertAll(entities)
+            processed += batch.size
+            _scanState.emit(ScanState.Scanning(processed, total, processed.toFloat() / total))
         }
-        photoDao.insertAll(entities)
-        generateThumbnailsForPhotos(photoIds)
-        CoroutineScope(Dispatchers.IO).launch {
-            extractExifForPhotos(photoIds)
+
+        if (withPostProcess) {
+            val ids = items.map { it.id }
+            generateThumbnailsForPhotos(ids)
+            CoroutineScope(Dispatchers.IO).launch {
+                extractExifForPhotos(ids)
+            }
+        }
+    }
+
+    /**
+     * 媒体数量对账（H4）：对比 MediaStore 可见媒体与 Room 记录，补回缺失媒体。
+     *
+     * 触发场景：权限从「部分访问」升级为「完整访问」后，增量扫描按时间戳查不到
+     * 旧媒体，导致 app 永远只显示之前授权的少数照片。此前的差集补扫被埋在
+     * 「每 50 次增量扫描」的删除检查节流里，用户几乎不可能等到。
+     *
+     * 对账使用「包含回收站」的全量 ID 查询，避免把移入回收站的照片误判为已删除（H3）。
+     *
+     * @return 补回的媒体数量
+     */
+    suspend fun reconcileMediaStore(): Int = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            if (isScanning) {
+                Log.w(TAG, "Reconcile skipped: scan in progress")
+                return@withContext 0
+            }
+            isScanning = true
+        }
+
+        val startTime = System.currentTimeMillis()
+        try {
+            val mediaStoreIds = queryAllMediaIdsIncludingTrashed().toSet()
+            val roomIds = photoDao.getAllPhotoIds().toSet()
+            val missingIds = mediaStoreIds - roomIds
+
+            Log.i(TAG, "Reconcile: MediaStore=${mediaStoreIds.size} Room=${roomIds.size} missing=${missingIds.size}")
+
+            if (missingIds.isEmpty()) {
+                _scanState.emit(ScanState.Completed(0, System.currentTimeMillis() - startTime))
+                return@withContext 0
+            }
+
+            _scanState.emit(ScanState.Scanning(0, missingIds.size, 0f))
+            // 复用分批同步逻辑，逐批入库并发射进度；后处理延后到全部入库后统一做
+            missingIds.chunked(400).forEach { batchIds ->
+                val items = queryMediaByIds(batchIds)
+                if (items.isNotEmpty()) syncItems(items, withPostProcess = false)
+            }
+
+            val duration = System.currentTimeMillis() - startTime
+            Log.i(TAG, "Reconcile completed: ${missingIds.size} media restored in ${duration}ms")
+            _scanState.emit(ScanState.Completed(missingIds.size, duration))
+            // 补回后更新扫描时间戳，避免下次增量重复处理
+            scanPreferences.lastScanTime = System.currentTimeMillis() / 1000
+
+            // 统一后处理：后台提取 EXIF + 生成缩略图，避免 15 批各起一个 EXIF 协程
+            val restoredList = missingIds.toList()
+            CoroutineScope(Dispatchers.IO).launch {
+                extractExifForPhotos(restoredList)
+                generateThumbnailsForPhotos(restoredList)
+            }
+            missingIds.size
+        } catch (e: Exception) {
+            Log.e(TAG, "Reconcile failed", e)
+            _scanState.emit(ScanState.Error(e.message ?: "Unknown error"))
+            0
+        } finally {
+            isScanning = false
         }
     }
 
@@ -1031,13 +1134,25 @@ class MediaScanner @Inject constructor(
      * 只查单列，性能轻量
      */
     private fun queryAllMediaIdsFromMediaStore(): List<Long> {
+        return queryAllMediaIds(trashMatch = MediaStore.MATCH_EXCLUDE)
+    }
+
+    /**
+     * 对账专用：查询包含回收站项的全部媒体 ID。
+     * 差集对账时必须把回收站里的照片算作「仍在」，否则会把移入回收站的记录误删（H3）。
+     */
+    private fun queryAllMediaIdsIncludingTrashed(): List<Long> {
+        return queryAllMediaIds(trashMatch = MediaStore.MATCH_INCLUDE)
+    }
+
+    private fun queryAllMediaIds(trashMatch: Int): List<Long> {
         val ids = mutableListOf<Long>()
         val uri = MediaStore.Files.getContentUri("external")
         val selection = "(${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE} " +
                 "OR ${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO})"
         val projection = arrayOf(MediaStore.Files.FileColumns._ID)
         val bundle = Bundle().apply {
-            putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, MediaStore.MATCH_EXCLUDE)
+            putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, trashMatch)
             putString(ContentResolver.QUERY_ARG_SQL_SELECTION, selection)
         }
         context.contentResolver.query(uri, projection, bundle, null)?.use { cursor ->

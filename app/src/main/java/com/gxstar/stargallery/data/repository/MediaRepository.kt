@@ -1,5 +1,6 @@
 package com.gxstar.stargallery.data.repository
 
+import com.gxstar.stargallery.data.model.SortType
 import android.app.PendingIntent
 import android.content.ContentResolver
 import android.content.ContentUris
@@ -27,68 +28,6 @@ class MediaRepository @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     private val contentResolver = context.contentResolver
-
-    /**
-     * 排序方式枚举
-     */
-    enum class SortType {
-        DATE_TAKEN,      // 拍摄时间
-        DATE_ADDED       // 创建时间
-    }
-
-    /**
-     * 加载全部媒体（图片+视频）到内存，用于自定义高级排序
-     */
-    suspend fun getAllMedia(sortType: SortType = SortType.DATE_TAKEN): List<Photo> = withContext(Dispatchers.IO) {
-        val photos = mutableListOf<Photo>()
-        val uri = MediaStore.Files.getContentUri("external")
-        val selection = "(${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE} " +
-                "OR ${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO})"
-        val projection = arrayOf(
-            MediaStore.Files.FileColumns._ID,
-            MediaStore.Files.FileColumns.DATE_TAKEN,
-            MediaStore.Files.FileColumns.DATE_MODIFIED,
-            MediaStore.Files.FileColumns.DATE_ADDED,
-            MediaStore.Files.FileColumns.MIME_TYPE,
-            MediaStore.Files.FileColumns.WIDTH,
-            MediaStore.Files.FileColumns.HEIGHT,
-            MediaStore.Files.FileColumns.SIZE,
-            MediaStore.Files.FileColumns.BUCKET_ID,
-            MediaStore.Files.FileColumns.BUCKET_DISPLAY_NAME,
-            MediaStore.Files.FileColumns.ORIENTATION,
-            MediaStore.Files.FileColumns.IS_FAVORITE,
-            MediaStore.Files.FileColumns.MEDIA_TYPE,
-            MediaStore.MediaColumns.DATE_EXPIRES,
-            MediaStore.MediaColumns.DISPLAY_NAME
-        )
-
-        val sortOrder = when (sortType) {
-            SortType.DATE_TAKEN -> "${MediaStore.Files.FileColumns.DATE_TAKEN} DESC"
-            SortType.DATE_ADDED -> "${MediaStore.Files.FileColumns.DATE_ADDED} DESC"
-        }
-
-        // 从 content resolver 加载所有基本属性到内存
-        val bundle = Bundle().apply {
-            // 显式排除回收站项
-            putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, MediaStore.MATCH_EXCLUDE)
-            putString(ContentResolver.QUERY_ARG_SQL_SELECTION, selection)
-            putStringArray(ContentResolver.QUERY_ARG_SORT_COLUMNS, arrayOf(
-                when (sortType) {
-                    SortType.DATE_TAKEN -> MediaStore.Files.FileColumns.DATE_TAKEN
-                    SortType.DATE_ADDED -> MediaStore.Files.FileColumns.DATE_ADDED
-                }
-            ))
-            putInt(ContentResolver.QUERY_ARG_SORT_DIRECTION, ContentResolver.QUERY_SORT_DIRECTION_DESCENDING)
-        }
-
-        contentResolver.query(uri, projection, bundle, null)?.use { cursor ->
-            while (cursor.moveToNext()) {
-                photos.add(cursor.toMediaPhoto())
-            }
-        }
-
-        photos
-    }
 
     suspend fun getPhotoById(id: Long): Photo? = withContext(Dispatchers.IO) {
         val uri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
@@ -200,38 +139,6 @@ class MediaRepository @Inject constructor(
     }
 
     /**
-     * 直接切换收藏状态（不需要用户确认）
-     */
-    suspend fun toggleFavoriteDirect(photo: Photo): Boolean = withContext(Dispatchers.IO) {
-        return@withContext try {
-            val values = ContentValues().apply {
-                put(MediaStore.Images.Media.IS_FAVORITE, if (photo.isFavorite) 0 else 1)
-            }
-            contentResolver.update(photo.uri, values, null, null) > 0
-        } catch (e: Exception) {
-            e.printStackTrace()
-            false
-        }
-    }
-
-    /**
-     * 切换单张照片收藏状态 - 返回 IntentSender 供用户确认
-     */
-    fun toggleFavorite(photo: Photo): android.content.IntentSender? {
-        return try {
-            val favoriteRequest = MediaStore.createFavoriteRequest(
-                contentResolver,
-                listOf(photo.uri),
-                !photo.isFavorite
-            )
-            favoriteRequest.intentSender
-        } catch (e: Exception) {
-            e.printStackTrace()
-            null
-        }
-    }
-
-    /**
      * 批量设置照片收藏状态 - 返回 IntentSender 供用户确认
      */
     fun setFavorite(photos: List<Photo>, isFavorite: Boolean): android.content.IntentSender? {
@@ -287,23 +194,6 @@ class MediaRepository @Inject constructor(
         val uri = MediaStore.Files.getContentUri("external")
         val selection = "(${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE} " +
                 "OR ${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO})"
-        val bundle = Bundle().apply {
-            putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, MediaStore.MATCH_EXCLUDE)
-            putString(ContentResolver.QUERY_ARG_SQL_SELECTION, selection)
-        }
-        contentResolver.query(uri, arrayOf(MediaStore.Files.FileColumns._ID), bundle, null)?.use { cursor ->
-            cursor.count
-        } ?: 0
-    }
-
-    /**
-     * 获取收藏媒体总数（图片+视频）
-     */
-    suspend fun getFavoriteCount(): Int = withContext(Dispatchers.IO) {
-        val uri = MediaStore.Files.getContentUri("external")
-        val selection = "(${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE} " +
-                "OR ${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO}) " +
-                "AND ${MediaStore.Files.FileColumns.IS_FAVORITE} = 1"
         val bundle = Bundle().apply {
             putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, MediaStore.MATCH_EXCLUDE)
             putString(ContentResolver.QUERY_ARG_SQL_SELECTION, selection)
@@ -507,69 +397,6 @@ class MediaRepository @Inject constructor(
     }
 
     /**
-     * 获取最新媒体的时间戳（毫秒）
-     * 用于检测媒体库是否有变化
-     */
-    suspend fun getLatestMediaTimestamp(sortType: SortType = SortType.DATE_TAKEN): Long = withContext(Dispatchers.IO) {
-        val uri = MediaStore.Files.getContentUri("external")
-        val sortColumn = when (sortType) {
-            SortType.DATE_TAKEN -> MediaStore.Files.FileColumns.DATE_TAKEN
-            SortType.DATE_ADDED -> MediaStore.Files.FileColumns.DATE_ADDED
-        }
-
-        val bundle = Bundle().apply {
-            putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, MediaStore.MATCH_EXCLUDE)
-            putString(
-                ContentResolver.QUERY_ARG_SQL_SELECTION,
-                "(${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE} " +
-                        "OR ${MediaStore.Files.FileColumns.MEDIA_TYPE} = ${MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO})"
-            )
-            putStringArray(ContentResolver.QUERY_ARG_SORT_COLUMNS, arrayOf(sortColumn))
-            putInt(ContentResolver.QUERY_ARG_SORT_DIRECTION, ContentResolver.QUERY_SORT_DIRECTION_DESCENDING)
-            putInt(ContentResolver.QUERY_ARG_LIMIT, 1)
-        }
-
-        contentResolver.query(uri, arrayOf(sortColumn), bundle, null)?.use { cursor ->
-            if (cursor.moveToFirst()) {
-                cursor.getLong(0)
-            } else 0L
-        } ?: 0L
-    }
-
-    fun getContentResolver(): ContentResolver = contentResolver
-
-    suspend fun insertImageCopy(
-        sourcePhoto: Photo,
-        bitmap: Bitmap
-    ): Uri? = withContext(Dispatchers.IO) {
-        try {
-            val values = ContentValues().apply {
-                put(MediaStore.Images.Media.DISPLAY_NAME, "EDIT_${System.currentTimeMillis()}.jpg")
-                put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
-                put(MediaStore.Images.Media.BUCKET_ID, sourcePhoto.bucketId)
-                put(MediaStore.Images.Media.BUCKET_DISPLAY_NAME, sourcePhoto.bucketName)
-                put(MediaStore.Images.Media.IS_PENDING, 1)
-                put(MediaStore.Images.Media.DATE_ADDED, System.currentTimeMillis() / 1000)
-                put(MediaStore.Images.Media.DATE_MODIFIED, System.currentTimeMillis() / 1000)
-            }
-            val insertUri = contentResolver.insert(
-                MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values
-            ) ?: return@withContext null
-            contentResolver.openOutputStream(insertUri)?.use { stream ->
-                bitmap.compress(Bitmap.CompressFormat.JPEG, 95, stream)
-            }
-            copyAllExif(sourcePhoto.uri, insertUri, bitmap.width, bitmap.height)
-            values.clear()
-            values.put(MediaStore.Images.Media.IS_PENDING, 0)
-            contentResolver.update(insertUri, values, null, null)
-            insertUri
-        } catch (e: Exception) {
-            e.printStackTrace()
-            null
-        }
-    }
-
-    /**
      * 创建空的 MediaStore 条目（IS_PENDING=1），返回 Uri 供外部写入。
      * 用于 uCrop 直接输出裁剪结果到 MediaStore，避免临时文件。
      */
@@ -602,44 +429,6 @@ class MediaRepository @Inject constructor(
             contentResolver.update(uri, values, null, null)
         } catch (e: Exception) {
             e.printStackTrace()
-        }
-    }
-
-    /**
-     * 删除空的 MediaStore 条目（用户取消裁剪时调用）。
-     */
-    suspend fun deleteImagePlaceholder(uri: Uri) = withContext(Dispatchers.IO) {
-        try {
-            contentResolver.delete(uri, null, null)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
-
-    fun overwriteOriginal(photo: Photo): android.content.IntentSender? {
-        return try {
-            val editRequest = MediaStore.createWriteRequest(contentResolver, listOf(photo.uri))
-            editRequest.intentSender
-        } catch (e: Exception) {
-            e.printStackTrace()
-            null
-        }
-    }
-
-    suspend fun applyOverwrite(
-        uri: Uri,
-        bitmap: Bitmap,
-        originalUri: Uri
-    ): Boolean = withContext(Dispatchers.IO) {
-        try {
-            contentResolver.openOutputStream(uri, "wt")?.use { stream ->
-                bitmap.compress(Bitmap.CompressFormat.JPEG, 95, stream)
-            }
-            copyAllExif(originalUri, uri, bitmap.width, bitmap.height)
-            true
-        } catch (e: Exception) {
-            e.printStackTrace()
-            false
         }
     }
 

@@ -5,6 +5,13 @@
     <!-- Android 13+ 读取图片和视频权限 -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <!--
+      Android 14+ 部分照片访问：声明后系统按标准模型授权。
+      不声明时系统把 app 当旧应用兼容处理，用户选「选择部分」后
+      READ_MEDIA_IMAGES 会带 REVOKED_COMPAT 标志（名义 granted、实际受限），
+      导致 checkSelfPermission 误判为已授权且无法区分部分访问。
+    -->
+    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
     <!-- 访问未经脱敏（含 GPS）的原始 EXIF 元数据 -->
     <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" />
 

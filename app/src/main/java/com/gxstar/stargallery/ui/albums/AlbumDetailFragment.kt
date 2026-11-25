@@ -1,5 +1,6 @@
 package com.gxstar.stargallery.ui.albums
 
+import com.gxstar.stargallery.data.model.SortType
 import android.content.res.Configuration
 import android.Manifest
 import android.app.Activity
@@ -62,7 +63,7 @@ class AlbumDetailFragment : Fragment() {
     private var gridSpacingItemDecoration: GridSpacingItemDecoration? = null
     private lateinit var selectionManager: AlbumSelectionManager
 
-    private var pagingDataJob: Job? = null
+    private var photosFlowJob: Job? = null
 
     @Inject
     lateinit var sharedPreferences: SharedPreferences
@@ -186,14 +187,14 @@ class AlbumDetailFragment : Fragment() {
 
     private fun loadSortType() {
         val savedSortType = when (sharedPreferences.getInt(KEY_SORT_TYPE_ALBUM, 0)) {
-            0 -> MediaRepository.SortType.DATE_TAKEN
-            else -> MediaRepository.SortType.DATE_ADDED
+            0 -> SortType.DATE_TAKEN
+            else -> SortType.DATE_ADDED
         }
         viewModel.setSortType(savedSortType)
     }
 
-    private fun saveSortType(sortType: MediaRepository.SortType) {
-        sharedPreferences.edit().putInt(KEY_SORT_TYPE_ALBUM, if (sortType == MediaRepository.SortType.DATE_TAKEN) 0 else 1).apply()
+    private fun saveSortType(sortType: SortType) {
+        sharedPreferences.edit().putInt(KEY_SORT_TYPE_ALBUM, if (sortType == SortType.DATE_TAKEN) 0 else 1).apply()
     }
 
     private fun loadGroupType() {
@@ -490,8 +491,8 @@ class AlbumDetailFragment : Fragment() {
     }
 
     private fun observePhotoList() {
-        pagingDataJob?.cancel()
-        pagingDataJob = viewLifecycleOwner.lifecycleScope.launch {
+        photosFlowJob?.cancel()
+        photosFlowJob = viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.photoListFlow.collectLatest { list ->
                     photoAdapter?.submitList(list)
@@ -511,7 +512,7 @@ class AlbumDetailFragment : Fragment() {
             .map { it.photo }
         photoDetailListCache.put(currentPhotos)
 
-        val sortTypeValue = if (viewModel.currentSortType.value == MediaRepository.SortType.DATE_TAKEN) 0 else 1
+        val sortTypeValue = if (viewModel.currentSortType.value == SortType.DATE_TAKEN) 0 else 1
         val action = AlbumDetailFragmentDirections.actionAlbumDetailFragmentToPhotoDetailFragment(
             initialPhoto = photo,
             photoId = photo.id,
@@ -548,14 +549,14 @@ class AlbumDetailFragment : Fragment() {
         val currentSortType = viewModel.currentSortType.value
         val options = arrayOf(getString(R.string.sort_by_date_taken), getString(R.string.sort_by_date_added))
         val checkedItem = when (currentSortType) {
-            MediaRepository.SortType.DATE_TAKEN -> 0
-            MediaRepository.SortType.DATE_ADDED -> 1
+            SortType.DATE_TAKEN -> 0
+            SortType.DATE_ADDED -> 1
         }
 
         MaterialAlertDialogBuilder(requireContext())
             .setTitle(R.string.sort_by)
             .setSingleChoiceItems(options, checkedItem) { dialog, which ->
-                val newSortType = if (which == 0) MediaRepository.SortType.DATE_TAKEN else MediaRepository.SortType.DATE_ADDED
+                val newSortType = if (which == 0) SortType.DATE_TAKEN else SortType.DATE_ADDED
                 if (newSortType != currentSortType) {
                     viewModel.setSortType(newSortType)
                     saveSortType(newSortType)
