@@ -5,6 +5,8 @@ import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import android.util.TypedValue
+import android.view.GestureDetector
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
@@ -16,17 +18,26 @@ import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowInsetsCompat
 import androidx.navigation.NavController
-import androidx.navigation.NavOptions
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.setupWithNavController
 import com.gxstar.stargallery.databinding.ActivityMainBinding
 import dagger.hilt.android.AndroidEntryPoint
+import kotlin.math.abs
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var navController: NavController
+    private lateinit var swipeDetector: GestureDetector
+
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        // 必须放在 Activity 层：FragmentContainerView 是 ViewGroup，子 View（RecyclerView）
+        // 消费 ACTION_DOWN 后父容器的 OnTouchListener 永远不会被调用，手势收不到任何事件。
+        // 这里只喂给 detector、不消费，super 照常分发，不影响网格滚动和详情页 ViewPager2。
+        if (::swipeDetector.isInitialized) swipeDetector.onTouchEvent(ev)
+        return super.dispatchTouchEvent(ev)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // 安装 SplashScreen (必须在 super.onCreate 之前调用)
@@ -88,6 +99,7 @@ class MainActivity : AppCompatActivity() {
         navController = navHostFragment.navController
 
         setupGlassNavBar()
+        setupSwipeNavigation()
         // rail 不用 setupWithNavController：它用默认 NavOptions 硬切，没有切换动画。
         // 改成和手机端底部导航同一入口 navigateToTab（方向感知滑动过渡），
         // 选中态由下面的 onDestinationChangedListener 手动同步。
@@ -144,20 +156,56 @@ class MainActivity : AppCompatActivity() {
     private fun navigateToTab(destinationId: Int) {
         if (navController.currentDestination?.id == destinationId) return
 
-        // 回到图库：直接 pop 掉相册页。popBackStack 会使用入栈 action 上定义的
-        // popEnter/popExit（图库从左滑入、相册向右滑出），方向天然正确；
-        // 若拿 navigate(带 popUpTo) 代替，pop 动画取不到正确方向，实机表现为硬切。
+        // 回到图库：pop 掉相册页，返回动画从入栈 action 的 popEnter/popExit 恢复
         if (destinationId == R.id.photosFragment &&
             navController.popBackStack(R.id.photosFragment, false)
         ) {
             return
         }
 
-        // 前进到相册：走 action，动画定义在 nav_graph 上
-        val options = NavOptions.Builder()
-            .setLaunchSingleTop(true)
-            .build()
-        navController.navigate(R.id.action_photosFragment_to_albumsFragment, null, options)
+        // 前进到相册：必须传 null！NavController 只在 navOptions == null 时才采用 action 上的
+        // enter/exit/popEnter/popExit（NavController.android.kt:854）。传任何非 null 的 NavOptions
+        // 都会整段覆盖 action 动画，进而 back stack 里也没存 pop 动画，返回就变硬切。
+        navController.navigate(R.id.action_photosFragment_to_albumsFragment)
+    }
+
+    /**
+     * 首页两个 tab 左右滑动切换：只创建 GestureDetector，事件由 Activity 的
+     * dispatchTouchEvent() 喂入（见该方法注释：不能挂在 nav host 容器的
+     * OnTouchListener 上，ViewGroup 的子 View 会吃掉事件）。
+     *
+     * 只喂不消费，网格滚动、详情页 ViewPager2、按钮全部照常工作；
+     * onFling 里再判断当前 destination，只在 photosFragment / albumsFragment 之间生效。
+     *
+     * 这是 fling 触发的整页 slide（复用 nav_graph 上的 action 动画），不是跟手拖拽。
+     */
+    private fun setupSwipeNavigation() {
+        val density = resources.displayMetrics.density
+        val distanceThreshold = SWIPE_DISTANCE_DP * density
+        val velocityThreshold = SWIPE_VELOCITY_DP * density
+        swipeDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onDown(e: MotionEvent): Boolean = true
+
+            override fun onFling(
+                e1: MotionEvent?,
+                e2: MotionEvent,
+                velocityX: Float,
+                velocityY: Float
+            ): Boolean {
+                if (e1 == null) return false
+                val currentId = navController.currentDestination?.id
+                if (currentId != R.id.photosFragment && currentId != R.id.albumsFragment) return false
+
+                val dx = e2.x - e1.x
+                val dy = e2.y - e1.y
+                if (abs(dx) < distanceThreshold || abs(dx) <= abs(dy)) return false
+                if (abs(velocityX) < velocityThreshold) return false
+
+                // 左滑前进到相册，右滑返回图库
+                navigateToTab(if (dx < 0) R.id.albumsFragment else R.id.photosFragment)
+                return true
+            }
+        })
     }
 
     /** 把当前导航目的地反映到导航项的选中镜片 */
@@ -226,5 +274,10 @@ class MainActivity : AppCompatActivity() {
                 isEnabled = true
             }
         })
+    }
+
+    companion object {
+        private const val SWIPE_DISTANCE_DP = 120f
+        private const val SWIPE_VELOCITY_DP = 120f
     }
 }

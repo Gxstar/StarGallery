@@ -338,9 +338,11 @@ EXIF 筛选参数以 `\n` 分隔 `Set<String>` 编码传递，详情页解码后
 - **底部 insets**：`ViewCompat.setOnApplyWindowInsetsListener` 把 `systemBars.bottom` 加到 `bottomMargin`，基础值 12dp
 - **列表留白**：`FloatingNavMetrics`（`NAV_HEIGHT_DP=56` / `NAV_BOTTOM_GAP_DP=12` / `CONTENT_BREATHING_DP=12`）是唯一换算口径
 - **底部导航可见性**：`NavController.addOnDestinationChangedListener` 监听目标变化，仅 photosFragment / albumsFragment 显示
-- **顶层 tab 切换动画（2026-11 二次修正）**：统一入口 `navigateToTab()`。
+- **顶层 tab 切换动画（2026-11 三次修正）**：统一入口 `navigateToTab()`，手机点击、平板 rail、左右滑动三条入口共用。
   - 前进（图库→相册）走 nav action `action_photosFragment_to_albumsFragment`，动画定义在 nav_graph（enter `slide_in_right` / exit `slide_out_left` / popEnter `slide_in_left` / popExit `slide_out_right`，各 300ms）
-  - 返回（相册→图库）用 `popBackStack(R.id.photosFragment, false)`，复用入栈 action 上的 pop 动画。**不要用「navigate + setPopUpTo」代替**：那样取不到正确方向的 pop 动画，实机表现为硬切（第一版就是这个问题）
+  - **关键坑：`navigate(actionId)` 必须传 null 的 NavOptions**。Navigation 2.9.8 `NavController.android.kt:854` 是 `if (finalNavOptions == null) finalNavOptions = navAction.navOptions` —— 传入任何非 null NavOptions（哪怕只是 `setLaunchSingleTop(true)`）都会整段覆盖 action 动画，前进和返回的动画一起丢失。`setLaunchSingleTop` 在这里本来也无意义（两个不同 destination）。
+  - 返回（相册→图库）用 `popBackStack(R.id.photosFragment, false)`。`FragmentNavigator.popBackStack()` 本身不带动画参数，返回动画 100% 依赖前进时 `setCustomAnimations()` 写入 back stack 的 popEnter/popExit —— 所以上一条不成立时返回必然硬切。**不要用「navigate + setPopUpTo」代替**：那样取不到正确方向的 pop 动画。
+  - **左右滑手势**：`setupSwipeNavigation()` 只创建 GestureDetector，喂事件放在 **Activity 的 `dispatchTouchEvent()`**（`if (::swipeDetector.isInitialized) swipeDetector.onTouchEvent(ev)`，然后照常 `super`）。**不要挂在 nav host 容器的 OnTouchListener 上**——它是 ViewGroup，子 View（RecyclerView）消费 ACTION_DOWN 后父容器永远收不到后续事件，手势完全不触发（2026-11 实机踩坑：日志无任何事件）。onFling 里先判断当前 destination 只在两个首页 tab 生效，水平位移 > 120dp 且 > 垂直位移、水平速度 > 120dp/s 才切换。左滑进相册、右滑回图库。这是 fling 触发整页 slide，不是跟手拖拽；Activity 层只喂不消费，网格滚动与详情页 ViewPager2 不受影响。
   - **rail 不能用 `setupWithNavController`**——它走默认 NavOptions，同样是无动画硬切；已改为 `setOnItemSelectedListener` 手动接 `navigateToTab`，选中态在 `onDestinationChangedListener` 里 `menu.findItem(id).isChecked = true` 同步（程序化 setChecked 不回调监听器，无循环风险）
 - **tab 切换不重载（2026-11）**：`PhotosViewModel` / `AlbumsViewModel` 改用 `by activityViewModels()`（Activity 作用域）。Fragment 作用域时切走即销毁、回来自带新 VM 重查 Room + 重建 5900 条，是「回图库像重新加载」的根因
 - **图库滚动位置跨 view 保持**：`PhotosViewModel.lastGridPosition/lastGridOffset`，`onDestroyView` 写入、首次提交列表后 `restoreScrollPending` 一次性 `scrollToPositionWithOffset`。不恢复的话回图库跳顶部，主观上同样像「重新加载」
