@@ -1,10 +1,13 @@
 package com.gxstar.stargallery
 
+import android.animation.ArgbEvaluator
+import android.animation.ValueAnimator
 import android.content.res.Configuration
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import android.util.TypedValue
+import android.view.animation.DecelerateInterpolator
 import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
@@ -30,6 +33,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var navController: NavController
     private lateinit var swipeDetector: GestureDetector
+
+    /** 导航选中镜片的当前进度：0=照片，1=相册。动画从这里插值到目标，避免快速连点跳变。 */
+    private var navSelectionProgress = 0f
+    private var navSelectionAnimator: ValueAnimator? = null
+    private val argbEvaluator = ArgbEvaluator()
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
         // 必须放在 Activity 层：FragmentContainerView 是 ViewGroup，子 View（RecyclerView）
@@ -149,7 +157,7 @@ class MainActivity : AppCompatActivity() {
         binding.navItemPhotos.setOnClickListener { navigateToTab(R.id.photosFragment) }
         binding.navItemAlbums.setOnClickListener { navigateToTab(R.id.albumsFragment) }
 
-        applyNavForegroundColors()
+        // 选中镜片与前景色的初始定位由 setupNavigation 末尾的 syncGlassNavSelection 完成
     }
 
     /** 两个顶层 tab 之间切换：前进用 nav action（带动画），返回用 popBackStack（用 action 的 pop 动画） */
@@ -208,37 +216,55 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
-    /** 把当前导航目的地反映到导航项的选中镜片 */
+    /**
+     * 把当前导航目的地反映到选中镜片：镜片平移 + 图标/文字颜色渐变合在同一个
+     * ValueAnimator 里，duration 与页面切换动画（300ms）一致，两者同步推进。
+     * 进度 0=照片、1=相册，动画从 navSelectionProgress 当前值出发，快速连点也不跳变。
+     */
     private fun syncGlassNavSelection(destinationId: Int) {
-        binding.navItemPhotos.isSelected = destinationId == R.id.photosFragment
-        binding.navItemAlbums.isSelected = destinationId == R.id.albumsFragment
-        applyNavForegroundColors()
+        val target = if (destinationId == R.id.albumsFragment) 1f else 0f
+        navSelectionAnimator?.cancel()
+        if (navSelectionProgress == target) {
+            applyNavSelectionProgress(target)
+            return
+        }
+        navSelectionAnimator = ValueAnimator.ofFloat(navSelectionProgress, target).apply {
+            duration = NAV_SELECTION_DURATION_MS
+            interpolator = DecelerateInterpolator()
+            addUpdateListener { applyNavSelectionProgress(it.animatedValue as Float) }
+            start()
+        }
+    }
+
+    /** 按进度 0~1 同时定位镜片、渐变两个 tab 的前景中心色。 */
+    private fun applyNavSelectionProgress(progress: Float) {
+        navSelectionProgress = progress
+        // 镜片从 photos 位置（marginStart 4dp）平移一个 tab 宽到 albums 位置
+        binding.navIndicator.translationX = progress * TAB_WIDTH_PX * resources.displayMetrics.density
+
+        val idleColor = ContextCompat.getColor(this, R.color.nav_item_idle)
+        val activeColor = ContextCompat.getColor(this, R.color.nav_item_active)
+        // progress=0：照片 active / 相册 idle；progress=1：反过来
+        paintNavItem(
+            binding.ivNavPhotos, binding.tvNavPhotos,
+            argbEvaluator.evaluate(progress, activeColor, idleColor) as Int
+        )
+        paintNavItem(
+            binding.ivNavAlbums, binding.tvNavAlbums,
+            argbEvaluator.evaluate(progress, idleColor, activeColor) as Int
+        )
     }
 
     /**
-     * 导航项前景色。
-     *
-     * 早期版本玻璃只有 50% 白底，照片明暗不定，只能按背后亮度动态切换前景色。
-     * 导航胶囊是薄白纱玻璃（与详情页同配方）+ adaptiveTint 明暗自适应，
-     * 网格页背后以白色 surface 为主，前景色直接取 day/night 资源：
-     * 选中近黑（夜间纯白），未选中中性灰。
+     * 导航项前景色。导航胶囊是薄白纱玻璃 + adaptiveTint 明暗自适应，
+     * 网格页背后以白色 surface 为主，前景色取 day/night 资源：
+     * 选中近黑（夜间纯白），未选中中性灰。颜色由动画按进度插值得到。
      */
-    private fun applyNavForegroundColors() {
-        val idleColor = ContextCompat.getColor(this, R.color.nav_item_idle)
-        val activeColor = ContextCompat.getColor(this, R.color.nav_item_active)
-
-        paintNavItem(binding.ivNavPhotos, binding.tvNavPhotos, binding.navItemPhotos.isSelected, idleColor, activeColor)
-        paintNavItem(binding.ivNavAlbums, binding.tvNavAlbums, binding.navItemAlbums.isSelected, idleColor, activeColor)
-    }
-
     private fun paintNavItem(
         icon: android.widget.ImageView,
         label: android.widget.TextView,
-        selected: Boolean,
-        idleColor: Int,
-        activeColor: Int
+        color: Int
     ) {
-        val color = if (selected) activeColor else idleColor
         icon.setColorFilter(color)
         label.setTextColor(color)
     }
@@ -279,5 +305,9 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private const val SWIPE_DISTANCE_DP = 120f
         private const val SWIPE_VELOCITY_DP = 120f
+        /** 单个 tab 宽（dp），与 activity_main(.xml) 里 navItem 的 84dp 一致 */
+        private const val TAB_WIDTH_PX = 84f
+        /** 选中镜片过渡时长，与 nav_graph 的 slide 动画 300ms 对齐 */
+        private const val NAV_SELECTION_DURATION_MS = 300L
     }
 }

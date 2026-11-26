@@ -60,71 +60,86 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent">
 
-        <LinearLayout
-            android:layout_width="wrap_content"
+        <!-- 选中镜片独立成一层：切换时用 translationX 在两个 84dp tab 之间平滑滑动，
+             不再靠每个 tab 各自的 selector 背景瞬切。LiquidGlassView 是 FrameLayout，
+             先加的 indicator 在下层、后加的 tab 容器在上层，点击与图标正常。 -->
+        <FrameLayout
+            android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:background="@drawable/bg_detail_glass_shell"
-            android:orientation="horizontal"
-            android:paddingStart="4dp"
-            android:paddingEnd="4dp">
+            android:background="@drawable/bg_detail_glass_shell">
 
-            <LinearLayout
-                android:id="@+id/navItemPhotos"
+            <View
+                android:id="@+id/navIndicator"
                 android:layout_width="84dp"
                 android:layout_height="match_parent"
-                android:background="@drawable/bg_nav_item_pill"
-                android:clickable="true"
-                android:focusable="true"
-                android:gravity="center"
-                android:orientation="vertical">
-
-                <ImageView
-                    android:id="@+id/ivNavPhotos"
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:contentDescription="@string/nav_photos"
-                    android:src="@drawable/ic_photos" />
-
-                <TextView
-                    android:id="@+id/tvNavPhotos"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:maxLines="1"
-                    android:text="@string/nav_photos"
-                    android:textSize="12sp"
-                    android:textFontWeight="500" />
-            </LinearLayout>
+                android:layout_gravity="start|center_vertical"
+                android:layout_marginStart="4dp"
+                android:background="@drawable/bg_nav_indicator" />
 
             <LinearLayout
-                android:id="@+id/navItemAlbums"
-                android:layout_width="84dp"
+                android:layout_width="wrap_content"
                 android:layout_height="match_parent"
-                android:background="@drawable/bg_nav_item_pill"
-                android:clickable="true"
-                android:focusable="true"
-                android:gravity="center"
-                android:orientation="vertical">
+                android:orientation="horizontal"
+                android:paddingStart="4dp"
+                android:paddingEnd="4dp">
 
-                <ImageView
-                    android:id="@+id/ivNavAlbums"
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:contentDescription="@string/nav_albums"
-                    android:src="@drawable/ic_albums" />
+                <LinearLayout
+                    android:id="@+id/navItemPhotos"
+                    android:layout_width="84dp"
+                    android:layout_height="match_parent"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center"
+                    android:orientation="vertical">
 
-                <TextView
-                    android:id="@+id/tvNavAlbums"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:maxLines="1"
-                    android:text="@string/nav_albums"
-                    android:textSize="12sp"
-                    android:textFontWeight="500" />
+                    <ImageView
+                        android:id="@+id/ivNavPhotos"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:contentDescription="@string/nav_photos"
+                        android:src="@drawable/ic_photos" />
+
+                    <TextView
+                        android:id="@+id/tvNavPhotos"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:maxLines="1"
+                        android:text="@string/nav_photos"
+                        android:textSize="12sp"
+                        android:textFontWeight="500" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/navItemAlbums"
+                    android:layout_width="84dp"
+                    android:layout_height="match_parent"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center"
+                    android:orientation="vertical">
+
+                    <ImageView
+                        android:id="@+id/ivNavAlbums"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:contentDescription="@string/nav_albums"
+                        android:src="@drawable/ic_albums" />
+
+                    <TextView
+                        android:id="@+id/tvNavAlbums"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:maxLines="1"
+                        android:text="@string/nav_albums"
+                        android:textSize="12sp"
+                        android:textFontWeight="500" />
+                </LinearLayout>
+
             </LinearLayout>
 
-        </LinearLayout>
+        </FrameLayout>
 
     </com.example.liquidglass.LiquidGlassView>
 

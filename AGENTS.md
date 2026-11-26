@@ -333,8 +333,8 @@ EXIF 筛选参数以 `\n` 分隔 `Set<String>` 编码传递，详情页解码后
 - **材质与详情页六块玻璃同一配方（2026-11 统一，勿再分开调参）**：`glassMaterial=regular` + `blurAmount="0.08"`（**0~1 的比例值，不是像素**；旧结论「regular 糊成灰/不透」是 blurAmount 越界 + 背景采样失败叠加造成的误判，`clear` 自带压暗层、压白底反而发灰）+ `glassTintStrength=0.5` + `adaptiveTint=true`（浅底变白实/深底提亮）
 - **白纱只有一层**：内层导航项容器挂 `@drawable/bg_detail_glass_shell`（80% 白 `detail_glass_fill` `#CCFFFFFF` / 夜 `#801C1C1E` + 0.5dp `detail_glass_stroke` 描边，radius 100dp 自动裁成 28dp 药丸），容器 background 只能挂全透明的 `bg_nav_outline`；铺满整只胶囊、**不要 inset**（inset 会做出"内部白块 + 外圈亮边"的割裂感）
 - **代码侧三件套（`setupGlassNavBar()`）**：`enableDynamicBackground=true`、`backdropSource = rootLayout`（不指到内容根容器就会拍到空面板 → 死灰）、`enableShadow=false`（库的阴影是矩形灰块）、`enableEdgeHighlight=true` + `edgeHighlightOpacity=0.5f`
-- **选中镜片**：`bg_nav_item_pill` 用**半透明黑**（`@color/glass_indicator_bg` day `#29000000` / night `#29FFFFFF`，约 16%），四边内缩 3dp、圆角 24dp。半透明黑随底色自适应，固定实心灰会和白纱同色而消失
-- **前景色**：`applyNavForegroundColors()` 取 `nav_item_active`（day `#000000`）/ `nav_item_idle`（day `#3A3A40`）day/night 资源，不按背景明暗动态切换；文字不要加 shadow
+- **选中镜片（2026-11 改为可滑动）**：底层单个 `navIndicator` View（`bg_nav_indicator`，形状 = 旧 selector 的 selected 态：半透明黑 `@color/glass_indicator_bg` day `#29000000` / night `#29FFFFFF` + 四边 inset 3/4dp + 24dp 圆角），**不再用每个 tab 各自的 `bg_nav_item_pill` selector 瞬切**。外层是 FrameLayout（LiquidGlassView 本身就是 FrameLayout）：indicator 先加在下层、两个无背景 tab 容器后加在上层。`syncGlassNavSelection()` 用 ValueAnimator 把 `translationX` 从 0 滑到 84dp（一个 tab 宽），与页面切换 300ms 同步；半透明黑随底色自适应，固定实心灰会和白纱同色而消失
+- **前景色**：`applyNavSelectionProgress(progress)` 用 `ArgbEvaluator` 在 `nav_item_active`（day `#000000`）/ `nav_item_idle`（day `#3A3A40`）day/night 资源间按进度插值，和镜片位移在同一个 animator 里同步渐变；不按背景明暗动态切换，文字不要加 shadow。`DecelerateInterpolator`（`android.view.animation`，`FastOutSlowInInterpolator` 无兼容类会编译失败）
 - **底部 insets**：`ViewCompat.setOnApplyWindowInsetsListener` 把 `systemBars.bottom` 加到 `bottomMargin`，基础值 12dp
 - **列表留白**：`FloatingNavMetrics`（`NAV_HEIGHT_DP=56` / `NAV_BOTTOM_GAP_DP=12` / `CONTENT_BREATHING_DP=12`）是唯一换算口径
 - **底部导航可见性**：`NavController.addOnDestinationChangedListener` 监听目标变化，仅 photosFragment / albumsFragment 显示

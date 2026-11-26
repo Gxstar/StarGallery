@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 底部导航的独立选中镜片：单个 View 承载，切换时用 translationX 在两个 tab 间滑动。
+     形状取自旧 bg_nav_item_pill 的 selected 态（半透明黑 + 24dp 圆角 + 四边内缩），
+     保证视觉与原来逐 tab selector 完全一致，只是从「瞬切」变为「可平移」。 -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:insetBottom="3dp"
+    android:insetLeft="4dp"
+    android:insetRight="4dp"
+    android:insetTop="3dp">
+    <shape android:shape="rectangle">
+        <solid android:color="@color/glass_indicator_bg" />
+        <corners android:radius="24dp" />
+    </shape>
+</inset>
