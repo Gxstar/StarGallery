@@ -8,7 +8,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.viewModels
+import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -32,7 +32,8 @@ class AlbumsFragment : Fragment() {
     private var _binding: FragmentAlbumsBinding? = null
     private val binding get() = _binding!!
 
-    private val viewModel: AlbumsViewModel by viewModels()
+    // 同图库：提到 Activity 作用域，tab 切走再回来不重建、不重查
+    private val viewModel: AlbumsViewModel by activityViewModels()
     private lateinit var adapter: AlbumAdapter
 
     private val permissionLauncher = registerForActivityResult(

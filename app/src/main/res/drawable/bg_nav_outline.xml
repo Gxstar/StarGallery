@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- 仅用于给 LiquidGlassView 提供圆角 outline，让 android:elevation 能投出胶囊阴影。
-     必须保持完全透明：胶囊的白色底由内层 LinearLayout 的 bg_nav_shell 单独承担，
+     必须保持完全透明：胶囊的白色底由内层 LinearLayout 的 bg_detail_glass_shell 单独承担，
      这里若再填白色，会和内层叠加成两层，把透出量吃光（历史 bug）。 -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">

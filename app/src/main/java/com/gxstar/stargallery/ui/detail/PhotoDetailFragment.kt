@@ -32,6 +32,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.viewpager2.widget.ViewPager2
 import com.gxstar.stargallery.R
 import com.gxstar.stargallery.data.repository.MediaRepository
@@ -54,6 +55,7 @@ class PhotoDetailFragment : Fragment() {
 
     private val viewModel: PhotoDetailViewModel by viewModels()
     private lateinit var pagerAdapter: PhotoPagerAdapter
+    private lateinit var filmstripAdapter: DetailFilmstripAdapter
 
     @Inject
     lateinit var mediaRepository: MediaRepository
@@ -137,6 +139,7 @@ class PhotoDetailFragment : Fragment() {
         setupGlassOverlays()
         setupWindowInsets()
         setupViewPager()
+        setupFilmstrip()
         setupViews()
         setupSwipeToDismiss()
         applyDetailOverlayWidth()
@@ -162,60 +165,75 @@ class PhotoDetailFragment : Fragment() {
     }
 
     /**
-     * 设置 Window Insets 监听
-     * 处理顶栏和底栏的 Padding，使其完美避开状态栏和导航栏。
-     *
-     * 顶栏：只加状态栏高度 padding，返回/更多按钮贴屏幕左右两侧（标题由 XML 约束居中）。
-     * 底栏：平板（>=600dp）上额外用左右 padding 把按钮组收进中间 640dp，背景仍满宽。
-     */
-    /**
-     * 顶/底悬浮栏的玻璃采样配置。
+     * 顶/底悬浮玻璃块的采样配置。
      *
      * `enableDynamicBackground` 没有 XML 属性，只能代码开启；详情页背景是翻页大图，
      * 不开的话玻璃只在首帧采样一次，翻页后仍停在上一张画面上。
+     *
+     * 现在上下各是三块独立玻璃（返回圆钮 / 日期胶囊 / 更多圆钮、分享圆钮 / 三键胶囊 / 删除圆钮），
+     * 逐块开启动态采样，任何一块都不能漏，否则拖动时会看到其中一块「卡住」。
      */
     private fun setupGlassOverlays() {
-        binding.glassTopBar.enableDynamicBackground = true
-        binding.glassBottomBar.enableDynamicBackground = true
-        // 与首页导航胶囊保持同一套材质规则：不要投影、不要边缘高光
-        binding.glassBottomBar.enableShadow = false
-        binding.glassBottomBar.edgeHighlightOpacity = 0f
+        listOf(
+            binding.glassBack, binding.glassDateCapsule, binding.glassMore,
+            binding.glassShare, binding.glassActions, binding.glassDelete
+        ).forEach { glass ->
+            glass.enableDynamicBackground = true
+            // 关键：库默认捕获「直接父容器」——玻璃块挂在透明的 topOverlay/bottomBar 里，
+            // 不指定采样源的话拍到的是空面板，玻璃永远是一块死灰。
+            // 指到 rootContainer（ViewPager 所在的根容器）才能真正透出照片
+            glass.backdropSource = binding.rootContainer
+            // adaptiveTint 负责浅底变白变实/深底提亮（对齐 iOS 自适应材质）；
+            // enableShadow 实测按 View 矩形边界画灰块，圆形按钮外圈会露出方形边角，必须关
+            glass.enableShadow = false
+            glass.enableEdgeHighlight = true
+            glass.edgeHighlightOpacity = 0.5f
+        }
     }
 
     private fun setupWindowInsets() {
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, windowInsets ->
             val systemBars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
 
-            // 玻璃层接管系统栏避让：顶栏玻璃延伸进状态栏（上缘贴屏幕边缘）；
-            // 底栏玻璃靠 margin 上浮到手势条之上——若把 inset 做成玻璃内部 padding，
-            // 胶囊圆角会与变高后的外框失配。
-            binding.glassTopBar.setPadding(0, systemBars.top, 0, 0)
+            // 玻璃层接管系统栏避让：状态栏/手势条高度一律做成**容器**的 padding，
+            // 玻璃块自身保持 46dp 原尺寸——若把 inset 塞进玻璃内部 padding，
+            // 胶囊圆角会和变高的外框失配（历来踩过的坑）。
+            binding.topOverlay.setPadding(0, systemBars.top, 0, 0)
 
-            // 底栏已改成 wrap_content 的紧凑胶囊（水平居中由 layout_gravity 负责），
-            // 这里只处理贴底间距；若再设左右 margin，会把居中的胶囊挤偏。
             val baseMargin = (12 * resources.displayMetrics.density).toInt()
-            val glassParams = binding.glassBottomBar.layoutParams as ViewGroup.MarginLayoutParams
-            glassParams.bottomMargin = baseMargin + systemBars.bottom
-            binding.glassBottomBar.layoutParams = glassParams
+            binding.bottomOverlay.setPadding(0, 0, 0, baseMargin + systemBars.bottom)
 
             windowInsets
         }
 
-        // root 宽度变化（首次布局 / 旋转 / 分屏）后重新分发 insets，才能按新屏宽重算 side padding
+        // root 宽度变化（首次布局 / 旋转 / 分屏）后重新分发 insets，才能按新屏宽重算底栏间距
         binding.root.addOnLayoutChangeListener { _, left, _, right, _, oldLeft, _, oldRight, _ ->
             val width = right - left
             if (width > 0 && width != oldRight - oldLeft) {
-                binding.glassBottomBar.requestApplyInsets()
+                binding.bottomOverlay.requestApplyInsets()
             }
         }
     }
 
     /**
-     * 底栏改成 wrap_content 的紧凑胶囊后不再需要按屏宽收窄（胶囊本身只有 ~328dp），
-     * 这里只负责在尺寸变化后重新分发 insets 以刷新贴底间距。
+     * 胶片条：横向 RecyclerView，点击直接跳到对应页；滚动位置由 [centerFilmstripOn] 维护。
+     */
+    private fun setupFilmstrip() {
+        filmstripAdapter = DetailFilmstripAdapter().apply {
+            onItemClick = { position -> binding.viewPager.setCurrentItem(position, true) }
+        }
+        binding.filmstrip.layoutManager =
+            LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false)
+        binding.filmstrip.adapter = filmstripAdapter
+        // 快速翻页时禁止条目动画，否则胶片条会「追着跑」
+        binding.filmstrip.itemAnimator = null
+    }
+
+    /**
+     * 底栏尺寸变化后重新分发 insets，刷新贴底间距。
      */
     private fun applyDetailOverlayWidth() {
-        binding.glassBottomBar.requestApplyInsets()
+        binding.bottomOverlay.requestApplyInsets()
     }
 
     private fun setupViewPager() {
@@ -243,6 +261,8 @@ class PhotoDetailFragment : Fragment() {
                 pagerAdapter.activePosition = position
                 viewModel.setPosition(position)
                 canSwipeToSwitch = true
+                // 胶片条跟着翻页：换描边 + 把当前项滚到屏幕中央
+                syncFilmstripToPager()
             }
         })
     }
@@ -444,8 +464,8 @@ class PhotoDetailFragment : Fragment() {
             controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
 
             binding.rootContainer.setBackgroundColor(Color.BLACK)
-            fadeView(binding.topBar, false)
-            fadeView(binding.bottomBar, false)
+            fadeView(binding.topOverlay, false)
+            fadeView(binding.bottomOverlay, false)
             updateSystemBarIcons(false)
         } else {
             controller.show(WindowInsetsCompat.Type.systemBars())
@@ -455,8 +475,11 @@ class PhotoDetailFragment : Fragment() {
                 com.google.android.material.R.attr.colorSurface, typedValue, true
             )
             binding.rootContainer.setBackgroundColor(typedValue.data)
-            fadeView(binding.topBar, true)
-            fadeView(binding.bottomBar, true)
+            fadeView(binding.topOverlay, true)
+            fadeView(binding.bottomOverlay, true)
+
+            // 全屏期间胶片条是 GONE（宽度 0），居中滚动会被跳过；退出全屏后补一次对齐
+            binding.filmstrip.post { syncFilmstripToPager() }
 
             val isLightTheme = resources.configuration.uiMode and
                 android.content.res.Configuration.UI_MODE_NIGHT_MASK !=
@@ -548,6 +571,18 @@ class PhotoDetailFragment : Fragment() {
             }
         }
 
+        // 胶片条数据源与 pager 独立订阅：列表变化（删除/收藏/筛选）后可独立刷新，
+        // 不掺进上面 pager 的三段式初始位置逻辑。
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.photos.collect { photos ->
+                    filmstripAdapter.submitList(photos.toList()) {
+                        syncFilmstripToPager()
+                    }
+                }
+            }
+        }
+
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.currentPhoto.collect { photo ->
@@ -561,7 +596,6 @@ class PhotoDetailFragment : Fragment() {
                 viewModel.dateText.collect { date -> binding.tvDate.text = date }
             }
         }
-
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.infoText.collect { info -> binding.tvInfo.text = info }
@@ -569,6 +603,37 @@ class PhotoDetailFragment : Fragment() {
         }
     }
     
+    /**
+     * 让胶片条与 ViewPager 对齐：换当前项描边 + 把该项滚到可视区中央。
+     * 只在 pager 位置是胶片条有效索引时生效（列表加载中可能短暂错位）。
+     */
+    private fun syncFilmstripToPager() {
+        if (!::filmstripAdapter.isInitialized) return
+        val position = binding.viewPager.currentItem
+        filmstripAdapter.currentList.getOrNull(position)?.let { filmstripAdapter.setSelected(it.id) }
+        // 列表刚 submit 时还没有子 View，等一拍再量宽度；
+        // 位置在 post 里重新取，避免快速连翻时按旧下标滚回去
+        binding.filmstrip.post {
+            centerFilmstripOn(binding.viewPager.currentItem)
+        }
+    }
+
+    private fun centerFilmstripOn(position: Int) {
+        val recycler = binding.filmstrip
+        if (recycler.width == 0) return
+        val layoutManager = recycler.layoutManager as? LinearLayoutManager ?: return
+        val photo = filmstripAdapter.currentList.getOrNull(position) ?: return
+
+        val heightPx = (DetailFilmstripAdapter.ITEM_HEIGHT_DP * resources.displayMetrics.density).toInt()
+        val itemWidth = layoutManager.findViewByPosition(position)?.width
+            ?: DetailFilmstripAdapter.widthFor(photo, heightPx)
+
+        // scrollToPositionWithOffset 的 offset 是相对「padding start」的距离，
+        // 所以居中偏移要再减掉 paddingStart，否则整体会偏一个 18dp
+        val offset = (recycler.width - itemWidth) / 2 - recycler.paddingStart
+        layoutManager.scrollToPositionWithOffset(position, offset)
+    }
+
     private fun shareMedia() {
         val photo = viewModel.currentPhoto.value ?: return
         val intent = Intent(Intent.ACTION_SEND).apply {

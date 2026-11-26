@@ -68,9 +68,14 @@
     <color name="glass_nav_border">#4DFFFFFF</color>
     <!-- 底部导航镜片：对齐系统相册（近白不透明胶囊 + 浅灰实心选中块） -->
     <color name="nav_glass_tint">#F2FFFFFF</color>
-    <color name="nav_shell_fill">#CCFFFFFF</color>
-    <color name="nav_shell_stroke">#1F000000</color>
-    <color name="glass_indicator_bg">#29000000</color>
+    <color name="glass_indicator_bg">#1F000000</color>
     <color name="nav_item_idle">#3A3A40</color>
     <color name="nav_item_active">#000000</color>
+
+    <!-- 详情页浮动玻璃块：白纱 58%（#94）——35% (#59) 在浅色背景上偏灰被用户否决，
+         再薄会灰、再厚会重新变成不透明白片；靠 blur + 边缘高光保留玻璃感 -->
+    <color name="detail_glass_fill">#CCFFFFFF</color>
+    <color name="detail_glass_stroke">#33000000</color>
+    <!-- 玻璃上的次级文字（时间）：要比 text_secondary 深一档，否则压在透底玻璃上会融掉 -->
+    <color name="detail_glass_text_secondary">#FF3C3C3E</color>
 </resources>

@@ -66,12 +66,15 @@ class AlbumDetailViewModel @Inject constructor(
 
         val sortedPhotos = SortUtils.sortPhotos(photos, sortType)
         val result = mutableListOf<PhotoModel>()
+        val countByDate = sortedPhotos.groupingBy {
+            DateUtils.formatDateText(it, sortType, groupType)
+        }.eachCount()
         var lastDateText: String? = null
 
         for (photo in sortedPhotos) {
             val dateText = DateUtils.formatDateText(photo, sortType, groupType)
             if (dateText != lastDateText) {
-                result.add(PhotoModel.SeparatorItem(dateText))
+                result.add(PhotoModel.SeparatorItem(dateText, countByDate[dateText] ?: 0))
                 lastDateText = dateText
             }
             result.add(PhotoModel.PhotoItem(photo))

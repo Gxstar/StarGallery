@@ -110,7 +110,7 @@ class AlbumDetailAdapter(
         val item = getItem(position) ?: return
         when {
             holder is AlbumHeaderViewHolder && item is PhotoModel.SeparatorItem -> {
-                holder.bind(item.dateText)
+                holder.bind(item.dateText, item.count)
             }
             holder is PhotoGridViewHolder && item is PhotoModel.PhotoItem ->
                 holder.bind(item.photo, position)
@@ -146,7 +146,9 @@ class AlbumHeaderViewHolder(
     private val binding: ItemDateHeaderBinding
 ) : RecyclerView.ViewHolder(binding.root) {
 
-    fun bind(dateText: String) {
+    fun bind(dateText: String, count: Int) {
         binding.tvDate.text = dateText
+        binding.tvCount.text = " ${count}张"
+        binding.tvCount.visibility = if (count > 0) View.VISIBLE else View.GONE
     }
 }

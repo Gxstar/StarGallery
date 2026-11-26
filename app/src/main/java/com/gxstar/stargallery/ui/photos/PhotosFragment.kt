@@ -21,7 +21,7 @@ import android.view.Gravity
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.setFragmentResultListener
-import androidx.fragment.app.viewModels
+import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -76,7 +76,9 @@ class PhotosFragment : Fragment() {
     private var _binding: FragmentPhotosBinding? = null
     private val binding get() = _binding!!
 
-    private val viewModel: PhotosViewModel by viewModels()
+    // 提到 Activity 作用域：tab 切到相册再回来时不重建 ViewModel，
+    // 列表/筛选/排序全部保留，避免重新查库 + 重建 5900 条数据造成的「重新加载」观感
+    private val viewModel: PhotosViewModel by activityViewModels()
 
     // 管理器
     private lateinit var selectionManager: PhotoSelectionManager
@@ -103,6 +105,8 @@ class PhotosFragment : Fragment() {
     // 状态
     private var currentSpanCount = GridSpanCalculator.MIN_SPAN_COUNT
     private var itemSize = 0
+    /** 本次 view 重建后是否还需要恢复滚动位置（首次提交列表后执行一次） */
+    private var restoreScrollPending = true
     private var savedScrollPosition = -1
     private var savedScrollOffset = 0
     private var fastScrollerReady = false
@@ -652,6 +656,18 @@ class PhotosFragment : Fragment() {
                     val anchorPhotoId = if (isSortChanged) findFirstVisiblePhotoId() else -1L
 
                     val submitCallback = Runnable {
+                        // 首次提交后恢复上次滚动位置：tab 切回图库时停在原处，
+                        // 而不是跳回顶部（跳顶部正是「像重新加载」的主要来源）
+                        if (restoreScrollPending) {
+                            restoreScrollPending = false
+                            val position = viewModel.lastGridPosition
+                            if (position > 0) {
+                                gridLayoutManager?.scrollToPositionWithOffset(
+                                    position, viewModel.lastGridOffset
+                                )
+                            }
+                        }
+
                         if (isSortChanged && anchorPhotoId >= 0) {
                             scrollToPhotoById(anchorPhotoId)
                         }
@@ -1302,6 +1318,14 @@ class PhotosFragment : Fragment() {
     }
 
     override fun onDestroyView() {
+        // 记住网格滚动位置，切回图库时恢复（ViewModel 是 Activity 作用域，能跨 view 存活）
+        gridLayoutManager?.let { lm ->
+            val first = lm.findFirstVisibleItemPosition()
+            if (first != RecyclerView.NO_POSITION) {
+                viewModel.lastGridPosition = first
+                viewModel.lastGridOffset = lm.findViewByPosition(first)?.top ?: 0
+            }
+        }
         mediaChangeDetector.destroy()
         selectionManager.clear()
         gridLayoutManager?.spanSizeLookup = null

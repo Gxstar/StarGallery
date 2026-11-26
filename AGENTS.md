@@ -108,6 +108,7 @@ Kotlin 2.4.10，AGP 9.3.1，KSP 2.3.10，minSdk 35，compileSdk 37，targetSdk 3
 
 ## RecyclerView 网格
 
+- 分组头（`item_date_header`）：日期 + 右侧「N张」小字（`SeparatorItem.count`，基线对齐 12sp text_secondary），首页/相册详情两处共用；缩略图角标（HDR/RAW/过期）统一用 `bg_thumb_tag`（4dp 圆角 + 60% 黑）
 - `GridLayoutManager` 3-8 列可配置（`GridSpanCalculator` 支持 3-10 列，UI 限制 3-8），`spanSizeLookup` 控制 SeparatorItem 占整行
 - `setHasFixedSize(true)` + `setItemViewCacheSize(8)`
 - `supportsChangeAnimations = false` 避免变更动画残影
@@ -136,12 +137,19 @@ Kotlin 2.4.10，AGP 9.3.1，KSP 2.3.10，minSdk 35，compileSdk 37，targetSdk 3
 ## 照片详情页
 
 - **ViewPager2 + PhotoPagerAdapter** 滑动翻页，DiffUtil 处理列表变化
-- **顶部工具栏**（AutoHide）：btnBack / tvDate / tvInfo / **btnMore（PopupMenu → 隐藏）**
-- **底部工具栏**：btnSend（分享）/ btnFavorite（收藏）/ btnDelete（删除→DeleteOptionsBottomSheet）/ btnInfo（PhotoInfoBottomSheet）
-- **底部工具栏是紧凑玻璃胶囊**（与首页导航同一套材质，2026-11 改）：`glassBottomBar` = `wrap_content` + `layout_gravity="bottom|center_horizontal"`，内部 5 个 `64dp` 按钮（总宽约 328dp）；`glassMaterial=clear` + `glassTintStrength=0.65` + 白纱 `@drawable/bg_detail_bar_shell`（80% 白 + **0.5dp 描边**）；`enableShadow=false`、`edgeHighlightOpacity=0f`。**描边不能去掉**——详情页背景可能就是一整张白纸照片，没有边界时白胶囊会糊进背景（正是这轮要修的问题）
-- **底栏不再有左右 margin**：由 `layout_gravity` 居中，`setupWindowInsets` 只设 `bottomMargin = 12dp + systemBars.bottom`。若再设左右 margin 会把胶囊挤偏；`bottomBarContentSidePadding()` 已删除
-- **底栏图标 tint**：XML 里 5 个 ImageView 统一 `android:tint="@color/nav_item_active"`；收藏态的实心红心在 `updateFavoriteIcon()` 里单独回染 `@color/heart_red`，否则会被 XML 的 tint 染黑、丢掉"已收藏"的红色语义
-- **全屏切换**：单点切换，Alpha 动画 200ms，WindowInsetsController 隐藏系统栏
+- **顶/底栏是六块独立浮动玻璃**（2026-11 按 iOS 26/27 相册重做，不再有整幅贴边长条）：
+  - 顶部 `topOverlay`（ConstraintLayout）：`glassBack`（46dp 正圆，左 18dp）+ `glassDateCapsule`（46dp 高胶囊，含 tvDate/tvInfo 双行）+ `glassMore`（46dp 正圆，右 18dp）
+  - 底部 `bottomOverlay`（纵向 LinearLayout）：`filmstrip`（44dp 高横向 RecyclerView）+ `bottomBar` 行（`glassShare` 46dp 圆 / `glassActions` 46dp 三键胶囊 / `glassDelete` 46dp 圆）
+  - 材质（2026-11 二次修正后的可用配方）：`glassMaterial=regular`（**不要用 clear**，clear 自带压暗层，压白底就是灰）+ `blurAmount="0.08"`（**0~1 的比例值，不是像素**，默认 0.0625，传大数会把底糊成一团灰）+ `glassTintStrength=0.5` + 白纱**次层** `@drawable/bg_detail_glass_shell`（`detail_glass_fill` 80% 白 `#CCFFFFFF`，浅色下实测 RGB≈246，35%/58%/70% 依次被用户判为「偏灰」 + `detail_glass_stroke` 0.5dp 描边，radius 100dp 自动裁圆/胶囊）
+  - **`backdropSource` 必须手动指到 `rootContainer`**（`setupGlassOverlays()` 里代码设置）：库默认捕获「直接父容器」，玻璃块挂在透明的 topOverlay/bottomBar 里时拍到的是空面板，玻璃永远是一块死灰——这是「玻璃变灰实心」的根因
+  - `adaptiveTint=true`（浅色背景自动变白变实、深色照片上提亮，仿 iOS 自适应材质）+ `enableEdgeHighlight=true` / `edgeHighlightOpacity=0.5f`；**`enableShadow` 必须关**——库的阴影按 View 矩形边界画灰色块，圆形/胶囊按钮外圈会露出一圈方形灰边（2026-11 实机验证）
+  - 每块玻璃都必须在 `setupGlassOverlays()` 里 `enableDynamicBackground=true`，漏一块翻页时那块会「卡住」不跟随
+  - 已知取舍：玻璃明暗跟随底片颜色，压在深色照片上时黑字对比度会下降（首页导航仍是 clear + 80% 厚白纱的另一套配方，两处不要互相抄参数）
+- **底栏不再有文字标签**（iOS 是纯图标）：图标 24dp、`android:tint="@color/nav_item_active"`；收藏态实心红心在 `updateFavoriteIcon()` 单独回染 `@color/heart_red`
+- **inset 只加在容器上**：`topOverlay.paddingTop = systemBars.top`、`bottomOverlay.paddingBottom = 12dp + systemBars.bottom`。绝不要把 inset 塞进玻璃内部 padding，否则圆角与外形失配
+- **胶片条 `DetailFilmstripAdapter`**：单项高 44dp、宽按宽高比（clamp 0.62~1.55）自适应，`orientation` 90/270 交换宽高；当前项只用 2dp 描边定位；缩略图优先 `thumbnailPath` 缓存文件、否则 content uri；点击 `setCurrentItem`，翻页回调里 `syncFilmstripToPager()` 换描边并把当前项滚到中央
+- **玻璃上的次级文字**（tvInfo 时间）用 `detail_glass_text_secondary`（亮 #3C3C3E / 暗 #D1D1D6）+ bold——普通 `text_secondary` 压在透底玻璃上会融掉（2026-11 实机教训）
+- **全屏切换**：单点切换，Alpha 动画 200ms，淡入淡出的是 `topOverlay` / `bottomOverlay` 两个容器；退出全屏后补一次 `syncFilmstripToPager()`（全屏期间胶片条 GONE、宽度 0，居中会被跳过）
 - **下滑关闭**：垂直滑动 > 200px 触发 navigateUp()，透明度跟随滑动距离
 - **PhotoPageViewHolder**：ZoomImageView 子采样 + Glide 加载 + ExoPlayer 视频 + GIF + HDR 检测
 - **400ms 加载延迟**：`PhotoDetailViewModel.loadPhotosInBackground()` 等待导航动画完成，避免掉帧
@@ -322,17 +330,20 @@ EXIF 筛选参数以 `\n` 分隔 `Set<String>` 编码传递，详情页解码后
 视觉基准是系统相册（HyperOS）的底部胶囊，但**用户最终选了"更透"而不是"更白"**。下列都是硬规则（每条都踩过坑）：
 
 - **尺寸定死在 XML**：`bottom_nav_glass` = `176dp × 56dp`、`cornerRadius=28dp`、左右居中约束、`marginBottom=12dp`。宽度 = 4dp padding + 2 × 84dp 导航项 + 4dp padding。容器宽度**不再由代码按屏宽计算**（旧的 `applyBottomNavWidth()` 已删除，它会覆盖 XML 宽度导致胶囊永远满宽）
-- **透不透的总开关是 `glassMaterial`**：`regular` 是磨砂厚档（背后几乎看不见，tint/白纱怎么调都是白灰）；**`clear` 才是高透档**。要"看得到背后内容"就必须用 `clear`
-- **`glassTint` 只做染色、几乎不遮盖**：实测色值从半透白拉到纯白、strength 从 0 到 1，背后照片照样透出；它影响的是"白染程度"，不是不透明度。当前 `glassTint=@color/nav_glass_tint`（day `#F2FFFFFF` / night `#F21C1C1E`）+ `glassTintStrength=0.65` + `adaptiveTint=false`
-- **白纱（`bg_nav_shell`）决定白度**：80% 白（day `#CCFFFFFF` / night `#CC1C1C1E`），铺满整只胶囊、**不要 inset**（inset 会做出"内部白块 + 外圈亮边"的割裂感，用户明确否决）。实测同一背景：25% → 108~166（发灰，被否）、70% → 222、**80% → 233~240（当前，白净且边缘仍能透出背后照片）**、96% → 245+（基本不透）
-- **白纱必须只有一层**：容器 background 只能挂 `@drawable/bg_nav_outline`（全透明）。若容器也挂 `bg_nav_shell`，两层叠成 50%+ 直接变死白（踩过两次）
-- **不要阴影**：`android:elevation` 不要设、`glass.enableShadow = false`、`glass.edgeHighlightOpacity = 0f`。胶囊贴住内容，不浮起来
-- **模糊**：`app:blurAmount="8"`。clear 材质下再高就会糊成一片灰，看不出形状
+- **材质与详情页六块玻璃同一配方（2026-11 统一，勿再分开调参）**：`glassMaterial=regular` + `blurAmount="0.08"`（**0~1 的比例值，不是像素**；旧结论「regular 糊成灰/不透」是 blurAmount 越界 + 背景采样失败叠加造成的误判，`clear` 自带压暗层、压白底反而发灰）+ `glassTintStrength=0.5` + `adaptiveTint=true`（浅底变白实/深底提亮）
+- **白纱只有一层**：内层导航项容器挂 `@drawable/bg_detail_glass_shell`（80% 白 `detail_glass_fill` `#CCFFFFFF` / 夜 `#801C1C1E` + 0.5dp `detail_glass_stroke` 描边，radius 100dp 自动裁成 28dp 药丸），容器 background 只能挂全透明的 `bg_nav_outline`；铺满整只胶囊、**不要 inset**（inset 会做出"内部白块 + 外圈亮边"的割裂感）
+- **代码侧三件套（`setupGlassNavBar()`）**：`enableDynamicBackground=true`、`backdropSource = rootLayout`（不指到内容根容器就会拍到空面板 → 死灰）、`enableShadow=false`（库的阴影是矩形灰块）、`enableEdgeHighlight=true` + `edgeHighlightOpacity=0.5f`
 - **选中镜片**：`bg_nav_item_pill` 用**半透明黑**（`@color/glass_indicator_bg` day `#29000000` / night `#29FFFFFF`，约 16%），四边内缩 3dp、圆角 24dp。半透明黑随底色自适应，固定实心灰会和白纱同色而消失
 - **前景色**：`applyNavForegroundColors()` 取 `nav_item_active`（day `#000000`）/ `nav_item_idle`（day `#3A3A40`）day/night 资源，不按背景明暗动态切换；文字不要加 shadow
 - **底部 insets**：`ViewCompat.setOnApplyWindowInsetsListener` 把 `systemBars.bottom` 加到 `bottomMargin`，基础值 12dp
 - **列表留白**：`FloatingNavMetrics`（`NAV_HEIGHT_DP=56` / `NAV_BOTTOM_GAP_DP=12` / `CONTENT_BREATHING_DP=12`）是唯一换算口径
 - **底部导航可见性**：`NavController.addOnDestinationChangedListener` 监听目标变化，仅 photosFragment / albumsFragment 显示
+- **顶层 tab 切换动画（2026-11 二次修正）**：统一入口 `navigateToTab()`。
+  - 前进（图库→相册）走 nav action `action_photosFragment_to_albumsFragment`，动画定义在 nav_graph（enter `slide_in_right` / exit `slide_out_left` / popEnter `slide_in_left` / popExit `slide_out_right`，各 300ms）
+  - 返回（相册→图库）用 `popBackStack(R.id.photosFragment, false)`，复用入栈 action 上的 pop 动画。**不要用「navigate + setPopUpTo」代替**：那样取不到正确方向的 pop 动画，实机表现为硬切（第一版就是这个问题）
+  - **rail 不能用 `setupWithNavController`**——它走默认 NavOptions，同样是无动画硬切；已改为 `setOnItemSelectedListener` 手动接 `navigateToTab`，选中态在 `onDestinationChangedListener` 里 `menu.findItem(id).isChecked = true` 同步（程序化 setChecked 不回调监听器，无循环风险）
+- **tab 切换不重载（2026-11）**：`PhotosViewModel` / `AlbumsViewModel` 改用 `by activityViewModels()`（Activity 作用域）。Fragment 作用域时切走即销毁、回来自带新 VM 重查 Room + 重建 5900 条，是「回图库像重新加载」的根因
+- **图库滚动位置跨 view 保持**：`PhotosViewModel.lastGridPosition/lastGridOffset`，`onDestroyView` 写入、首次提交列表后 `restoreScrollPending` 一次性 `scrollToPositionWithOffset`。不恢复的话回图库跳顶部，主观上同样像「重新加载」
 
 ## 横屏适配（layout-land/）
 

@@ -1,6 +1,7 @@
 package com.gxstar.stargallery.ui.detail
 
 import android.content.Intent
+import android.content.res.Configuration
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
@@ -9,6 +10,7 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.gxstar.stargallery.R
 import com.gxstar.stargallery.data.local.db.PhotoDao
@@ -717,6 +719,17 @@ class PhotoInfoBottomSheet : BottomSheetDialogFragment() {
         super.onStart()
         // 平板限宽居中，避免参数卡片被拉伸到全宽
         constrainBottomSheetWidth()
+
+        // 横屏 / 矮屏下内容一屏装不下，BottomSheet 默认折叠态只露顶部一截。
+        // 直接展开到最大高度，用户无需手动上滑即可看到全部信息。
+        val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+        val isShortScreen = resources.configuration.screenHeightDp < 600
+        if (isLandscape || isShortScreen) {
+            val sheet = dialog?.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
+            sheet?.post {
+                BottomSheetBehavior.from(sheet).state = BottomSheetBehavior.STATE_EXPANDED
+            }
+        }
     }
 
     override fun onDestroyView() {

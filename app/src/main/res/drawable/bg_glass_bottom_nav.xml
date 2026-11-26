@@ -1,16 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Liquid Glass 风格底部导航栏背景 -->
+<!-- 平板左侧导航栏的玻璃面板（静态材质，rail 不与内容重叠、无法采样真实背景）。
+     配色与详情页/底部导航的薄白纱同一套：detail_glass_fill + detail_glass_stroke，
+     顶部高光保留一道静态「玻璃上缘折光」。 -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- 层 1：毛玻璃基底（半透明微着色） -->
+    <!-- 层 1：薄白纱基底 -->
     <item>
         <shape android:shape="rectangle">
-            <solid android:color="@color/glass_nav_bg" />
+            <solid android:color="@color/detail_glass_fill" />
             <corners android:radius="28dp" />
         </shape>
     </item>
 
-    <!-- 层 2：顶部高光渐变（模拟光线穿过玻璃上缘的折射） -->
+    <!-- 层 2：顶部高光 -->
     <item>
         <shape android:shape="rectangle">
             <gradient
@@ -22,13 +24,13 @@
         </shape>
     </item>
 
-    <!-- 层 3：玻璃边框（模拟玻璃边缘的柔和折射光） -->
+    <!-- 层 3：描边 -->
     <item>
         <shape android:shape="rectangle">
             <solid android:color="@android:color/transparent" />
             <stroke
                 android:width="0.5dp"
-                android:color="@color/glass_nav_border" />
+                android:color="@color/detail_glass_stroke" />
             <corners android:radius="28dp" />
         </shape>
     </item>

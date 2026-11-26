@@ -41,7 +41,7 @@
         app:layout_constraintTop_toTopOf="parent" />
 
     <!-- iOS 26 式浮动液态玻璃导航条，尺寸与材质对齐系统相册（HyperOS）：
-         紧凑药丸（只包住两个 tab，不再横跨全屏）、近白不透明底色、浅灰实心选中镜片。 -->
+         紧凑药丸（只包住两个 tab，不再横跨全屏）、薄白纱玻璃底（与详情页同一配方：regular + 0.08 + 薄纱 + 边缘高光）、浅灰实心选中镜片。 -->
     <!-- 不用 Material BottomNavigationView：它需要 ≥96dp 才显示标签，条身过厚。
          这里自绘 2 个导航项，高度压到 56dp（系统相册实测约 52dp），字号与配色完全可控。 -->
     <com.example.liquidglass.LiquidGlassView
@@ -50,12 +50,12 @@
         android:layout_height="56dp"
         android:background="@drawable/bg_nav_outline"
         android:layout_marginBottom="12dp"
-        app:adaptiveTint="false"
-        app:blurAmount="8"
+        app:adaptiveTint="true"
+        app:blurAmount="0.08"
         app:cornerRadius="28dp"
-        app:glassMaterial="clear"
+        app:glassMaterial="regular"
         app:glassTint="@color/nav_glass_tint"
-        app:glassTintStrength="0.65"
+        app:glassTintStrength="0.5"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent">
@@ -63,7 +63,7 @@
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="match_parent"
-            android:background="@drawable/bg_nav_shell"
+            android:background="@drawable/bg_detail_glass_shell"
             android:orientation="horizontal"
             android:paddingStart="4dp"
             android:paddingEnd="4dp">

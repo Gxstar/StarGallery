@@ -66,9 +66,12 @@
     <color name="glass_nav_border">#26FFFFFF</color>
     <!-- 底部导航镜片：夜间用深灰不透明胶囊，避免照片透出后花掉 -->
     <color name="nav_glass_tint">#F21C1C1E</color>
-    <color name="nav_shell_fill">#CC1C1C1E</color>
-    <color name="nav_shell_stroke">#1FFFFFFF</color>
     <color name="glass_indicator_bg">#29FFFFFF</color>
     <color name="nav_item_idle">#A5A5AB</color>
     <color name="nav_item_active">#FFFFFF</color>
+
+    <!-- 详情页浮动玻璃块（夜间）：深灰薄纱 + 亮描边 -->
+    <color name="detail_glass_fill">#801C1C1E</color>
+    <color name="detail_glass_stroke">#40FFFFFF</color>
+    <color name="detail_glass_text_secondary">#FFD1D1D6</color>
 </resources>

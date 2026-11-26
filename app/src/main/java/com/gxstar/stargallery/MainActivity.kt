@@ -88,14 +88,27 @@ class MainActivity : AppCompatActivity() {
         navController = navHostFragment.navController
 
         setupGlassNavBar()
-        binding.navigationRail.setupWithNavController(navController)
+        // rail 不用 setupWithNavController：它用默认 NavOptions 硬切，没有切换动画。
+        // 改成和手机端底部导航同一入口 navigateToTab（方向感知滑动过渡），
+        // 选中态由下面的 onDestinationChangedListener 手动同步。
+        binding.navigationRail.setOnItemSelectedListener { item ->
+            when (item.itemId) {
+                R.id.photosFragment -> { navigateToTab(R.id.photosFragment); true }
+                R.id.albumsFragment -> { navigateToTab(R.id.albumsFragment); true }
+                else -> false
+            }
+        }
 
-        // 监听导航目标变化：同步玻璃导航条选中态 + 控制导航栏（底部/侧边）显示/隐藏
+        // 监听导航目标变化：同步 rail 菜单选中态 + 玻璃导航条选中态 + 控制导航栏（底部/侧边）显示/隐藏
         // 仅在首页网格和相册列表两个主页面显示，其余页面一律隐藏
         navController.addOnDestinationChangedListener { _, destination, _ ->
+            binding.navigationRail.menu.findItem(destination.id)?.isChecked = true
             syncGlassNavSelection(destination.id)
             applyNavigationVisibility()
         }
+        binding.navigationRail.menu.findItem(
+            navController.currentDestination?.id ?: R.id.photosFragment
+        )?.isChecked = true
         syncGlassNavSelection(navController.currentDestination?.id ?: R.id.photosFragment)
         applyNavigationVisibility()
     }
@@ -106,16 +119,20 @@ class MainActivity : AppCompatActivity() {
      * 自绘两个导航项而非使用 Material 的 BottomNavigationView：
      * 后者在 80dp 及以下会折叠文字标签、需 96dp 才稳定显示，条身过厚。
      *
-     * 两点必须注意：
+     * 材质与详情页六块玻璃同一配方（2026-11 统一）：
+     * regular 材质 + blurAmount 0.08（比例值）+ 薄白纱 bg_detail_glass_shell + 边缘高光。
+     * 三个坑：
      * 1. `enableDynamicBackground` 没有 XML 属性，只能代码开启，否则玻璃只采样首帧。
-     * 2. `enableShadow` 同样只有代码入口，不开的话胶囊浮不起来，边缘会糊进照片里。
+     * 2. `backdropSource` 必须显式指到内容根容器，默认采样「直接父容器」会拍到空面板 → 死灰。
+     * 3. `enableShadow` 是矩形灰块，必须关。
      */
     private fun setupGlassNavBar() {
         val glass = binding.bottomNavGlass
         glass.enableDynamicBackground = true
+        glass.backdropSource = binding.rootLayout
         glass.enableShadow = false
-        // 不要边缘那圈亮边：和白色胶囊割裂，用户明确否决
-        glass.edgeHighlightOpacity = 0f
+        glass.enableEdgeHighlight = true
+        glass.edgeHighlightOpacity = 0.5f
 
         binding.navItemPhotos.setOnClickListener { navigateToTab(R.id.photosFragment) }
         binding.navItemAlbums.setOnClickListener { navigateToTab(R.id.albumsFragment) }
@@ -123,14 +140,24 @@ class MainActivity : AppCompatActivity() {
         applyNavForegroundColors()
     }
 
-    /** 两个顶层 tab 之间切换：保留起始页在栈底，避免反复点击堆积返回栈 */
+    /** 两个顶层 tab 之间切换：前进用 nav action（带动画），返回用 popBackStack（用 action 的 pop 动画） */
     private fun navigateToTab(destinationId: Int) {
         if (navController.currentDestination?.id == destinationId) return
+
+        // 回到图库：直接 pop 掉相册页。popBackStack 会使用入栈 action 上定义的
+        // popEnter/popExit（图库从左滑入、相册向右滑出），方向天然正确；
+        // 若拿 navigate(带 popUpTo) 代替，pop 动画取不到正确方向，实机表现为硬切。
+        if (destinationId == R.id.photosFragment &&
+            navController.popBackStack(R.id.photosFragment, false)
+        ) {
+            return
+        }
+
+        // 前进到相册：走 action，动画定义在 nav_graph 上
         val options = NavOptions.Builder()
             .setLaunchSingleTop(true)
-            .setPopUpTo(navController.graph.startDestinationId, false)
             .build()
-        navController.navigate(destinationId, null, options)
+        navController.navigate(R.id.action_photosFragment_to_albumsFragment, null, options)
     }
 
     /** 把当前导航目的地反映到导航项的选中镜片 */
@@ -144,8 +171,9 @@ class MainActivity : AppCompatActivity() {
      * 导航项前景色。
      *
      * 早期版本玻璃只有 50% 白底，照片明暗不定，只能按背后亮度动态切换前景色。
-     * 现在导航胶囊已改成近白不透明（对齐系统相册），底色恒定，前景色直接取
-     * day/night 资源即可：选中近黑（夜间纯白），未选中中性灰。
+     * 导航胶囊是薄白纱玻璃（与详情页同配方）+ adaptiveTint 明暗自适应，
+     * 网格页背后以白色 surface 为主，前景色直接取 day/night 资源：
+     * 选中近黑（夜间纯白），未选中中性灰。
      */
     private fun applyNavForegroundColors() {
         val idleColor = ContextCompat.getColor(this, R.color.nav_item_idle)

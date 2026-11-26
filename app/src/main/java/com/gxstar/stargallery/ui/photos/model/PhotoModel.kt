@@ -9,6 +9,6 @@ import com.gxstar.stargallery.data.model.Photo
 sealed class PhotoModel {
     /** 照片项 */
     data class PhotoItem(val photo: Photo) : PhotoModel()
-    /** 日期分隔符 */
-    data class SeparatorItem(val dateText: String) : PhotoModel()
+    /** 日期分隔符（count 为该分组下的照片数，用于头部小字展示） */
+    data class SeparatorItem(val dateText: String, val count: Int = 0) : PhotoModel()
 }

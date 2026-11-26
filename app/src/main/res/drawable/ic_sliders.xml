@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- iOS「调整」图标：三条带滑块的横线 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M4,6.6 L11.6,6.6 M17.4,6.6 L20,6.6"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.7"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M14.5,4.4 A2.2,2.2 0 1 0 14.5,8.8 A2.2,2.2 0 1 0 14.5,4.4"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.7" />
+    <path
+        android:pathData="M4,12 L6.6,12 M12.4,12 L20,12"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.7"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M9.5,9.8 A2.2,2.2 0 1 0 9.5,14.2 A2.2,2.2 0 1 0 9.5,9.8"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.7" />
+    <path
+        android:pathData="M4,17.4 L11.6,17.4 M17.4,17.4 L20,17.4"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.7"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M14.5,15.2 A2.2,2.2 0 1 0 14.5,19.6 A2.2,2.2 0 1 0 14.5,15.2"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.7" />
+</vector>

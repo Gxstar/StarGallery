@@ -60,6 +60,14 @@ class PhotosViewModel @Inject constructor(
     private val _currentSortType = MutableStateFlow(SortType.DATE_TAKEN)
     val currentSortType: StateFlow<SortType> = _currentSortType.asStateFlow()
 
+    /**
+     * 图库网格的最后滚动位置。
+     * tab 切到相册时 PhotosFragment 的 view 会被销毁重建，不记住的话回到图库会跳回顶部，
+     * 看起来像「重新加载」。恢复逻辑在 PhotosFragment 首次提交列表后执行。
+     */
+    var lastGridPosition: Int = 0
+    var lastGridOffset: Int = 0
+
     private val _currentGroupType = MutableStateFlow(GroupType.DAY)
     val currentGroupType: StateFlow<GroupType> = _currentGroupType.asStateFlow()
 
@@ -510,11 +518,15 @@ class PhotosViewModel @Inject constructor(
     ): List<PhotoModel> {
         if (sortedPhotos.isEmpty()) return emptyList()
         val result = mutableListOf<PhotoModel>()
+        // 先统计每个分组的照片数，分组头右侧要展示「N张」小字
+        val countByDate = sortedPhotos.groupingBy {
+            DateUtils.formatDateText(it, sortType, groupType)
+        }.eachCount()
         var lastDateText: String? = null
         for (photo in sortedPhotos) {
             val dateText = DateUtils.formatDateText(photo, sortType, groupType)
             if (dateText != lastDateText) {
-                result.add(PhotoModel.SeparatorItem(dateText))
+                result.add(PhotoModel.SeparatorItem(dateText, countByDate[dateText] ?: 0))
                 lastDateText = dateText
             }
             result.add(PhotoModel.PhotoItem(photo))
